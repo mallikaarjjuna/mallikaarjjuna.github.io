@@ -23,10 +23,9 @@ astroc.wasm.o: astroc.cpp
 # The Final Linker Step
 wasm: astroc.wasm.o $(WASM_OBJ)
 	emcc -std=c++17 -O3 $^ -o astroc.js \
-    -s INVOKE_RUN=0 -s EXIT_RUNTIME=0 -s ALLOW_MEMORY_GROWTH=1 \
-    -s EXPORTED_RUNTIME_METHODS='["callMain"]' \
-    --preload-file ephe_web@ephe
-
+	-s INVOKE_RUN=0 -s EXIT_RUNTIME=0 -s ALLOW_MEMORY_GROWTH=1 \
+	-s EXPORTED_RUNTIME_METHODS='["callMain", "FS_createPath", "FS_writeFile"]'
+	
 clean:
 	rm -f *.o *.wasm.o astroc astroc.js astroc.wasm astroc.data libswe.a
 

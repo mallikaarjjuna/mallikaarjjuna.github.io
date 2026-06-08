@@ -66,16 +66,32 @@
         let isEngineComputing = false;
         let isWasmReady = false;
 
-        // Route C++ stdout into our JavaScript buffer and catch initialization
-        var Module = {
-            print: function(text) { terminalBuffer += text + "\n"; },
-            printErr: function(text) { console.error("WASM Error Log:", text); },
-            onRuntimeInitialized: function() {
-                console.log("C++ Orbital Engine & Virtual Filesystem Loaded Successfully!");
-                isWasmReady = true;
-                document.getElementById('loading-spinner').style.display = 'none';
-            }
-        };
+		var Module = {
+			print: function(text) { console.log(text); },
+			printErr: function(text) { console.error(text); },
+			onRuntimeInitialized: async function() {
+				console.log("Engine initialized. Loading data...");
+				
+				try {
+					// Fetch the data file directly from your static folder
+					const response = await fetch('astroc.data');
+					const data = new Uint8Array(await response.arrayBuffer());
+					
+					// Create the path where your C++ engine expects the files
+					// 'ephe' is the folder name, '/' is the root
+					Module.FS_createPath("/", "ephe", true, true);
+					
+					// Write the file into the engine's memory
+					Module.FS_writeFile("/ephe/ephe", data);
+					
+					console.log("Data successfully mounted. Engine ready.");
+					// Now you can call your C++ main function
+					// Module.callMain(); 
+				} catch (e) {
+					console.error("Failed to mount data:", e);
+				}
+			}
+		};
     </script>
 
     <script src="astroc.js"></script>

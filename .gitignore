@@ -13,17 +13,17 @@ synastry
 dup
 
 # --- Ignore Large Source/Data Folders ---
-ephe/
-ephe_web/
-emsdk/
-bin/
-windows/
-setest/
-contrib/
-doc/
-templates/
-jyotisha_web/
-public/
+/ephe/
+/ephe_web/
+/emsdk/
+/bin/
+/windows/
+/setest/
+/contrib/
+/doc/
+/templates/
+/jyotisha_web/
+/public/
 
 # --- Ignore Heavy Files & Logs ---
 *.csv

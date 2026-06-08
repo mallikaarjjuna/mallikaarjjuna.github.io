@@ -69,29 +69,36 @@
 		var Module = {
 			print: function(text) { console.log(text); },
 			printErr: function(text) { console.error(text); },
-			onRuntimeInitialized: async function() {
-				console.log("Engine initialized. Loading data...");
-				
-				try {
-					// Fetch the data file directly from your static folder
-					const response = await fetch('astroc.data');
-					const data = new Uint8Array(await response.arrayBuffer());
-					
-					// Create the path where your C++ engine expects the files
-					// 'ephe' is the folder name, '/' is the root
-					Module.FS_createPath("/", "ephe", true, true);
-					
-					// Write the file into the engine's memory
-					Module.FS_writeFile("/ephe/ephe", data);
-					
-					console.log("Data successfully mounted. Engine ready.");
-					// Now you can call your C++ main function
-					// Module.callMain(); 
-				} catch (e) {
-					console.error("Failed to mount data:", e);
-				}
-			}
-		};
+		onRuntimeInitialized: async function() {
+            console.log("Engine initialized. Loading data from GitHub Releases...");
+            
+            try {
+                // Fetch the data file from the 100MB GitHub Release
+                const response = await fetch('https://github.com/mallikaarjjuna/mallikaarjjuna.github.io/releases/download/v1.0/astroc.data');
+                
+                // CRITICAL FIX: Ensure the download actually succeeded (not a 404)
+                if (!response.ok) {
+                    throw new Error("HTTP error! Status: " + response.status);
+                }
+                
+                const data = new Uint8Array(await response.arrayBuffer());
+                
+                // Mount the file into the Emscripten FileSystem
+                Module.FS_createPath("/", "ephe", true, true);
+                Module.FS_writeFile("/ephe/ephe", data);
+                
+                console.log("Data successfully mounted. Engine ready.");
+                
+                // Hide your orange "Downloading..." text here if you have an ID for it
+                // document.getElementById('YOUR_LOADING_TEXT_ID').style.display = 'none';
+                
+            } catch (e) {
+                console.error("CRITICAL ERROR: Failed to mount data:", e);
+                alert("Failed to download astronomical data from GitHub. Please refresh the page.");
+            }
+        }
+
+	};
     </script>
 
     <script src="astroc.js"></script>

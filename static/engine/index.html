@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jyotisha WebAssembly Engine</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --panel-bg: #1e1e24;
+            --text-main: #e0e0e0;
+            --accent: #f39c12;
+            --term-bg: #000000;
+            --term-text: #4af626;
+            --border: #333;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0; padding: 20px;
+        }
+        .container {
+            max-width: 1200px; margin: auto; background: var(--panel-bg);
+            padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h1, h2, h3 { color: var(--accent); margin-top: 0; }
+        .form-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 20px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        label { font-size: 0.85em; text-transform: uppercase; color: #888; margin-bottom: 5px; letter-spacing: 1px;}
+        input, select {
+            background: #2a2a35; border: 1px solid var(--border); color: #fff;
+            padding: 10px; border-radius: 4px; font-size: 1em;
+        }
+        button {
+            background: var(--accent); color: #111; border: none; padding: 15px;
+            font-size: 1.1em; font-weight: bold; border-radius: 4px; cursor: pointer;
+            width: 100%; transition: background 0.2s;
+        }
+        button:hover { background: #e67e22; }
+        
+        /* Tabs */
+        .tabs { margin-top: 30px; border-bottom: 2px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; transition: opacity 0.3s;}
+        .tab-btn {
+            background: transparent; color: var(--text-main); border: none; padding: 10px 15px;
+            cursor: pointer; font-size: 1em; opacity: 0.7; width: auto; font-weight: normal;
+        }
+        .tab-btn.active { opacity: 1; border-bottom: 3px solid var(--accent); font-weight: bold; color: var(--accent); }
+        .tab-content { display: none; padding: 20px 0; }
+        .tab-content.active { display: block; }
+        
+        /* Terminal */
+        .terminal-view {
+            background: var(--term-bg); color: var(--term-text); font-family: 'Consolas', 'Courier New', monospace;
+            padding: 20px; border-radius: 5px; overflow-x: auto; white-space: pre; line-height: 1.4; font-size: 14px;
+        }
+        #loading-spinner {
+            text-align: center; color: var(--accent); font-weight: bold; margin: 20px 0;
+        }
+    </style>
+
+    <script>
+        let terminalBuffer = "";
+        let isEngineComputing = false;
+        let isWasmReady = false;
+
+        // Route C++ stdout into our JavaScript buffer and catch initialization
+        var Module = {
+            print: function(text) { terminalBuffer += text + "\n"; },
+            printErr: function(text) { console.error("WASM Error Log:", text); },
+            onRuntimeInitialized: function() {
+                console.log("C++ Orbital Engine & Virtual Filesystem Loaded Successfully!");
+                isWasmReady = true;
+                document.getElementById('loading-spinner').style.display = 'none';
+            }
+        };
+    </script>
+
+    <script src="astroc.js"></script>
+</head>
+<body>
+
+<div class="container">
+    <h1>Vedic Astrology Computation Matrix</h1>
+    <p style="color: #888; font-size: 0.9em; margin-top: -10px; margin-bottom: 30px;">Powered by WebAssembly Orbital Engine</p>
+
+    <form id="calc-form">
+        <h2>1. Natal Birth Parameters</h2>
+        <div class="form-grid">
+            <div class="form-group"><label>Day</label><input type="number" name="birth_day" value="29" required></div>
+            <div class="form-group"><label>Month</label><input type="number" name="birth_month" value="7" required></div>
+            <div class="form-group"><label>Year</label><input type="number" name="birth_year" value="1981" required></div>
+            <div class="form-group"><label>Hour</label><input type="number" name="birth_hour" value="13" required></div>
+            <div class="form-group"><label>Minute</label><input type="number" name="birth_minute" value="5" required></div>
+            <div class="form-group"><label>Second</label><input type="number" name="birth_second" value="55" required></div>
+            <div class="form-group">
+                <label>City Matrix</label>
+                <select name="birth_place">
+                    <option value="hyderabad">Hyderabad</option>
+                    <option value="nellore">Nellore</option>
+                    <option value="kovur">Kovur</option>
+                    <option value="bitragunta" selected>Bitragunta</option>
+                    <option value="bangalore">Bangalore</option>
+                    <option value="chennai">Chennai</option>
+                    <option value="mumbai">Mumbai</option>
+                    <option value="delhi">New Delhi</option>
+                    <option value="kolkata">Kolkata</option>
+                </select>
+            </div>
+        </div>
+
+        <h2>2. Target Transit Horizon</h2>
+        <div class="form-grid">
+            <div class="form-group"><label>Transit Day</label><input type="number" name="transit_day" value="26"></div>
+            <div class="form-group"><label>Transit Month</label><input type="number" name="transit_month" value="3"></div>
+            <div class="form-group"><label>Transit Year</label><input type="number" name="transit_year" value="2010"></div>
+            <div class="form-group"><label>Hour</label><input type="number" name="transit_hour" value="12"></div>
+            <div class="form-group"><label>Minute</label><input type="number" name="transit_minute" value="0"></div>
+            <div class="form-group"><label>Second</label><input type="number" name="transit_second" value="0"></div>
+        </div>
+
+        <button type="submit">Initialize C++ Engine & AI Core</button>
+    </form>
+
+    <div id="loading-spinner">Downloading Astronomical Ephemeris Virtual Memory... Please Wait.</div>
+
+    <div id="results-container" style="display:none;">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="openTab(event, 'tab-birth')">Birth Chart</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-general')">General Prediction</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-dasha')">Dasha Analysis</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-gochar')">Gochar (Transit)</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-dosha')">Mangal Dosha</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-varsh')">Year (Varshaphal)</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-soulmate')">Soul Mate (Synastry)</button>
+        </div>
+
+        <div id="tab-birth" class="tab-content active"></div>
+        <div id="tab-general" class="tab-content"></div>
+        <div id="tab-dasha" class="tab-content"></div>
+        <div id="tab-gochar" class="tab-content"></div>
+        <div id="tab-dosha" class="tab-content"></div>
+        <div id="tab-varsh" class="tab-content"></div>
+        <div id="tab-soulmate" class="tab-content"></div>
+    </div>
+</div>
+
+<script>
+    // Helper to safely get values or return a default (prevents C++ stoi crashes on empty fields)
+    const getVal = (name, def) => document.querySelector(`input[name="${name}"]`).value || def;
+
+    async function fetchTabData(tabId) {
+        if (!isWasmReady) {
+            alert("Please wait. The astronomical data is still downloading.");
+            return;
+        }
+        if (isEngineComputing) return;
+        
+        isEngineComputing = true;
+        const spinner = document.getElementById('loading-spinner');
+        spinner.innerText = "Computing High-Precision Orbital Mechanics...";
+        spinner.style.display = 'block';
+        document.querySelector('.tabs').style.opacity = '0.5';
+
+        // Brief timeout to let the DOM paint
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        try {
+            const commandMap = {
+                'tab-birth': 'web_natal',
+                'tab-general': 'web_general',
+                'tab-dasha': 'web_dasha',
+                'tab-gochar': 'transit',
+                'tab-dosha': 'web_dosha',
+                'tab-varsh': 'annual',
+                'tab-soulmate': 'match'
+            };
+            
+            const cmdType = commandMap[tabId] || 'web_natal';
+
+            // Gather inputs with safe fallbacks
+            const y = getVal('birth_year', '1980');
+            const m = getVal('birth_month', '1');
+            const d = getVal('birth_day', '1');
+            const h = getVal('birth_hour', '12');
+            const min = getVal('birth_minute', '0');
+            const sec = getVal('birth_second', '0');
+            const city = document.querySelector('select[name="birth_place"]').value;
+
+            // Base Execution Command
+            let args = [y, m, d, h, min, sec, city, cmdType];
+
+            // Tab-specific arguments
+            if (tabId === 'tab-gochar') {
+                args.push(
+                    getVal('transit_year', new Date().getFullYear().toString()),
+                    getVal('transit_month', (new Date().getMonth() + 1).toString()),
+                    getVal('transit_day', new Date().getDate().toString()),
+                    getVal('transit_hour', '12'),
+                    getVal('transit_minute', '0'),
+                    getVal('transit_second', '0')
+                );
+            } else if (tabId === 'tab-varsh') {
+                args.push(getVal('transit_year', new Date().getFullYear().toString()));
+            } else if (tabId === 'tab-soulmate') {
+                args.push("1985", "1", "1", "12", "0", "0", "hyderabad"); // Dummy P2 Data
+            }
+
+            // CLEAR BUFFER AND EXECUTE C++ IN THE BROWSER
+            terminalBuffer = ""; 
+            console.log("Calling WebAssembly with args:", args);
+            Module.callMain(args); 
+
+            // Render Output
+            const targetDiv = document.getElementById(tabId);
+            if (targetDiv) {
+                targetDiv.innerHTML = `<pre class="terminal-view">${terminalBuffer}</pre>`;
+            }
+
+        } catch (err) {
+            console.error("WASM Execution Failed:", err);
+            alert("The WebAssembly engine encountered an error. Check the F12 console.");
+        } finally {
+            isEngineComputing = false;
+            spinner.style.display = 'none';
+            document.querySelector('.tabs').style.opacity = '1';
+        }
+    }
+
+    function openTab(evt, tabId) {
+        if (isEngineComputing) {
+            alert("Engine is currently processing data...");
+            return;
+        }
+
+        let tabContents = document.getElementsByClassName("tab-content");
+        for (let i = 0; i < tabContents.length; i++) tabContents[i].classList.remove("active");
+        
+        let tabBtns = document.getElementsByClassName("tab-btn");
+        for (let i = 0; i < tabBtns.length; i++) tabBtns[i].classList.remove("active");
+        
+        document.getElementById(tabId).classList.add("active");
+        evt.currentTarget.classList.add("active");
+
+        const targetDiv = document.getElementById(tabId);
+        if (targetDiv && targetDiv.innerHTML.trim() === "") {
+            fetchTabData(tabId);
+        }
+    }
+
+    document.getElementById('calc-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (isEngineComputing) return;
+        
+        // Wipe old data cache on new calculation
+        const tabsToClear = ['tab-birth', 'tab-general', 'tab-dasha', 'tab-gochar', 'tab-dosha', 'tab-varsh', 'tab-soulmate'];
+        tabsToClear.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.innerHTML = ""; 
+        });
+
+        document.getElementById('results-container').style.display = 'block';
+
+        const activeTabBtn = document.querySelector('.tab-btn.active');
+        const activeTabId = activeTabBtn.getAttribute('onclick').match(/'([^']+)'/)[1];
+        
+        fetchTabData(activeTabId);
+    });
+</script>
+</body>
+</html>

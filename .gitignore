@@ -1,0 +1,66 @@
+# --- Ignore Local Build Artifacts & Binaries ---
+*.o
+*.wasm.o
+swetest
+swetests
+swevents
+swemini
+obama
+libswe.a
+libswe.so
+libswe.dylib
+synastry
+dup
+
+# --- Ignore Large Source/Data Folders ---
+ephe/
+ephe_web/
+emsdk/
+bin/
+windows/
+setest/
+contrib/
+doc/
+templates/
+jyotisha_web/
+public/
+
+# --- Ignore Heavy Files & Logs ---
+*.csv
+*.xlsx
+*.deb
+results*.txt
+filtered_results.txt
+charts*.txt
+output*.txt
+deleted_words.log
+input.txt
+OVERLAP
+
+# --- Ignore Backups & Python Cache ---
+__pycache__/
+*.py.1
+*.py.2
+*.cpp.1
+
+# --- Root-level Web Files (We only track them inside static/engine/) ---
+/index.html
+/astroc.js
+/astroc.wasm
+/astroc.data
+/deploy_web/
+
+# --- Ensure Git Tracks the Compiled WebAssembly Assets ---
+!static/engine/index.html
+!static/engine/astroc.js
+!static/engine/astroc.wasm
+!static/engine/astroc.data
+
+# --- Specific Extensionless Binaries & Outputs ---
+/astroc
+/x
+/output
+
+# --- If you want to ignore your scratch Python/Shell development scripts, uncomment these:
+*.py
+*.sh

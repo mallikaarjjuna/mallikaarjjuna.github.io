@@ -67,9 +67,12 @@
         let isWasmReady = false;
 
 		var Module = {
-			print: function(text) { console.log(text); },
+			print: function(text) { 
+                console.log(text); // Keeps it in F12 just in case
+                terminalBuffer += text + "\n"; // THIS sends it to your UI!
+            },
 			printErr: function(text) { console.error(text); },
-		onRuntimeInitialized: async function() {
+			onRuntimeInitialized: async function() {
             console.log("Engine initialized. Loading data from GitHub Releases...");
             
             try {

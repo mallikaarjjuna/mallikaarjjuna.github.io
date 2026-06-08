@@ -76,7 +76,7 @@
                 // Fetch the data file from the 100MB GitHub Release
                 const response = await fetch('https://github.com/mallikaarjjuna/mallikaarjjuna.github.io/releases/download/v1.0/astroc.data');
                 
-                // CRITICAL FIX: Ensure the download actually succeeded (not a 404)
+                // CRITICAL FIX: Ensure the download actually succeeded
                 if (!response.ok) {
                     throw new Error("HTTP error! Status: " + response.status);
                 }
@@ -89,15 +89,16 @@
                 
                 console.log("Data successfully mounted. Engine ready.");
                 
-                // Hide your orange "Downloading..." text here if you have an ID for it
-                // document.getElementById('YOUR_LOADING_TEXT_ID').style.display = 'none';
+                // --- THE MISSING UNLOCK CODE ---
+                isWasmReady = true; 
+                document.getElementById('loading-spinner').style.display = 'none';
+                // -------------------------------
                 
             } catch (e) {
                 console.error("CRITICAL ERROR: Failed to mount data:", e);
                 alert("Failed to download astronomical data from GitHub. Please refresh the page.");
             }
         }
-
 	};
     </script>
 

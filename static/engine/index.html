@@ -67,49 +67,31 @@
         let isWasmReady = false;
 
 		var Module = {
-			print: function(text) { 
-                console.log(text); // Keeps it in F12 just in case
-                terminalBuffer += text + "\n"; // THIS sends it to your UI!
-            },
+			print: function(text) { console.log(text); },
 			printErr: function(text) { console.error(text); },
 			onRuntimeInitialized: async function() {
-            console.log("Engine initialized. Loading data from GitHub Releases...");
-            
-            try {
-                // Fetch both parts simultaneously from your own Cloudflare domain
-                const [res1, res2] = await Promise.all([
-                    fetch('astroc_part_aa'),
-                    fetch('astroc_part_ab')
-                ]);
-                
-                if (!res1.ok || !res2.ok) {
-                    throw new Error("HTTP error while fetching data parts.");
-                }
-                
-                // Read into memory
-                const buf1 = await res1.arrayBuffer();
-                const buf2 = await res2.arrayBuffer();
-                
-                // Stitch the two chunks back together
-                const data = new Uint8Array(buf1.byteLength + buf2.byteLength);
-                data.set(new Uint8Array(buf1), 0);
-                data.set(new Uint8Array(buf2), buf1.byteLength);
-                
-                // Mount the merged file into the Emscripten FileSystem
-                Module.FS_createPath("/", "ephe", true, true);
-                Module.FS_writeFile("/ephe/ephe", data);
-                
-                console.log("Data successfully stitched and mounted. Engine ready.");
-                
-                isWasmReady = true; 
-                document.getElementById('loading-spinner').style.display = 'none';
-                
-            } catch (e) {
-                console.error("CRITICAL ERROR: Failed to mount data:", e);
-                alert("Failed to initialize astronomical data. Please refresh the page.");
-            }
-        }
-	};
+				console.log("Engine initialized. Loading data...");
+				
+				try {
+					// Fetch the data file directly from your static folder
+					const response = await fetch('https://github.com/mallikaarjjuna/mallikaarjjuna.github.io/releases/download/v1.0/astroc.data');
+					const data = new Uint8Array(await response.arrayBuffer());
+					
+					// Create the path where your C++ engine expects the files
+					// 'ephe' is the folder name, '/' is the root
+					Module.FS_createPath("/", "ephe", true, true);
+					
+					// Write the file into the engine's memory
+					Module.FS_writeFile("/ephe/ephe", data);
+					
+					console.log("Data successfully mounted. Engine ready.");
+					// Now you can call your C++ main function
+					// Module.callMain(); 
+				} catch (e) {
+					console.error("Failed to mount data:", e);
+				}
+			}
+		};
     </script>
 
     <script src="astroc.js"></script>
@@ -155,8 +137,19 @@
             <div class="form-group"><label>Second</label><input type="number" name="transit_second" value="0"></div>
         </div>
 
+		<h2>3. Interface Settings</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Language Output</label>
+                <select name="ui_language">
+                    <option value="english" selected>English</option>
+                    <option value="telugu">Telugu (తెలుగు)</option>
+                </select>
+            </div>
+        </div>
+        
         <button type="submit">Initialize C++ Engine & AI Core</button>
-    </form>
+	</form>
 
     <div id="loading-spinner">Downloading Astronomical Ephemeris Virtual Memory... Please Wait.</div>
 
@@ -222,10 +215,19 @@
             const min = getVal('birth_minute', '0');
             const sec = getVal('birth_second', '0');
             const city = document.querySelector('select[name="birth_place"]').value;
-
+            const lang = document.querySelector('select[name="ui_language"]').value;
+            
             // Base Execution Command
-            let args = [y, m, d, h, min, sec, city, cmdType];
-
+            let args = [];
+            
+            // CRITICAL: Push the Telugu flag first if selected!
+            if (lang === "telugu") {
+                args.push("telugu");
+            }
+            
+            // Push the rest of the standard arguments
+            args.push(y, m, d, h, min, sec, city, cmdType);
+			
             // Tab-specific arguments
             if (tabId === 'tab-gochar') {
                 args.push(

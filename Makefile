@@ -1,3 +1,6 @@
+# Define the Emscripten Compiler explicitly to avoid environment sourcing errors
+EMCC = ./emsdk/upstream/emscripten/emcc
+
 # Define the C source files for Swiss Ephemeris
 SWE_SRC = swedate.c swehouse.c swejpl.c swemmoon.c swemplan.c sweph.c swephlib.c swecl.c swehel.c
 SWE_OBJ = $(SWE_SRC:.c=.o)
@@ -15,14 +18,14 @@ astroc: astroc.cpp libswe.a
 
 # 2. WebAssembly Build
 %.wasm.o: %.c
-	emcc -O3 -c $< -o $@
+	$(EMCC) -O3 -c $< -o $@
 
 astroc.wasm.o: astroc.cpp
-	emcc -std=c++17 -O3 -c astroc.cpp -o astroc.wasm.o
+	$(EMCC) -std=c++17 -O3 -c astroc.cpp -o astroc.wasm.o
 
 # The Final Linker Step
 wasm: astroc.wasm.o $(WASM_OBJ)
-	emcc -std=c++17 -O3 $^ -o astroc.js \
+	$(EMCC) -std=c++17 -O3 $^ -o astroc.js \
 	-s INVOKE_RUN=0 -s EXIT_RUNTIME=0 -s ALLOW_MEMORY_GROWTH=1 \
 	-s EXPORTED_RUNTIME_METHODS='["callMain", "FS_createPath", "FS_writeFile"]'
 	
@@ -41,5 +44,6 @@ deploy: wasm
 	@cp index.html $(HUGO_STATIC_DIR)/
 	@cp astroc.js $(HUGO_STATIC_DIR)/
 	@cp astroc.wasm $(HUGO_STATIC_DIR)/
-	@cp astroc.data $(HUGO_STATIC_DIR)/
+	@if [ -f astroc_part_aa ]; then cp astroc_part_aa $(HUGO_STATIC_DIR)/; fi
+	@if [ -f astroc_part_ab ]; then cp astroc_part_ab $(HUGO_STATIC_DIR)/; fi
 	@echo "Success! WebAssembly files compiled and placed in $(HUGO_STATIC_DIR)"

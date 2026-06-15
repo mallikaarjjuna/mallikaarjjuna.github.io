@@ -67,31 +67,45 @@
         let isWasmReady = false;
 
 		var Module = {
-			print: function(text) { console.log(text); },
-			printErr: function(text) { console.error(text); },
-			onRuntimeInitialized: async function() {
-				console.log("Engine initialized. Loading data...");
-				
-				try {
-					// Fetch the data file directly from your static folder
-					const response = await fetch('https://github.com/mallikaarjjuna/mallikaarjjuna.github.io/releases/download/v1.0/astroc.data');
-					const data = new Uint8Array(await response.arrayBuffer());
-					
-					// Create the path where your C++ engine expects the files
-					// 'ephe' is the folder name, '/' is the root
-					Module.FS_createPath("/", "ephe", true, true);
-					
-					// Write the file into the engine's memory
-					Module.FS_writeFile("/ephe/ephe", data);
-					
-					console.log("Data successfully mounted. Engine ready.");
-					// Now you can call your C++ main function
-					// Module.callMain(); 
-				} catch (e) {
-					console.error("Failed to mount data:", e);
-				}
-			}
-		};
+            print: function(text) {
+                terminalBuffer += text + "\n";
+            },
+            printErr: function(text) {
+                console.error(text);
+            },
+            onRuntimeInitialized: async function() {
+                try {
+                    console.log("Fetching split ephemeris data chunks locally from Cloudflare...");
+                    
+                    // 1. Fetch both 15MB chunks simultaneously from the local server
+                    const [resA, resB] = await Promise.all([
+                        fetch('astroc_part_aa'),
+                        fetch('astroc_part_ab')
+                    ]);
+
+                    if (!resA.ok || !resB.ok) throw new Error("Failed to load data chunks");
+
+                    const bufferA = await resA.arrayBuffer();
+                    const bufferB = await resB.arrayBuffer();
+
+                    // 2. Stitch them together into a single 30MB array
+                    const totalLength = bufferA.byteLength + bufferB.byteLength;
+                    const combinedData = new Uint8Array(totalLength);
+                    combinedData.set(new Uint8Array(bufferA), 0);
+                    combinedData.set(new Uint8Array(bufferB), bufferA.byteLength);
+
+                    // 3. Write the stitched file to the WebAssembly Virtual File System
+                    FS.mkdir('/ephe');
+                    FS.writeFile('/ephe/astroc.data', combinedData, { encoding: 'binary' });
+
+                    document.getElementById('loading-msg').style.display = 'none';
+                    console.log("Engine initialized. Ready to calculate.");
+                } catch (err) {
+                    console.error("Data loading error:", err);
+                    document.getElementById('loading-msg').innerText = "Error loading Ephemeris Data.";
+                }
+            }
+        };
     </script>
 
     <script src="astroc.js"></script>

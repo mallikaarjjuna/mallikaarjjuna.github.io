@@ -44,6 +44,6 @@ deploy: wasm
 	@cp index.html $(HUGO_STATIC_DIR)/
 	@cp astroc.js $(HUGO_STATIC_DIR)/
 	@cp astroc.wasm $(HUGO_STATIC_DIR)/
-	@if [ -f astroc_part_aa ]; then cp astroc_part_aa $(HUGO_STATIC_DIR)/; fi
-	@if [ -f astroc_part_ab ]; then cp astroc_part_ab $(HUGO_STATIC_DIR)/; fi
+	@if [ -f astroc_part_aa.bin ]; then cp astroc_part_aa.bin $(HUGO_STATIC_DIR)/; fi
+	@if [ -f astroc_part_ab.bin ]; then cp astroc_part_ab.bin $(HUGO_STATIC_DIR)/; fi
 	@echo "Success! WebAssembly files compiled and placed in $(HUGO_STATIC_DIR)"

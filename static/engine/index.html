@@ -78,8 +78,8 @@
                     console.log("Fetching split ephemeris data chunks locally from Cloudflare...");
                     
                     const [resA, resB] = await Promise.all([
-                        fetch('astroc_part_aa'),
-                        fetch('astroc_part_ab')
+                        fetch('astroc_part_aa.bin'),
+                        fetch('astroc_part_ab.bin')
                     ]);
 
                     if (!resA.ok || !resB.ok) throw new Error("Failed to load data chunks");
@@ -171,7 +171,9 @@
         <button type="submit">Initialize C++ Engine & AI Core</button>
 	</form>
 
-    <div id="loading-spinner">Downloading Astronomical Ephemeris Virtual Memory... Please Wait.</div>
+    <h4 id="loading-msg" style="color: orange; text-align: center; margin-top: 20px;">
+		Downloading Astronomical Ephemeris Virtual Memory... Please Wait.
+	</h4>
 
     <div id="results-container" style="display:none;">
         <div class="tabs">

@@ -77,7 +77,6 @@
                 try {
                     console.log("Fetching split ephemeris data chunks locally from Cloudflare...");
                     
-                    // 1. Fetch both 15MB chunks simultaneously from the local server
                     const [resA, resB] = await Promise.all([
                         fetch('astroc_part_aa'),
                         fetch('astroc_part_ab')
@@ -88,21 +87,28 @@
                     const bufferA = await resA.arrayBuffer();
                     const bufferB = await resB.arrayBuffer();
 
-                    // 2. Stitch them together into a single 30MB array
                     const totalLength = bufferA.byteLength + bufferB.byteLength;
                     const combinedData = new Uint8Array(totalLength);
                     combinedData.set(new Uint8Array(bufferA), 0);
                     combinedData.set(new Uint8Array(bufferB), bufferA.byteLength);
 
-                    // 3. Write the stitched file to the WebAssembly Virtual File System
                     FS.mkdir('/ephe');
                     FS.writeFile('/ephe/astroc.data', combinedData, { encoding: 'binary' });
 
-                    document.getElementById('loading-msg').style.display = 'none';
                     console.log("Engine initialized. Ready to calculate.");
+                    
+                    // SAFE DOM MANIPULATION: Only hide it if the ID actually exists
+                    const loadingEl = document.getElementById('loading-msg');
+                    if (loadingEl) {
+                        loadingEl.style.display = 'none';
+                    }
+
                 } catch (err) {
                     console.error("Data loading error:", err);
-                    document.getElementById('loading-msg').innerText = "Error loading Ephemeris Data.";
+                    const loadingEl = document.getElementById('loading-msg');
+                    if (loadingEl) {
+                        loadingEl.innerText = "Error loading Ephemeris Data.";
+                    }
                 }
             }
         };

@@ -605,7 +605,7 @@ public:
         }
     }
 	
-void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
+	void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
         if (!json_mode) {
             if (telugu_mode) {
                 printf("\n[సమగ్ర గ్రహ శుభ/అశుభ & పరిహార విశ్లేషణ (AUSPICIOUSNESS MATRIX)]\n");
@@ -632,9 +632,7 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
         int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0));
 
         for (int p = 1; p <= 9; p++) {
-            int score = 0;
-            string breakdown = "";
-
+            int score = 0; string breakdown = "";
             int exaltation_signs[] = {0, 0, 1, 9, 5, 3, 11, 6, 2, 7}; 
             int debilitation_signs[] = {0, 6, 7, 3, 11, 9, 5, 0, 8, 1}; 
             int own_signs1[] = {0, 4, 3, 0, 2, 8, 1, 9, -1, -1}; 
@@ -645,11 +643,8 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
                 else if (p_rasi[p] == debilitation_signs[p]) { score -= 3; breakdown += telugu_mode ? "నీచ(-3) " : "Debilitated(-3) "; }
                 else if (p_rasi[p] == own_signs1[p] || p_rasi[p] == own_signs2[p]) { score += 3; breakdown += telugu_mode ? "స్వక్షేత్రం(+3) " : "Own Sign(+3) "; }
             }
-            
             if (rvs_bad_placements[p][p_rasi[p]] == 1) { score -= 1; breakdown += telugu_mode ? "శత్రు/నీచ స్థానం(-1) " : "Enemy/Bad Rasi(-1) "; } 
-            else if (p_rasi[p] != exaltation_signs[p] && p_rasi[p] != own_signs1[p] && p_rasi[p] != own_signs2[p]) { 
-                score += 1; breakdown += telugu_mode ? "మిత్ర స్థానం(+1) " : "Friendly Rasi(+1) "; 
-            }
+            else if (p_rasi[p] != exaltation_signs[p] && p_rasi[p] != own_signs1[p] && p_rasi[p] != own_signs2[p]) { score += 1; breakdown += telugu_mode ? "మిత్ర స్థానం(+1) " : "Friendly Rasi(+1) "; }
 
             if (p <= 7) {
                 bool rules_trikona = false, rules_dusthana = false, rules_kendra = false;
@@ -661,7 +656,6 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
                         if (h == 4 || h == 7 || h == 10) rules_kendra = true;
                     }
                 }
-                
                 if (rules_trikona) { score += 3; breakdown += telugu_mode ? "త్రికోణాధిపతి(+3) " : "Trikona Lord(+3) "; }
                 if (rules_dusthana) { score -= 2; breakdown += telugu_mode ? "దుస్థానాధిపతి(-2) " : "Dusthana Lord(-2) "; }
                 if (rules_kendra && !rules_trikona) { 
@@ -673,9 +667,7 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
             int h = (p_rasi[p] - lagna_rasi + 12) % 12 + 1;
             if (h == 1 || h == 5 || h == 9 || h == 4 || h == 7 || h == 10) { score += 2; breakdown += telugu_mode ? "శుభ భావ స్థితి(+2) " : "Good Placement(+2) "; }
             else if (h == 6 || h == 8 || h == 12) { score -= 3; breakdown += telugu_mode ? "దుస్థాన స్థితి(-3) " : "Dusthana Placement(-3) "; }
-            else if (h == 3 || h == 10 || h == 11) { 
-                if (p == 1 || p == 3 || p == 7 || p == 8 || p == 9) { score += 1; breakdown += telugu_mode ? "ఉపచయంలో పాపి(+1) " : "Malefic in Upachaya(+1) "; } 
-            }
+            else if (h == 3 || h == 10 || h == 11) { if (p == 1 || p == 3 || p == 7 || p == 8 || p == 9) { score += 1; breakdown += telugu_mode ? "ఉపచయంలో పాపి(+1) " : "Malefic in Upachaya(+1) "; } }
             
             int d9_h = (d9_rashis[p] - d9_rashis[0] + 12) % 12 + 1;
             if (d9_h == 6 || d9_h == 8 || d9_h == 12) { score -= 1; breakdown += telugu_mode ? "D9 దుస్థానం(-1) " : "D9 Dusthana(-1) "; }
@@ -692,18 +684,13 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
             if (p == yogi_planet) { score += 3; breakdown += telugu_mode ? "యోగి గ్రహం(+3) " : "YOGI Planet(+3) "; }
             if (p == avayogi_planet) { score -= 3; breakdown += telugu_mode ? "అవయోగి గ్రహం(-3) " : "AVAYOGI Planet(-3) "; }
 
-            int malefic_influence = 0; int benefic_influence = 0;
-            bool node_conjunction = false;
-
+            int malefic_influence = 0; int benefic_influence = 0; bool node_conjunction = false;
             for (int asp = 1; asp <= 9; asp++) {
                 if (asp == p) continue;
                 int dist = (p_rasi[p] - p_rasi[asp] + 12) % 12 + 1;
                 bool is_interacting = false;
                 
-                if (dist == 1) { 
-                    is_interacting = true; 
-                    if (asp == 8 || asp == 9) node_conjunction = true;
-                } 
+                if (dist == 1) { is_interacting = true; if (asp == 8 || asp == 9) node_conjunction = true; } 
                 else if (dist == 7) is_interacting = true; 
                 else if (asp == 3 && (dist == 4 || dist == 8)) is_interacting = true; 
                 else if (asp == 5 && (dist == 5 || dist == 9)) is_interacting = true; 
@@ -719,7 +706,6 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
             if (benefic_influence > 0) { score += benefic_influence; breakdown += (telugu_mode ? "శుభ గ్రహ దృష్టి(+" : "Benefic Hit(+") + to_string(benefic_influence) + ") "; }
 
             string fusion_text = telugu_mode ? (score >= 3 ? "అత్యుత్తమ" : (score >= -1 && score <= 2 ? "సాధారణ" : "ప్రతికూల")) : (score >= 3 ? "BEST" : (score >= -1 && score <= 2 ? "AVERAGE" : "BAD"));
-            
             double sb = 0.0;
             if (p >= 1 && p <= 7) { sb = ShadbalaEngine::final_ratios[p]; }
             else if (p == 8 || p == 9) {
@@ -744,7 +730,6 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
                     else fusion_text = telugu_mode ? "బలహీనమైనది & ఊహించనిది (తక్కువ బలం + మిశ్రమ సంకల్పం)" : "WEAK & UNPREDICTABLE (Low Power + Mixed Intent)";
                 }
             }
-            
             natal_scores[p] = score; 
             if (!json_mode) {
                 if (telugu_mode) printf("%-10s | %-6d | %-40s | %s\n", get_planet_name(p).c_str(), score, fusion_text.c_str(), breakdown.c_str());
@@ -1050,7 +1035,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
     }
 
-    void analyze_functional_nature(int lagna_rasi) {
+	void analyze_functional_nature(int lagna_rasi) {
         if (telugu_mode) printf("\n[నైసర్గిక స్వభావం (%s లగ్నం ఆధారంగా)]\n", get_rashi_name(lagna_rasi).c_str());
         else printf("\n[FUNCTIONAL NATURE (Based on %s Lagna Lordship)]\n", rashi_names[lagna_rasi]);
         
@@ -1074,11 +1059,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
         
         int r_rahu = planet_rashis[8]; int r_ketu = planet_rashis[9];
-        
-        // Helper to translate the dispositor lord's name
-        auto get_lord_te = [&](string en_name) {
-            for(int i=1; i<=7; i++) { if(en_name == p_names_full[i]) return string(te_p_names_full[i]); } return en_name;
-        };
+        auto get_lord_te = [&](string en_name) { for(int i=1; i<=7; i++) { if(en_name == p_names_full[i]) return string(te_p_names_full[i]); } return en_name; };
 
         if (telugu_mode) {
             printf("  - రాహువు    : ఛాయా గ్రహాలు తమ అధిపతుల ద్వారా పనిచేస్తాయి. రాహువు %s నియంత్రణలో ఉన్నాడు.\n", get_lord_te(rashi_lords[r_rahu]).c_str());
@@ -1088,7 +1069,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
             printf("  - %-8s: Shadow Nodes operate via their dispositors. Ketu is governed by %s.\n", "Ketu", rashi_lords[r_ketu]);
         }
     }
-
+	
 	void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         if (telugu_mode) printf("\n[గ్రహాల తుది ఫలితం (దశ/అంతర్దశలలో జరిగేవి)]\n");
         else printf("\n[SYNTHESIZED FINAL OUTCOME OF PLANETS (D1 FATE)]\n");
@@ -1267,7 +1248,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
             }
         }
         if(!found) {
-            if (telugu_mode) printf("  - గ్రహ కలయికలు ఏవీ లేవు. అన్ని గ్రహాలు స్వతంత్రంగా పనిచేస్తున్నాయి.\n");
+            if (telugu_mode) printf("  - గ్రహ కలయికలు ఏవీ లేవు. అన్ని గ్రహాలు స్వత衡ంగా పనిచేస్తున్నాయి.\n");
             else printf("  - No planetary conjunctions found. All planets operate independently.\n");
         }
     }

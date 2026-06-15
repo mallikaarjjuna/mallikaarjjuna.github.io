@@ -97,12 +97,17 @@
 
                     console.log("Engine initialized. Ready to calculate.");
                     
-                    // SAFE DOM MANIPULATION: Only hide it if the ID actually exists
                     const loadingEl = document.getElementById('loading-msg');
                     if (loadingEl) {
                         loadingEl.style.display = 'none';
                     }
 
+                    // ==========================================
+                    // CRITICAL FIX: UNLOCK THE UI
+                    // ==========================================
+                    isWasmReady = true; 
+                    // ==========================================
+					
                 } catch (err) {
                     console.error("Data loading error:", err);
                     const loadingEl = document.getElementById('loading-msg');
@@ -157,8 +162,18 @@
             <div class="form-group"><label>Second</label><input type="number" name="transit_second" value="0"></div>
         </div>
 
-		<h2>3. Interface Settings</h2>
+		<h2>3. Interface Settings & Events</h2>
         <div class="form-grid">
+            <div class="form-group">
+                <label>Muhurat Event Type</label>
+                <select name="muhurat_event">
+                    <option value="marriage" selected>Marriage / Vivaha</option>
+                    <option value="house">House Warming (Griha Pravesh)</option>
+                    <option value="vehicle">Vehicle Purchase</option>
+                    <option value="electronics">Electronics / TV / Appliances</option>
+                    <option value="gold">Gold / Jewelry Purchase</option>
+                </select>
+            </div>
             <div class="form-group">
                 <label>Language Output</label>
                 <select name="ui_language">
@@ -166,8 +181,7 @@
                     <option value="telugu">Telugu (తెలుగు)</option>
                 </select>
             </div>
-        </div>
-        
+        </div>        
         <button type="submit">Initialize C++ Engine & AI Core</button>
 	</form>
 
@@ -184,7 +198,7 @@
             <button class="tab-btn" onclick="openTab(event, 'tab-dosha')">Mangal Dosha</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-varsh')">Year (Varshaphal)</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-soulmate')">Soul Mate (Synastry)</button>
-        </div>
+            <button class="tab-btn" onclick="openTab(event, 'tab-muhurat')">Event Muhurat</button> </div>
 
         <div id="tab-birth" class="tab-content active"></div>
         <div id="tab-general" class="tab-content"></div>
@@ -193,7 +207,8 @@
         <div id="tab-dosha" class="tab-content"></div>
         <div id="tab-varsh" class="tab-content"></div>
         <div id="tab-soulmate" class="tab-content"></div>
-    </div>
+        <div id="tab-muhurat" class="tab-content"></div>
+	</div>
 </div>
 
 <script>
@@ -225,6 +240,7 @@
                 'tab-dosha': 'web_dosha',
                 'tab-varsh': 'annual',
                 'tab-soulmate': 'match'
+				'tab-muhurat': 'muhurat' // NEW
             };
             
             const cmdType = commandMap[tabId] || 'web_natal';
@@ -264,6 +280,13 @@
                 args.push(getVal('transit_year', new Date().getFullYear().toString()));
             } else if (tabId === 'tab-soulmate') {
                 args.push("1985", "1", "1", "12", "0", "0", "hyderabad"); // Dummy P2 Data
+            } else if (tabId === 'tab-muhurat') {
+                // NEW: Push the Event Type, Target Year, and Target Month
+                args.push(
+                    document.querySelector('select[name="muhurat_event"]').value,
+                    getVal('transit_year', new Date().getFullYear().toString()),
+                    getVal('transit_month', (new Date().getMonth() + 1).toString())
+                );
             }
 
             // CLEAR BUFFER AND EXECUTE C++ IN THE BROWSER

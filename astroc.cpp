@@ -2258,7 +2258,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
             printf("%-10s | %-15s | %-20s | %-12s | %s %-3d | %s %-3d | %-25s\n", 
                 get_planet_name(i).c_str(), t_sign.c_str(), short_tara.c_str(), get_rashi_name(nat_rashi).c_str(), telugu_mode ? "భావం" : "House", from_mo, telugu_mode ? "భావం" : "House", from_asc, asp_str.c_str());
        
-            for (int np = 0; np <= 9; np++) {
+			for (int np = 0; np <= 9; np++) {
                 if (planet_rashis[np] == trans_rashi) {
                     transit_triggers[i].push_back({np == 0 ? (telugu_mode ? "లగ్నం" : "Lagna") : get_planet_name(np), telugu_mode ? "కలయిక (1వ భావం)" : "Conjuncts (1st House hit)"});
                 }
@@ -2272,11 +2272,19 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                     }
                 }
             }
+            
+            // ==========================================
+            // NEW: GOCHARA PHALA PREDICTIVE TEXT INJECTION
+            // ==========================================
+            // We only print the deep life-event text for the major slow-moving karma planets
+            if (i == 5 || i == 7 || i == 8 || i == 9) {
+				transit_triggers[i].push_back({"GOCHAR_RESULT", telugu_mode ? te_get_gochar_text(i, from_mo) : get_gochar_text(i, from_mo)}); // <-- UPDATED
+            }
         }
         printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
 
-        printf("\n[PHASE 3: TRANSIT SYNTHESIS (Dasha & AV Filtering)]\n");
-        int major_planets[] = {3, 5, 7, 8, 9}; 
+        printf("\n[PHASE 3: TRANSIT SYNTHESIS (Dasha, AV Filtering & Gochara Phala)]\n");
+        int major_planets[] = {5, 7, 8, 9, 3}; // Moved Mars to the end so Jupiter/Saturn text prints first
         
         for (int i = 0; i < 5; i++) {
             int mp = major_planets[i];
@@ -2284,23 +2292,32 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                 
                 int d_map[] = {-1, 2, 3, 4, 8, 6, 1, 7, 5, 0}; 
                 bool is_dasha_lord = (d_map[mp] == md_lord || d_map[mp] == ad_lord);
-                string dasha_alert = is_dasha_lord ? " [*** ACTIVE DASHA LORD TRIGGER ***]" : "";
+                string dasha_alert = is_dasha_lord ? (telugu_mode ? " [*** ప్రస్తుత దశా నాథుడు ***]" : " [*** ACTIVE DASHA LORD TRIGGER ***]") : "";
 
                 string av_alert = "";
                 if (mp < 8) {
                     int r = t_rashis[mp];
                     int r_sav = sav_scores[r];
                     int r_bav = bav_scores[mp-1][r];
-                    if (r_sav >= 28 && r_bav >= 4) av_alert = " -> High Support (SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")";
-                    else if (r_sav <= 24 || r_bav <= 2) av_alert = " -> HIGH FRICTION (Weak AV! SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")";
-                    else av_alert = " -> Average Environment (SAV: " + to_string(r_sav) + ")";
+                    if (r_sav >= 28 && r_bav >= 4) av_alert = telugu_mode ? " -> శుభ బలం (SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")" : " -> High Support (SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")";
+                    else if (r_sav <= 24 || r_bav <= 2) av_alert = telugu_mode ? " -> తీవ్ర ప్రతికూలం (Weak AV! SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")" : " -> HIGH FRICTION (Weak AV! SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")";
+                    else av_alert = telugu_mode ? " -> మధ్యస్థం (SAV: " + to_string(r_sav) + ")" : " -> Average Environment (SAV: " + to_string(r_sav) + ")";
                 }
 
-                printf("  => Transit %s%s%s is hitting:\n", p_names_full[mp], dasha_alert.c_str(), av_alert.c_str());
-                for (auto hit : transit_triggers[mp]) {
-                    printf("     * %-30s -> Natal %s\n", hit.hit_type.c_str(), hit.p_name.c_str());
+                if (telugu_mode) printf("  => గోచార %s%s%s ఫలితాలు:\n", get_planet_name(mp).c_str(), dasha_alert.c_str(), av_alert.c_str());
+                else printf("  => Transit %s%s%s is hitting:\n", p_names_full[mp], dasha_alert.c_str(), av_alert.c_str());
+                
+				for (auto hit : transit_triggers[mp]) {
+                    // Inject the custom Gochara paragraph
+                    if (hit.p_name == "GOCHAR_RESULT") {
+                        if (telugu_mode) printf("     *** శాస్త్ర ఫలితం: %s\n", hit.hit_type.c_str());
+                        else printf("     *** Classical Result: %s\n", hit.hit_type.c_str());
+                    } else {
+                        if (telugu_mode) printf("     * %-25s -> జన్మ %s\n", hit.hit_type.c_str(), hit.p_name.c_str());
+                        else printf("     * %-30s -> Natal %s\n", hit.hit_type.c_str(), hit.p_name.c_str());
+                    }
                 }
-            }
+			}
         }
         printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
         

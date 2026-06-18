@@ -537,3 +537,56 @@ const int natural_enemies[10][10] = {
     {0, 1, 1, 1, 0, 0, 0, 0, 0, 0}, // 8: Rahu hates Su, Mo, Ma
     {0, 1, 1, 1, 0, 0, 0, 0, 0, 0}  // 9: Ketu hates Su, Mo, Ma
 };
+
+// =========================================================================
+// GOCHARA PHALA MATRIX (ENGLISH TRANSIT PREDICTIONS FROM MOON SIGN)
+// =========================================================================
+
+inline std::string get_gochar_text(int p_idx, int from_mo) {
+    if (p_idx == 5) { // GURU (Jupiter)
+        switch(from_mo) {
+            case 1: return "Transit in Janma Rasi: Indicates relocation, mental distress, friction with superiors or loved ones, and increased expenses.";
+            case 2: return "Transit in 2nd House: Highly Auspicious. Brings family happiness, financial gains, great recognition, and wealth accumulation.";
+            case 3: return "Transit in 3rd House: Indicates career obstacles, location changes or transfers, and minor disagreements with siblings.";
+            case 4: return "Transit in 4th House: Brings domestic unrest, potential health issues for the mother, or worries regarding property and vehicles.";
+            case 5: return "Transit in 5th House: Highly Auspicious. Excellent time for marriage, childbirth, buying property/vehicles, and massive business/speculative profits.";
+            case 6: return "Transit in 6th House: Indicates health issues, debt pressures, or sudden fear/litigation from enemies.";
+            case 7: return "Transit in 7th House: Highly Auspicious. Marriage for singles. Excellent business/career gains, health improvement, and marital bliss.";
+            case 8: return "Transit in 8th House: Warns of illness, unexpected financial loss, fatigue during travel, and severe delays in undertakings.";
+            case 9: return "Transit in 9th House: Highly Auspicious. Immense fortune, pilgrimages, foreign travels, and overall wealth expansion.";
+            case 10: return "Transit in 10th House: Indicates sudden career changes, fear of job loss or unwanted transfers, and potential business struggles.";
+            case 11: return "Transit in 11th House: Highly Auspicious. Fulfillment of all desires. Massive financial gains, promotions, and auspicious events at home.";
+            case 12: return "Transit in 12th House: Indicates heavy expenses for auspicious events (marriage, house construction) and long-distance travels.";
+        }
+    }
+    else if (p_idx == 7) { // SHANI (Saturn)
+        switch(from_mo) {
+            case 1: return "Janma Shani (Middle of Sade Sati): Severe mental anxiety, physical fatigue, heavy workload, and potential illness.";
+            case 2: return "2nd House Shani (End of Sade Sati): Financial constraints, family disputes, and unexpected financial losses or harsh speech.";
+            case 3: return "3rd House Shani: Highly Auspicious. Increased courage, destruction of enemies, new job or property, and massive success.";
+            case 4: return "4th House Shani (Ardhashtama): Domestic unrest, mother's health issues, professional frustrations, and friction with relatives.";
+            case 5: return "5th House Shani: Worries about children, investment delays, and misunderstandings or coldness in romance.";
+            case 6: return "6th House Shani: Highly Auspicious. Absolute victory over court cases, enemies, and diseases. Debts clear up, financial recovery.";
+            case 7: return "7th House Shani: Severe misunderstandings with spouse, business partner disputes, and heavy, fruitless travels.";
+            case 8: return "8th House Shani (Ashtama): Sudden career obstacles, severe health issues, and unexpected hardships. Requires extreme caution.";
+            case 9: return "9th House Shani: Father's health issues, detachment from religion/luck, and depression or delays in higher studies/travel.";
+            case 10: return "10th House Shani: Immense workload in career. Friction with authorities, and a lack of recognition for extreme hard work.";
+            case 11: return "11th House Shani: Highly Auspicious. Permanent financial gains in all areas, acquisition of new house/vehicle, and great social respect.";
+            case 12: return "12th House Shani (Start of Sade Sati): Wasteful expenses, insomnia, eye/foot aches, hidden fears, and unexpected travels.";
+        }
+    }
+    else if (p_idx == 8 || p_idx == 9) { // RAHU & KETU
+        if (from_mo == 3 || from_mo == 6 || from_mo == 11) {
+            return "Shadow Planet in Upachaya House: Highly favorable transit. Indicates sudden massive gains, foreign travels, and destruction of enemies.";
+        } else {
+            return "This shadow planet transit creates mental confusion, sudden changes, and karmic instability regarding the themes of this house.";
+        }
+    }
+    
+    // Default fallback for Sun, Moon, Mars, Mercury, Venus (Fast moving planets)
+    if (from_mo == 3 || from_mo == 6 || from_mo == 10 || from_mo == 11) {
+        return "Favorable transit from the Moon. Brings short-term success in endeavors, gains, and a positive environment.";
+    } else {
+        return "Standard transit results. May require routine effort or cause minor, short-term delays.";
+    }
+}

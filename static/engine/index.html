@@ -340,7 +340,7 @@
         if (isEngineComputing) return;
         
         // Wipe old data cache on new calculation
-        const tabsToClear = ['tab-birth', 'tab-general', 'tab-dasha', 'tab-gochar', 'tab-dosha', 'tab-varsh', 'tab-soulmate'];
+        const tabsToClear = ['tab-birth', 'tab-general', 'tab-dasha', 'tab-gochar', 'tab-dosha', 'tab-varsh', 'tab-soulmate', 'tab-muhurat'];
         tabsToClear.forEach(id => {
             const el = document.getElementById(id);
             if(el) el.innerHTML = ""; 

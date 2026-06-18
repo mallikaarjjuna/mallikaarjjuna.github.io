@@ -1955,20 +1955,68 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
     }
 
-    // Add this main function to trigger the 3-level print
-    void print_dasha_web() {
+void print_dasha_web() {
         double nak_size = 360.0 / 27.0; 
         int nak_index = (int)(moon_lon / nak_size); 
         int lord_index = nak_index % 9;
         double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
         double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
 
-        printf("\n=== VIMSHOTTARI DASHA HIERARCHY (3-LEVEL: Maha, Antar, Pratyantar) ===\n");
-        printf("----------------------------------------------------------------------------------------\n");
-        vector<string> path;
-        dfs_print_hierarchy(0, 3, lord_index, life_start_jd, 120.0 * 365.2425, path);
-        printf("----------------------------------------------------------------------------------------\n");
+        if (telugu_mode) {
+            printf("\n=========================================================================================\n");
+            printf("=== జీవిత కాల దశలు (DYNAMIC VIMSHOTTARI DASHA PREDICTIONS) ===\n");
+            printf("=========================================================================================\n\n");
+        } else {
+            printf("\n=========================================================================================\n");
+            printf("=== LIFE CHAPTERS (DYNAMIC VIMSHOTTARI DASHA PREDICTIONS) ===\n");
+            printf("=========================================================================================\n\n");
+        }
+
+        int d_map[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; // Maps dasha lord index to standard planet index
+
+        double cur_start = life_start_jd;
+        for (int i = 0; i < 9; i++) {
+            int md_idx = (lord_index + i) % 9;
+            int md_p = d_map[md_idx];
+            double md_dur = 120.0 * 365.2425 * (dasha_years[md_idx] / 120.0);
+            
+            string start_date = jd_to_string(cur_start).substr(0, 10);
+            string end_date = jd_to_string(cur_start + md_dur).substr(0, 10);
+            
+            int score = natal_scores[md_p];
+            int house = (planet_rashis[md_p] - planet_rashis[0] + 12) % 12 + 1;
+
+            if (telugu_mode) {
+                printf("⭐ [ %s  నుండి  %s ] : %s మహాదశ (ఆధిపత్యం: %dవ భావం | బలం: %d)\n", start_date.c_str(), end_date.c_str(), get_planet_name(md_p).c_str(), house, score);
+                printf("   %s\n\n", te_get_dynamic_mahadasha(md_p, score, house).c_str());
+            } else {
+                printf("⭐ [ %s  to  %s ] : %s MAHADASHA (Placement: House %d | Dignity Score: %d)\n", start_date.c_str(), end_date.c_str(), p_names_full[md_p], house, score);
+                printf("   %s\n\n", get_dynamic_mahadasha(md_p, score, house).c_str());
+            }
+
+            double ad_start = cur_start;
+            for (int j = 0; j < 9; j++) {
+                int ad_idx = (md_idx + j) % 9;
+                int ad_p = d_map[ad_idx];
+                double ad_dur = md_dur * (dasha_years[ad_idx] / 120.0);
+                
+                string ad_start_str = jd_to_string(ad_start).substr(0, 10);
+                string ad_end_str = jd_to_string(ad_start + ad_dur).substr(0, 10);
+                
+                if (telugu_mode) {
+                    printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
+                    printf("        %s\n", te_get_bhukti_prediction(md_p, ad_p).c_str());
+                } else {
+                    printf("     -> [ %s - %s ] : %s Bhukti\n", ad_start_str.c_str(), ad_end_str.c_str(), p_names_full[ad_p]);
+                    printf("        %s\n", get_bhukti_prediction(md_p, ad_p).c_str());
+                }
+                ad_start += ad_dur;
+            }
+            printf("\n-----------------------------------------------------------------------------------------\n\n");
+            cur_start += md_dur;
+        }
     }
+
     void dfs_find_dehas(int level, int current_lord, double start_jd, double duration, double target_start, double target_end, vector<int> path) {
         if (start_jd >= target_end || start_jd + duration <= target_start) return;
         if (level == 6) {
@@ -3630,6 +3678,9 @@ int main(int argc, char *argv[]) {
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_dasha") == 0) {
+			engine.calculate_ashtakavarga(true); 
+            engine.analyze_auspiciousness(engine.planet_rashis[0], engine.planet_rashis);
+			
             engine.calculate_dasha_balance();
             engine.print_dasha_web(); 
             return 0;

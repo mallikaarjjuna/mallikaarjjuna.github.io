@@ -2003,12 +2003,18 @@ void print_dasha_web() {
                 string ad_start_str = jd_to_string(ad_start).substr(0, 10);
                 string ad_end_str = jd_to_string(ad_start + ad_dur).substr(0, 10);
                 
+                // --- NEW: Calculate Dignity and House for the Bhukti Planet ---
+                int ad_score = natal_scores[ad_p];
+                int ad_house = (planet_rashis[ad_p] - planet_rashis[0] + 12) % 12 + 1;
+
                 if (telugu_mode) {
                     printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
-                    printf("        %s\n", te_get_bhukti_prediction(md_p, ad_p).c_str());
+                    // Calling the new Dynamic Telugu Bhukti Function
+                    printf("        %s\n", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house).c_str());
                 } else {
                     printf("     -> [ %s - %s ] : %s Bhukti\n", ad_start_str.c_str(), ad_end_str.c_str(), p_names_full[ad_p]);
-                    printf("        %s\n", get_bhukti_prediction(md_p, ad_p).c_str());
+                    // Calling the new Dynamic English Bhukti Function
+                    printf("        %s\n", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house).c_str());
                 }
                 ad_start += ad_dur;
             }

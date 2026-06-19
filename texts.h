@@ -267,18 +267,131 @@ inline std::string get_dynamic_mahadasha(int p_idx, int score, int house) {
     return base + " " + modifier;
 }
 
-inline std::string get_bhukti_prediction(int md_idx, int ad_idx) {
-    if (md_idx == ad_idx) return "During this Swa-Bhukti (Mahadasha and Antardasha of the same planet), changes are slow as the core theme of the Dasha plants its roots.";
-    switch(ad_idx) {
-        case 1: return "Sun Bhukti: Career elevation, support from authorities, and enhanced public status.";
-        case 2: return "Moon Bhukti: Emotional changes, travels, and focus on family/domestic peace.";
-        case 3: return "Mars Bhukti: Real estate activity, high energy, but requires management of anger and conflicts.";
-        case 4: return "Mercury Bhukti: Business growth, new skill acquisition, and strong communication/networking.";
-        case 5: return "Jupiter Bhukti: Auspicious events at home, financial luck, and blessings from elders.";
-        case 6: return "Venus Bhukti: Financial stability, romance, marriage, and acquisition of luxury items.";
-        case 7: return "Saturn Bhukti: Delays, heavy workload, and increased responsibilities. Patience is required.";
-        case 8: return "Rahu Bhukti: Sudden unexpected changes, foreign connections, and intense desires.";
-        case 9: return "Ketu Bhukti: Spiritual travels, detachment from work, and a desire for isolation.";
-        default: return "";
+// =========================================================================
+// ENGLISH 81-COMBINATION BHUKTI (ANTARDASHA) MATRIX
+// =========================================================================
+
+const char* const en_bhukti_matrix[10][10] = {
+    {""}, // 0 index unused
+    // 1: SUN MAHA DASHA
+    {"",
+     "Sun Bhukti: Swa-bhukti. Intense focus on career, authority, and ego. A period of planting seeds for the next 6 years.",
+     "Moon Bhukti: Blending authority with empathy. Good for public relations, mother, and acquiring new responsibilities.",
+     "Mars Bhukti: Extreme high energy. Excellent for military/technical execution and property, but warns of heated arguments.",
+     "Mercury Bhukti: Excellent for administration, business logic, and communication. A period of rapid learning.",
+     "Jupiter Bhukti: Highly auspicious. Divine grace expands your authority, wealth, and brings support from mentors.",
+     "Venus Bhukti: Friction. The ego (Sun) clashes with luxuries (Venus). Focus shifts to relationship adjustments and expenses.",
+     "Saturn Bhukti: Severe friction. The King (Sun) fights the Servant (Saturn). Brings heavy workload, delays, and clashes with authority.",
+     "Rahu Bhukti: Eclipsed authority. Sudden changes, political illusions, or unconventional foreign travels. Guard your reputation.",
+     "Ketu Bhukti: A period of ego-death. Loss of position or highly spiritual detachment. Focus shifts inward."
+    },
+    // 2: MOON MAHA DASHA
+    {"",
+     "Sun Bhukti: Emotional clarity meets ambition. Excellent for public status, government favors, and leadership.",
+     "Moon Bhukti: Swa-bhukti. Deeply emotional and sensitive phase. Focus on home, mother, and mental peace.",
+     "Mars Bhukti: Emotional aggression (Chandra-Mangala energy). High drive for wealth, but prone to impulsive anger.",
+     "Mercury Bhukti: The mind (Moon) meets intellect (Mercury). Excellent for writing, business ideas, and short travels.",
+     "Jupiter Bhukti: Gajakesari energy. Highly auspicious. Brings profound peace, financial luck, and spiritual growth.",
+     "Venus Bhukti: A period of immense luxury, romance, and artistic pursuits. Emotional fulfillment through relationships.",
+     "Saturn Bhukti: Vish Yoga energy. Emotional depression, delays, and heavy responsibilities weighing down the mind.",
+     "Rahu Bhukti: Eclipse energy. Mental confusion, illusions, sudden foreign travels, and intense subconscious fears.",
+     "Ketu Bhukti: Emotional detachment. A deeply spiritual period where material things feel distant. Good for meditation."
+    },
+    // 3: MARS MAHA DASHA
+    {"",
+     "Sun Bhukti: Explosive, dynamic leadership. Massive career drive, physical vitality, and success in authoritative roles.",
+     "Moon Bhukti: Fast-paced emotional actions. Good for acquiring wealth and property, but emotions run very hot.",
+     "Mars Bhukti: Swa-bhukti. Extreme physical energy, sports, or real estate actions. Guard against accidents and anger.",
+     "Mercury Bhukti: Action meets logic. Good for technical coding or strategic business, but prone to nervous arguments.",
+     "Jupiter Bhukti: Righteous action. Divine luck supports your courage. Excellent for marriage, wealth, and dharma.",
+     "Venus Bhukti: Intense passion. Highly romantic and materialistic period, but prone to sudden relationship volatility.",
+     "Saturn Bhukti: The ultimate friction. Fast action (Mars) blocked by delays (Saturn). Extreme frustration and heavy labor.",
+     "Rahu Bhukti: Dangerous, explosive ambition. Sudden foreign events, massive risks, and rule-breaking actions.",
+     "Ketu Bhukti: Unseen cuts. Spiritual surgeries, sudden detachment from properties, and highly secretive actions."
+    },
+    // 4: MERCURY MAHA DASHA
+    {"",
+     "Sun Bhukti: Budhaditya energy. Brilliant administrative success, sharp intellect, and recognition from the government.",
+     "Moon Bhukti: Creative but anxious mind. Highly imaginative period, excellent for arts, but prone to overthinking.",
+     "Mars Bhukti: Sharp, aggressive communication. Technical success, but frequent verbal arguments and impatience.",
+     "Mercury Bhukti: Swa-bhukti. Pure intellectual expansion. Great for business, writing, IT, and building networks.",
+     "Jupiter Bhukti: Wisdom meets logic. Highly auspicious for higher education, consulting, publishing, and wealth.",
+     "Venus Bhukti: Beautiful communication. Excellent for arts, luxury business, romance, and joyful travels.",
+     "Saturn Bhukti: Serious, structured thinking. Business success through intense discipline, patience, and long-term planning.",
+     "Rahu Bhukti: Highly unorthodox ideas. Explosive success in tech/media, but warns of manipulative communication or illusions.",
+     "Ketu Bhukti: Mental fog or deep intuition. A break from logical business to pursue highly spiritual or isolated research."
+    },
+    // 5: JUPITER MAHA DASHA
+    {"",
+     "Sun Bhukti: Righteous authority. Excellent for promotions, public respect, and receiving blessings from father/mentors.",
+     "Moon Bhukti: Gajakesari energy. Profound emotional peace, acquisition of properties, and deep domestic happiness.",
+     "Mars Bhukti: Courage backed by luck. Great for real estate, defending dharma, and achieving quick, successful victories.",
+     "Mercury Bhukti: Academic brilliance. Massive success in business, astrology, teaching, and financial consulting.",
+     "Jupiter Bhukti: Swa-bhukti. The golden era begins. Expansion of wealth, spiritual grace, and overall life optimism.",
+     "Venus Bhukti: Expansion of luxury. Massive comforts, romance, and artistic wealth, though slightly indulgent.",
+     "Saturn Bhukti: Karma balances grace. A period where you must work hard to solidify the luck you have received.",
+     "Rahu Bhukti: Guru-Chandal energy. Sudden, massive expansion through unconventional or foreign means. Questioning traditional beliefs.",
+     "Ketu Bhukti: Ultimate spiritual liberation. Deep ashram experiences, pilgrimages, and detachment from material wealth."
+    },
+    // 6: VENUS MAHA DASHA
+    {"",
+     "Sun Bhukti: Friction between ego and pleasure. Career demands interrupt personal luxuries. Clashes with authority.",
+     "Moon Bhukti: Extremely romantic and sensitive. High focus on beauty, arts, mother, and emotional comforts.",
+     "Mars Bhukti: High passion and aggression. A period of intense romance, luxury acquisitions, and impulsive spending.",
+     "Mercury Bhukti: Joyful intellect. Great for business in arts/design, playful communication, and expanding social circles.",
+     "Jupiter Bhukti: Two gurus collide. Massive wealth and marriage prospects, but ideological differences on how to spend money.",
+     "Venus Bhukti: Swa-bhukti. The peak of luxury, arts, and romance. A highly comfortable and aesthetically pleasing period.",
+     "Saturn Bhukti: A legendary placement. Saturn rewards Venus with massive, structured success, wealth, and permanent career elevation.",
+     "Rahu Bhukti: Intense, obsessive materialism. Sudden massive gains, unconventional romances, and foreign luxuries.",
+     "Ketu Bhukti: A sudden stop to luxury. Spiritual detachment from physical pleasures. Relationships may feel distant."
+    },
+    // 7: SATURN MAHA DASHA
+    {"",
+     "Sun Bhukti: Intense friction. The servant fights the king. Struggles with career, father, and government authorities.",
+     "Moon Bhukti: Vish Yoga energy. A period of melancholy, emotional isolation, heavy responsibilities, and maternal worries.",
+     "Mars Bhukti: Extreme frustration. The unstoppable force meets the immovable object. Accidents, high stress, and exhausting labor.",
+     "Mercury Bhukti: Structured logic. Success in long-term business, systematic coding, and deep analytical research.",
+     "Jupiter Bhukti: Relief from the grind. Saturn allows Jupiter's grace to bring financial rewards and spiritual maturity.",
+     "Venus Bhukti: Highly prosperous. Saturn fully rewards your past hard work with immense luxury, stable romance, and wealth.",
+     "Saturn Bhukti: Swa-bhukti. The crucible of discipline. A slow, grinding, and heavy period that forces you to build structure.",
+     "Rahu Bhukti: Shrapit (Cursed) energy. A chaotic period of explosive changes, extreme workloads, and karmic unpredictability.",
+     "Ketu Bhukti: Complete detachment. A highly isolating period forcing you to let go of old structures and turn inward."
+    },
+    // 8: RAHU MAHA DASHA
+    {"",
+     "Sun Bhukti: Eclipse energy. Sudden threats to authority, political illusions, or massive unconventional career shifts.",
+     "Moon Bhukti: Emotional eclipse. Deep phobias, intense imagination, foreign travels, and psychological volatility.",
+     "Mars Bhukti: Explosive, dangerous ambition. Sudden surges of energy, rule-breaking actions, and risk of surgeries.",
+     "Mercury Bhukti: Brilliant but manipulative intellect. Massive success in tech, media, and foreign business.",
+     "Jupiter Bhukti: Guru-Chandal energy. Expansion through highly unorthodox means. A clash between tradition and modern ambition.",
+     "Venus Bhukti: Obsessive luxury. Intense, unconventional romances, massive material gains, and high indulgence.",
+     "Saturn Bhukti: Shrapit energy. A grinding, karmic period where illusions meet harsh reality. Heavy labor and stress.",
+     "Rahu Bhukti: Swa-bhukti. The peak of illusion and ambition. Sudden massive changes, foreign elements, and worldly obsession.",
+     "Ketu Bhukti: Karmic whiplash. Sudden stops, confusing reversals, and a chaotic internal spiritual crisis."
+    },
+    // 9: KETU MAHA DASHA
+    {"",
+     "Sun Bhukti: Ego dissolution. Loss of confidence or position. A time to surrender authority and focus on the soul.",
+     "Moon Bhukti: Emotional detachment. Deeply isolating, highly intuitive, and spiritually transformative. Prone to loneliness.",
+     "Mars Bhukti: Sudden, unseen cuts. Surgeries, sudden detachment from properties, and silent, behind-the-scenes actions.",
+     "Mercury Bhukti: Intuitive logic. A break from standard business to pursue astrology, coding, or hidden research.",
+     "Jupiter Bhukti: Pure spiritual grace. A highly auspicious time for pilgrimages, deep philosophical learning, and ashram life.",
+     "Venus Bhukti: Detachment from pleasure. Relationships feel distant. Luxury is ignored in favor of internal peace.",
+     "Saturn Bhukti: Depressive isolation. A highly restrictive period demanding extreme patience and karmic clearing.",
+     "Rahu Bhukti: Karmic whiplash. Sudden confusing events. The head and the tail of the dragon pull you in opposite directions.",
+     "Ketu Bhukti: Swa-bhukti. The ultimate period of spiritual detachment, isolation, and shedding of old material identities."
     }
+};
+
+inline std::string get_dynamic_bhukti(int md_idx, int ad_idx, int score, int house) {
+    std::string base = en_bhukti_matrix[md_idx][ad_idx];
+    std::string modifier = "";
+    
+    if (score >= 3) modifier += " | DIGNITY STRENGTH: The Bhukti lord is powerful in your natal chart, ensuring these results manifest smoothly and bring decisive success.";
+    else if (score <= -2) modifier += " | DIGNITY AFFLICTION: The Bhukti lord is weak or afflicted. Expect significant delays, heightened stress, or obstacles regarding these themes.";
+    
+    if (house == 6 || house == 8 || house == 12) modifier += " Operating from a Dusthana, it triggers karmic cleanup, health focus, or sudden transitions.";
+    else if (house == 1 || house == 4 || house == 7 || house == 10) modifier += " Operating from a Kendra, it forces major, highly visible actions in your foundational life.";
+    
+    return base + modifier;
 }

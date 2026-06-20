@@ -404,3 +404,38 @@ inline std::string get_dynamic_bhukti(int md_idx, int ad_idx, int score, int hou
     
     return base + modifier;
 }
+
+// =========================================================================
+// NEW: DYNAMIC LIFE-EVENT INJECTION (BHAVA LORDSHIPS) - ENGLISH
+// =========================================================================
+
+inline std::string get_house_theme(int h) {
+    switch(h) {
+        case 1: return "your core physical health and major new life beginnings";
+        case 2: return "family wealth accumulation and savings";
+        case 3: return "short travels, intense self-effort, and siblings";
+        case 4: return "real estate, vehicles, and domestic peace";
+        case 5: return "romance, children, and speculative investments";
+        case 6: return "clearing debts, health routines, and overcoming workplace enemies";
+        case 7: return "marital status, business partnerships, and public dealings";
+        case 8: return "sudden transformations, hidden wealth, and deep psychological changes";
+        case 9: return "long-distance travels, higher education, and sheer luck";
+        case 10: return "career milestones, public status, and authority";
+        case 11: return "massive financial gains and the fulfillment of major desires";
+        case 12: return "foreign connections, heavy expenditures, and spiritual isolation";
+        default: return "";
+    }
+}
+
+inline std::string get_lordship_bhukti_event(std::string p_name, const std::vector<int>& houses) {
+    if (houses.empty()) return "";
+    if (houses.size() == 1) {
+        return "Because " + p_name + " rules your " + std::to_string(houses[0]) + "th House, this period will physically manifest as events related to " + get_house_theme(houses[0]) + ".";
+    } else {
+        return "Because " + p_name + " rules your " + std::to_string(houses[0]) + "th and " + std::to_string(houses[1]) + "th Houses, this period will physically manifest as major developments involving " + get_house_theme(houses[0]) + " as well as " + get_house_theme(houses[1]) + ".";
+    }
+}
+
+inline std::string get_node_bhukti_event(std::string p_name, int placed_house) {
+    return "As a shadow node placed in your " + std::to_string(placed_house) + "th House, " + p_name + " will unpredictably amplify events related to " + get_house_theme(placed_house) + " during this time.";
+}

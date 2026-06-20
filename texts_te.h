@@ -674,4 +674,38 @@ inline std::string te_get_dynamic_bhukti(int md_idx, int ad_idx, int score, int 
     return base + modifier;
 }
 
+// =========================================================================
+// NEW: DYNAMIC LIFE-EVENT INJECTION (BHAVA LORDSHIPS) - TELUGU
+// =========================================================================
+
+inline std::string te_get_house_theme(int h) {
+    switch(h) {
+        case 1: return "మీ శారీరక ఆరోగ్యం మరియు జీవితంలో ప్రధాన కొత్త మార్పులు";
+        case 2: return "కుటుంబ సంపద, పొదుపు మరియు వాణిజ్య లావాదేవీలు";
+        case 3: return "చిన్న ప్రయాణాలు, అపారమైన స్వయంకృషి మరియు తోబుట్టువులు";
+        case 4: return "రియల్ ఎస్టేట్, వాహనాలు మరియు గృహ సౌఖ్యం";
+        case 5: return "సంతానం, ప్రేమ వ్యవహారాలు మరియు స్పెక్యులేటివ్ పెట్టుబడులు";
+        case 6: return "అప్పులు తీర్చడం, ఆరోగ్య సమస్యల పరిష్కారం మరియు శత్రువుల జయం";
+        case 7: return "వివాహ జీవితం, వ్యాపార భాగస్వామ్యాలు మరియు పబ్లిక్ రిలేషన్స్";
+        case 8: return "ఆకస్మిక పరివర్తనలు, గుప్త ధనం మరియు లోతైన మానసిక మార్పులు";
+        case 9: return "విదేశీ/దూర ప్రయాణాలు, ఉన్నత విద్య మరియు అదృష్టం";
+        case 10: return "కెరీర్ (వృత్తి) మైలురాళ్ళు, సామాజిక హోదా మరియు అధికారం";
+        case 11: return "భారీ ఆర్థిక లాభాలు, ఆశయాల నెరవేర్పు మరియు పెద్ద నెట్‌వర్క్‌లు";
+        case 12: return "విదేశీ సంబంధాలు, భారీ ఖర్చులు మరియు ఆధ్యాత్మిక ఏకాంతం";
+        default: return "";
+    }
+}
+inline std::string te_get_lordship_bhukti_event(std::string p_name, const std::vector<int>& houses) {
+    if (houses.empty()) return "";
+    if (houses.size() == 1) {
+        return "మీ జాతకంలో " + p_name + " " + std::to_string(houses[0]) + "వ భావానికి అధిపతి కాబట్టి, ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + "కి సంబంధించిన ప్రత్యక్ష సంఘటనలు మీ జీవితంలో జరుగుతాయి.";
+    } else {
+        return "మీ జాతకంలో " + p_name + " " + std::to_string(houses[0]) + "వ మరియు " + std::to_string(houses[1]) + "వ భావాలకు అధిపతి కాబట్టి, ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + "తో పాటు " + te_get_house_theme(houses[1]) + "కి సంబంధించిన ప్రత్యక్ష సంఘటనలు మీ జీవితంలో బలంగా జరుగుతాయి.";
+    }
+}
+
+inline std::string te_get_node_bhukti_event(std::string p_name, int placed_house) {
+    return "ఛాయా గ్రహమైన " + p_name + " మీ జాతకంలో " + std::to_string(placed_house) + "వ భావంలో ఉన్నందున, ఈ సమయంలో " + te_get_house_theme(placed_house) + "కి సంబంధించిన సంఘటనలను తీవ్రంగా మరియు అనూహ్యంగా ప్రేరేపిస్తుంది.";
+}
+
 #endif

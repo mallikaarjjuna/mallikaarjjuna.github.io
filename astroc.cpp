@@ -2007,14 +2007,37 @@ void print_dasha_web() {
                 int ad_score = natal_scores[ad_p];
                 int ad_house = (planet_rashis[ad_p] - planet_rashis[0] + 12) % 12 + 1;
 
+                // --- NEW: Calculate House Ownerships for Life-Event Injection ---
+                vector<int> owned_houses;
+                if (ad_p >= 1 && ad_p <= 7) { // Only standard physical planets rule houses
+                    for (int h = 1; h <= 12; h++) {
+                        int rashi_of_house = (planet_rashis[0] + h - 1) % 12;
+                        if (rashi_lords[rashi_of_house] == string(p_names_full[ad_p])) {
+                            owned_houses.push_back(h);
+                        }
+                    }
+                }
+
                 if (telugu_mode) {
                     printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
-                    // Calling the new Dynamic Telugu Bhukti Function
                     printf("        %s\n", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house).c_str());
+                    
+                    // Inject the direct Life-Event prediction
+                    if (ad_p == 8 || ad_p == 9) {
+                        printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house).c_str());
+                    } else {
+                        printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses).c_str());
+                    }
                 } else {
                     printf("     -> [ %s - %s ] : %s Bhukti\n", ad_start_str.c_str(), ad_end_str.c_str(), p_names_full[ad_p]);
-                    // Calling the new Dynamic English Bhukti Function
                     printf("        %s\n", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house).c_str());
+                    
+                    // Inject the direct Life-Event prediction
+                    if (ad_p == 8 || ad_p == 9) {
+                        printf("        * Life Events: %s\n", get_node_bhukti_event(p_names_full[ad_p], ad_house).c_str());
+                    } else {
+                        printf("        * Life Events: %s\n", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses).c_str());
+                    }
                 }
                 ad_start += ad_dur;
             }

@@ -47,3 +47,19 @@ deploy: wasm
 	@if [ -f astroc_part_aa.bin ]; then cp astroc_part_aa.bin $(HUGO_STATIC_DIR)/; fi
 	@if [ -f astroc_part_ab.bin ]; then cp astroc_part_ab.bin $(HUGO_STATIC_DIR)/; fi
 	@echo "Success! WebAssembly files compiled and placed in $(HUGO_STATIC_DIR)"
+
+# ==============================================================================
+# GIT AUTOMATION
+# ==============================================================================
+
+# Default commit message if none is provided via the command line
+MSG ?= Intermediate deployment push
+
+push: deploy
+	@echo "Staging changes..."
+	git add .
+	@echo "Committing changes..."
+	git commit -m "$(MSG)" || true
+	@echo "Pushing to remote repository..."
+	git push origin main
+	@echo "Git push complete!"

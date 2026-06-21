@@ -226,7 +226,7 @@
         Computing High-Precision Orbital Mechanics...
     </div>
 
-    <div id="results-container" style="display:none;">
+<div id="results-container" style="display:none;">
         <div class="tabs">
             <button class="tab-btn active" onclick="openTab(event, 'tab-birth')">Birth Chart</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-general')">General Prediction</button>
@@ -235,12 +235,11 @@
             <button class="tab-btn" onclick="openTab(event, 'tab-dosha')">Mangal Dosha</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-varsh')">Year (Varshaphal)</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-soulmate')">Soul Mate (Synastry)</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-muhurat')">Event Muhurat</button> </div>
-			
-			<button class="tab-btn" onclick="showTab('tab-about')">About</button>
-			<button class="tab-btn" onclick="showTab('tab-contact')">Contact Us</button>
-
-        <div id="tab-birth" class="tab-content active"></div>
+            <button class="tab-btn" onclick="openTab(event, 'tab-muhurat')">Event Muhurat</button> 
+            
+            <button class="tab-btn" onclick="openTab(event, 'tab-about')">About</button>
+            <button class="tab-btn" onclick="openTab(event, 'tab-contact')">Contact Us</button>
+        </div> <div id="tab-birth" class="tab-content active"></div>
         <div id="tab-general" class="tab-content"></div>
         <div id="tab-dasha" class="tab-content"></div>
         <div id="tab-gochar" class="tab-content"></div>
@@ -248,38 +247,37 @@
         <div id="tab-varsh" class="tab-content"></div>
         <div id="tab-soulmate" class="tab-content"></div>
         <div id="tab-muhurat" class="tab-content"></div>
-	</div>
-	<div id="tab-about" class="tab-content" style="display: none;">
-        <div class="terminal-view">
-            <h2>About Our Jyotisha Engine</h2>
-            <p>Welcome to a next-generation Vedic Astrology portal. Unlike standard commercial calculators, this platform is powered by a high-precision, custom-built C++ astronomical engine operating directly inside your browser via WebAssembly (Wasm).</p>
-            
-            <p><strong>The Core Architecture</strong><br>
-            At the heart of this software lies the NASA-grade Swiss Ephemeris library, ensuring the planetary longitude calculations are exact down to the arcsecond. The predictive matrices are strictly coded according to the authentic, classical principles of the <em>Brihat Parashara Hora Shastra (BPHS)</em>.</p>
-            
-            <p><strong>Advanced Capabilities</strong><br>
-            This engine dynamically calculates over 100 mathematical data points in milliseconds—including Shadbala (planetary strength), Ashtakavarga (transit filtering), Jaimini Karakas, and the highly specialized Phase 4 Vulnerability Matrix (tracking Mrityu Bhagas, Sahams, and Graha Yuddha war zones).</p>
+    
+        <div id="tab-about" class="tab-content">
+            <div class="terminal-view">
+                <h2>About Our Jyotisha Engine</h2>
+                <p>Welcome to a next-generation Vedic Astrology portal. Unlike standard commercial calculators, this platform is powered by a high-precision, custom-built C++ astronomical engine operating directly inside your browser via WebAssembly (Wasm).</p>
+                
+                <p><strong>The Core Architecture</strong><br>
+                At the heart of this software lies the NASA-grade Swiss Ephemeris library, ensuring the planetary longitude calculations are exact down to the arcsecond. The predictive matrices are strictly coded according to the authentic, classical principles of the <em>Brihat Parashara Hora Shastra (BPHS)</em>.</p>
+                
+                <p><strong>Advanced Capabilities</strong><br>
+                This engine dynamically calculates over 100 mathematical data points in milliseconds—including Shadbala (planetary strength), Ashtakavarga (transit filtering), Jaimini Karakas, and the highly specialized Phase 4 Vulnerability Matrix (tracking Mrityu Bhagas, Sahams, and Graha Yuddha war zones).</p>
 
-            <p><strong>Lead Architect</strong><br>
-            Architected and engineered by Mallikarjuna Munagapati (Malli), this platform was designed to bridge the gap between hardcore astronomical mathematics and dynamic, AI-like narrative storytelling, delivering an unparalleled astrological experience.</p>
+                <p><strong>Lead Architect</strong><br>
+                Architected and engineered by Mallikarjuna Munagapati (Malli), this platform was designed to bridge the gap between hardcore astronomical mathematics and dynamic, AI-like narrative storytelling, delivering an unparalleled astrological experience.</p>
+            </div>
+        </div>
+
+        <div id="tab-contact" class="tab-content">
+            <div class="terminal-view">
+                <h2>Contact Us</h2>
+                <p>We are constantly evolving and enhancing our astrological engine to provide the most accurate and insightful readings possible.</p>
+                
+                <p>Whether you have technical feedback, feature requests, or questions regarding the astrological calculations, we would love to hear from you.</p>
+                
+                <p><strong>Email:</strong> <a href="mailto:mallikaarjjuna@gmail.com" style="color: #4CAF50; text-decoration: none;">mallikaarjjuna@gmail.com</a></p>
+                
+                <br>
+                <p><em>Note: Because this engine runs entirely offline within your browser via WebAssembly, no personal birth data is ever transmitted to or stored on our servers. Your privacy is 100% secure.</em></p>
+            </div>
         </div>
     </div>
-
-    <div id="tab-contact" class="tab-content" style="display: none;">
-        <div class="terminal-view">
-            <h2>Contact Us</h2>
-            <p>We are constantly evolving and enhancing our astrological engine to provide the most accurate and insightful readings possible.</p>
-            
-            <p>Whether you have technical feedback, feature requests, or questions regarding the astrological calculations, we would love to hear from you.</p>
-            
-            <p><strong>Email:</strong> <a href="mailto:mallikaarjjuna@gmail.com" style="color: #4CAF50; text-decoration: none;">mallikaarjjuna@gmail.com</a></p>
-            
-            <br>
-            <p><em>Note: Because this engine runs entirely offline within your browser via WebAssembly, no personal birth data is ever transmitted to or stored on our servers. Your privacy is 100% secure.</em></p>
-        </div>
-    </div>
-</div>
-
 <script>
     // Helper to safely get values or return a default (prevents C++ stoi crashes on empty fields)
     const getVal = (name, def) => document.querySelector(`input[name="${name}"]`).value || def;

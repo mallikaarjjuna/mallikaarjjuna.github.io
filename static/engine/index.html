@@ -169,8 +169,33 @@
             <div class="form-group"><label>Minute</label><input type="number" name="transit_minute" value="0"></div>
             <div class="form-group"><label>Second</label><input type="number" name="transit_second" value="0"></div>
         </div>
+		
+		<h2>3. Partner Birth Parameters (For Synastry)</h2>
+        <div class="form-grid">
+            <div class="form-group"><label>Partner Day</label><input type="number" name="p2_day" value="1"></div>
+            <div class="form-group"><label>Partner Month</label><input type="number" name="p2_month" value="1"></div>
+            <div class="form-group"><label>Partner Year</label><input type="number" name="p2_year" value="1985"></div>
+            <div class="form-group"><label>Hour</label><input type="number" name="p2_hour" value="12"></div>
+            <div class="form-group"><label>Minute</label><input type="number" name="p2_minute" value="0"></div>
+            <div class="form-group"><label>Second</label><input type="number" name="p2_second" value="0"></div>
+            <div class="form-group">
+                <label>Partner City</label>
+                <select name="p2_place">
+                    <option value="hyderabad" selected>Hyderabad</option>
+                    <option value="nellore">Nellore</option>
+                    <option value="kovur">Kovur</option>
+                    <option value="bitragunta">Bitragunta</option>
+                    <option value="bangalore">Bangalore</option>
+                    <option value="chennai">Chennai</option>
+                    <option value="mumbai">Mumbai</option>
+                    <option value="delhi">New Delhi</option>
+                    <option value="kolkata">Kolkata</option>
+                </select>
+            </div>
+        </div>
+		
 
-		<h2>3. Interface Settings & Events</h2>
+		<h2>4. Interface Settings & Events</h2>
         <div class="form-grid">
             <div class="form-group">
                 <label>Muhurat Event Type</label>
@@ -290,8 +315,17 @@
                 );
             } else if (tabId === 'tab-varsh') {
                 args.push(getVal('transit_year', new Date().getFullYear().toString()));
-            } else if (tabId === 'tab-soulmate') {
-                args.push("1985", "1", "1", "12", "0", "0", "hyderabad"); // Dummy P2 Data
+			} else if (tabId === 'tab-soulmate') {
+                // Dynamically fetch Person 2's data from the UI
+                args.push(
+                    getVal('p2_year', '1985'),
+                    getVal('p2_month', '1'),
+                    getVal('p2_day', '1'),
+                    getVal('p2_hour', '12'),
+                    getVal('p2_minute', '0'),
+                    getVal('p2_second', '0'),
+                    document.querySelector('select[name="p2_place"]').value
+                );
             } else if (tabId === 'tab-muhurat') {
                 // NEW: Push the Event Type, Target Year, and Target Month
                 args.push(

@@ -2351,53 +2351,80 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
             }
             
             // ==========================================
-            // NEW: GOCHARA PHALA PREDICTIVE TEXT INJECTION
+            // NEW: GOCHARA TIMELINE SWEEPER & TEXT INJECTION
             // ==========================================
-            // We only print the deep life-event text for the major slow-moving karma planets
-            if (i == 5 || i == 7 || i == 8 || i == 9) {
-				transit_triggers[i].push_back({"GOCHAR_RESULT", telugu_mode ? te_get_gochar_text(i, from_mo) : get_gochar_text(i, from_mo)}); // <-- UPDATED
+            if (i == 1 || i == 3 || i == 5 || i == 7 || i == 8 || i == 9) {
+                double step = (i == 1 || i == 3) ? 1.0 : 5.0; // Fast planets step by 1 day, Slow planets by 5 days
+                
+                // Sweep backwards to find Entry Date
+                double jd_in = trans_jd;
+                while ((int)(get_planet_lon_on_jd(i, jd_in) / 30.0) == trans_rashi) jd_in -= step;
+                while ((int)(get_planet_lon_on_jd(i, jd_in) / 30.0) != trans_rashi) jd_in += 1.0;
+
+                // Sweep forwards to find Exit Date
+                double jd_out = trans_jd;
+                while ((int)(get_planet_lon_on_jd(i, jd_out) / 30.0) == trans_rashi) jd_out += step;
+                while ((int)(get_planet_lon_on_jd(i, jd_out) / 30.0) != trans_rashi) jd_out -= 1.0;
+                
+                string date_range = "[ " + jd_to_string(jd_in).substr(0,10) + "  >>  " + jd_to_string(jd_out).substr(0,10) + " ]";
+                
+                string gochar_payload = (telugu_mode ? "కాల వ్యవధి: " : "Timeline: ") + date_range + "\n        " + (telugu_mode ? te_get_gochar_text(i, from_mo) : get_gochar_text(i, from_mo));
+                
+                transit_triggers[i].push_back({"GOCHAR_RESULT", gochar_payload});
             }
         }
         printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
 
         printf("\n[PHASE 3: TRANSIT SYNTHESIS (Dasha, AV Filtering & Gochara Phala)]\n");
-        int major_planets[] = {5, 7, 8, 9, 3}; // Moved Mars to the end so Jupiter/Saturn text prints first
+		if (telugu_mode) {
+            printf("\n=========================================================================================\n");
+            printf("=== గోచార ఫలితాలు (DYNAMIC TRANSIT PREDICTIONS) ===\n");
+            printf("=========================================================================================\n");
+        } else {
+            printf("\n=========================================================================================\n");
+            printf("=== DYNAMIC TRANSIT PREDICTIONS (GOCHARA PHALA) ===\n");
+            printf("=========================================================================================\n");
+        }
+
+        int major_planets[] = {1, 3, 5, 7, 8, 9}; // Sun, Mars, Jup, Sat, Rahu, Ketu
         
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 6; i++) {
             int mp = major_planets[i];
             if (transit_triggers.find(mp) != transit_triggers.end() && !transit_triggers[mp].empty()) {
                 
-                int d_map[] = {-1, 2, 3, 4, 8, 6, 1, 7, 5, 0}; 
-                bool is_dasha_lord = (d_map[mp] == md_lord || d_map[mp] == ad_lord);
-                string dasha_alert = is_dasha_lord ? (telugu_mode ? " [*** ప్రస్తుత దశా నాథుడు ***]" : " [*** ACTIVE DASHA LORD TRIGGER ***]") : "";
-
-                string av_alert = "";
-                if (mp < 8) {
-                    int r = t_rashis[mp];
-                    int r_sav = sav_scores[r];
-                    int r_bav = bav_scores[mp-1][r];
-                    if (r_sav >= 28 && r_bav >= 4) av_alert = telugu_mode ? " -> శుభ బలం (SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")" : " -> High Support (SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")";
-                    else if (r_sav <= 24 || r_bav <= 2) av_alert = telugu_mode ? " -> తీవ్ర ప్రతికూలం (Weak AV! SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")" : " -> HIGH FRICTION (Weak AV! SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")";
-                    else av_alert = telugu_mode ? " -> మధ్యస్థం (SAV: " + to_string(r_sav) + ")" : " -> Average Environment (SAV: " + to_string(r_sav) + ")";
-                }
-
-                if (telugu_mode) printf("  => గోచార %s%s%s ఫలితాలు:\n", get_planet_name(mp).c_str(), dasha_alert.c_str(), av_alert.c_str());
-                else printf("  => Transit %s%s%s is hitting:\n", p_names_full[mp], dasha_alert.c_str(), av_alert.c_str());
-                
-				for (auto hit : transit_triggers[mp]) {
-                    // Inject the custom Gochara paragraph
+                string gochar_text = "";
+                for (auto hit : transit_triggers[mp]) {
                     if (hit.p_name == "GOCHAR_RESULT") {
-                        if (telugu_mode) printf("     *** శాస్త్ర ఫలితం: %s\n", hit.hit_type.c_str());
-                        else printf("     *** Classical Result: %s\n", hit.hit_type.c_str());
-                    } else {
-                        if (telugu_mode) printf("     * %-25s -> జన్మ %s\n", hit.hit_type.c_str(), hit.p_name.c_str());
-                        else printf("     * %-30s -> Natal %s\n", hit.hit_type.c_str(), hit.p_name.c_str());
+                        gochar_text = hit.hit_type;
+                        break; // We extract the payload and ignore all the technical Aspects/Conjuncts hits
                     }
                 }
-			}
+                
+                if (gochar_text != "") {
+                    int d_map[] = {-1, 2, 3, 4, 8, 6, 1, 7, 5, 0}; 
+                    bool is_dasha_lord = (d_map[mp] == md_lord || d_map[mp] == ad_lord);
+                    string dasha_alert = is_dasha_lord ? (telugu_mode ? " [ప్రస్తుత దశా నాథుడు]" : " [ACTIVE DASHA LORD]") : "";
+
+                    string av_alert = "";
+                    if (mp < 8) {
+                        int r = t_rashis[mp];
+                        int r_sav = sav_scores[r];
+                        if (r_sav >= 28) av_alert = telugu_mode ? " | శుభ బలం (SAV: " + to_string(r_sav) + ")" : " | High Support (SAV: " + to_string(r_sav) + ")";
+                        else if (r_sav <= 24) av_alert = telugu_mode ? " | ప్రతికూలం (SAV: " + to_string(r_sav) + ")" : " | Low Support (SAV: " + to_string(r_sav) + ")";
+                        else av_alert = telugu_mode ? " | మధ్యస్థం (SAV: " + to_string(r_sav) + ")" : " | Average (SAV: " + to_string(r_sav) + ")";
+                    }
+
+                    if (telugu_mode) {
+                        printf("\n⭐ %s గమనము (ప్రస్తుతం %dవ భావంలో)%s%s\n", get_planet_name(mp).c_str(), (t_rashis[mp] - natal_mo_rashi + 12) % 12 + 1, dasha_alert.c_str(), av_alert.c_str());
+                        printf("   %s\n", gochar_text.c_str());
+                    } else {
+                        printf("\n⭐ %s TRANSIT (Currently in %dth House)%s%s\n", p_names_full[mp], (t_rashis[mp] - natal_mo_rashi + 12) % 12 + 1, dasha_alert.c_str(), av_alert.c_str());
+                        printf("   %s\n", gochar_text.c_str());
+                    }
+                }
+            }
         }
-        printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
-        
+        printf("\n------------------------------------------------------------------------------------------------------------------------------------------\n");        
         // ==============================================================================
         // [PHASE 4: VULNERABILITY & DESTRUCTION MATRIX]
         // ==============================================================================
@@ -2453,7 +2480,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
         double avayogi_point = fmod((yogi_point_calc + 186.6666667), 360.0);
         double avayogi_ni_point = fmod((yogi_point_calc + 80.0), 360.0); // North Indian Concept
 
-        struct DangerPoint { string name; double lon; };
+		struct DangerPoint { string name; double lon; };
         vector<DangerPoint> danger_points = {
             {telugu_mode ? "64వ నవాంశ (కర్మ ప్రమాద బిందువు)" : "64th Navamsha (Karmic Danger Point)", nav_64_lon},
             {telugu_mode ? "22వ ద్రేక్కాణ (సంక్షోభ బిందువు)" : "22nd Drekkana (Crisis & Fatigue Point)", drek_22_lon},
@@ -2462,22 +2489,101 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
             {telugu_mode ? "గుళిక (విష బిందువు)" : "Gulika (Fatal Poison Node)", gulika_lon},
             {telugu_mode ? "బాధక కచ్చితమైన డిగ్రీ" : "Badhaka Exact Degree", (badhaka_rashi * 30.0) + fmod(lagna_lon, 30.0)},
             {telugu_mode ? "అవయోగి బిందువు (ఆర్థిక/శక్తి క్షీణత)" : "Avayogi Point (Wealth/Energy Drain)", avayogi_point},
-            {telugu_mode ? "ఉత్తర భారత అవయోగి (నార్త్ ఇండియన్)" : "Avayogi Point (North Indian Variant)", avayogi_ni_point} // <--- NEW ADDITION
+            {telugu_mode ? "ఉత్తర భారత అవయోగి (నార్త్ ఇండియన్)" : "Avayogi Point (North Indian Variant)", avayogi_ni_point},
+            {telugu_mode ? "8వ భావ ప్రారంభ బిందువు (రంధ్ర స్థానం)" : "8th House Cusp (Randhra / Fatality)", house_cusps[8]} // NEW: 8th Cusp
         };
 
+        // --- NEW: 2. Upagrahas (Maandi & Yamaghantaka via Gulika offsets) ---
+        double maandi_lon = fmod(gulika_lon - 15.0 + 360.0, 360.0);
+        double yama_lon = fmod(gulika_lon + 45.0, 360.0);
+        danger_points.push_back({telugu_mode ? "మాంది (ప్రాణ సంక్షోభం)" : "Maandi (Sudden Shock/Surgery)", maandi_lon});
+        danger_points.push_back({telugu_mode ? "యమఘంటక (ప్రమాద బిందువు)" : "Yamaghantaka (Critical Care Trigger)", yama_lon});
+
+        // --- NEW: 5. Sahams (Arabic Parts for Death & Disease) ---
+        double mrityu_saham = fmod(lagna_lon + house_cusps[8] - moon_lon + 360.0, 360.0);
+        double roga_saham = fmod(lagna_lon + house_cusps[6] - moon_lon + 360.0, 360.0);
+        if (!is_day_birth) {
+            mrityu_saham = fmod(lagna_lon + moon_lon - house_cusps[8] + 360.0, 360.0);
+            roga_saham = fmod(lagna_lon + moon_lon - house_cusps[6] + 360.0, 360.0);
+        }
+        danger_points.push_back({telugu_mode ? "మృత్యు సహం (ప్రాణ గండం)" : "Mrityu Saham (Fatality Trigger)", mrityu_saham});
+        danger_points.push_back({telugu_mode ? "రోగ సహం (వ్యాధి బిందువు)" : "Roga Saham (Disease Trigger)", roga_saham});
+
+        // --- DYNAMIC LORDS INJECTION (Kharesha, Trik Lords, Marakas) ---
+        int drek_22_rashi = ((int)(drek_22_lon / 30.0)) % 12;
+        int nav_64_rashi = ((int)(nav_64_lon / 30.0)) % 12;
+        
         for (int p = 1; p <= 7; p++) {
-            if (string(p_names_full[p]) == rashi_lords[maraka_2]) danger_points.push_back({telugu_mode ? "2వ భావాధిపతి (ప్రాథమిక మారక)" : "2nd Lord (Primary Maraka)", planet_lons[p]});
-            if (string(p_names_full[p]) == rashi_lords[maraka_7]) danger_points.push_back({telugu_mode ? "7వ భావాధిపతి (ద్వితీయ మారక)" : "7th Lord (Secondary Maraka)", planet_lons[p]});
-            if (string(p_names_full[p]) == rashi_lords[badhaka_rashi]) danger_points.push_back({telugu_mode ? "బాధకాధిపతి (అడ్డంకి)" : "Badhaka Lord (Obstruction)", planet_lons[p]});
+            string p_lord_name = p_names_full[p];
+            double p_lon = planet_lons[p];
+            
+            if (p_lord_name == rashi_lords[maraka_2]) danger_points.push_back({telugu_mode ? "2వ భావాధిపతి (ప్రాథమిక మారక)" : "2nd Lord (Primary Maraka)", p_lon});
+            if (p_lord_name == rashi_lords[maraka_7]) danger_points.push_back({telugu_mode ? "7వ భావాధిపతి (ద్వితీయ మారక)" : "7th Lord (Secondary Maraka)", p_lon});
+            if (p_lord_name == rashi_lords[badhaka_rashi]) danger_points.push_back({telugu_mode ? "బాధకాధిపతి (అడ్డంకి)" : "Badhaka Lord (Obstruction)", p_lon});
+            
+            // NEW: 1. Kharesha & 64th Lord
+            if (p_lord_name == rashi_lords[drek_22_rashi]) danger_points.push_back({telugu_mode ? "ఖరేశ (22వ ద్రేక్కాణాధిపతి)" : "Kharesha (Lord of 22nd Drekkana)", p_lon});
+            if (p_lord_name == rashi_lords[nav_64_rashi]) danger_points.push_back({telugu_mode ? "64వ నవాంశాధిపతి" : "64th Navamsha Lord", p_lon});
+            
+            // NEW: 3. Trik Lords (6th and 12th)
+            if (p_lord_name == rashi_lords[(l_rashi + 5)%12]) danger_points.push_back({telugu_mode ? "6వ భావాధిపతి (రోగ స్థానం)" : "6th Lord (Roga/Disease)", p_lon});
+            if (p_lord_name == rashi_lords[(l_rashi + 11)%12]) danger_points.push_back({telugu_mode ? "12వ భావాధిపతి (వ్యయ స్థానం)" : "12th Lord (Loss/Hospital)", p_lon});
         }
 
+        // --- MRITYU BHAGAS & NEW SPECIFIC NATAL PLANET AFFLICTIONS ---
         for (int p = 0; p <= 9; p++) {
+            double lon = planet_lons[p];
             int rashi = planet_rashis[p];
-            double mb_absolute_lon = (rashi * 30.0) + mb_degrees[p][rashi];
+            double deg = fmod(lon, 30.0);
             string p_name = (p == 0) ? (telugu_mode ? "లగ్న" : "Lagna") : get_planet_name(p);
+            
+            // Standard BPHS Mrityu Bhaga
+            double mb_absolute_lon = (rashi * 30.0) + mb_degrees[p][rashi];
             danger_points.push_back({p_name + (telugu_mode ? " మృత్యు భాగ" : "'s Mrityu Bhaga"), mb_absolute_lon});
+
+            // NEW: 4. Gandanta (Extreme Karmic Knots)
+            bool is_gandanta = false;
+            if ((rashi == 3 || rashi == 7 || rashi == 11) && deg >= 29.0) is_gandanta = true; // Last degree of Water
+            if ((rashi == 0 || rashi == 4 || rashi == 8) && deg <= 1.0) is_gandanta = true; // First degree of Fire
+            if (is_gandanta) danger_points.push_back({(telugu_mode ? "గండాంత గ్రహం: " : "Gandanta Planet: ") + p_name, lon});
+
+            // NEW: 4. Sarpa Drekkana
+            int drek = (int)(deg / 10.0) + 1;
+            if ((rashi == 3 && (drek == 1 || drek == 2)) || (rashi == 7 && (drek == 1 || drek == 2)) || (rashi == 11 && drek == 3)) {
+                danger_points.push_back({(telugu_mode ? "సర్ప ద్రేక్కాణ గ్రహం: " : "Sarpa Drekkana Planet: ") + p_name, lon});
+            }
+
+            // NEW: 8. Nakshatra Vedha (Vipat, Pratyak, Vadha Taras)
+            if (p > 0) { // Skip Lagna for Tara check
+                int p_nak = (int)(lon / (360.0 / 27.0));
+                int tara = (p_nak - natal_mo_nak + 27) % 9;
+                if (tara == 2 || tara == 4 || tara == 6) { 
+                    string t_name = (tara == 2) ? "Vipat" : (tara == 4) ? "Pratyak" : "Vadha";
+                    string te_name = (tara == 2) ? "విపత్" : (tara == 4) ? "ప్రత్యక్" : "వధ";
+                    danger_points.push_back({(telugu_mode ? "ప్రతికూల తార ("+te_name+"): " : "Vedha Tara ("+t_name+"): ") + p_name, lon});
+                }
+            }
+
+            // NEW: 6. Visha Navamsha Degrees
+            bool is_visha = false;
+            if (rashi % 3 == 0 && std::abs(deg - 10.0) <= 1.0) is_visha = true; // Movable Signs
+            if (rashi % 3 == 1 && std::abs(deg - 14.0) <= 1.0) is_visha = true; // Fixed Signs
+            if (rashi % 3 == 2 && std::abs(deg - 18.0) <= 1.0) is_visha = true; // Dual Signs
+            if (is_visha) danger_points.push_back({(telugu_mode ? "విష నవాంశ బిందువు: " : "Visha Navamsha Point: ") + p_name, lon});
         }
 
+        // --- NEW: 7. Graha Yuddha (Planetary War Axis) ---
+        for (int p1 = 3; p1 <= 7; p1++) { // Check Mars, Merc, Jup, Ven, Sat
+            for (int p2 = p1 + 1; p2 <= 7; p2++) {
+                double dist = std::abs(planet_lons[p1] - planet_lons[p2]);
+                if (dist > 180.0) dist = 360.0 - dist;
+                if (dist <= 1.0) {
+                    double midpoint = fmod((planet_lons[p1] + planet_lons[p2]) / 2.0, 360.0);
+                    string yuddha_name = get_planet_name(p1) + " vs " + get_planet_name(p2);
+                    danger_points.push_back({(telugu_mode ? "గ్రహ యుద్ధం (వార్ జోన్): " : "Graha Yuddha (War Zone): ") + yuddha_name, midpoint});
+                }
+            }
+        }
         if (telugu_mode) printf("--- జన్మ కుండలి ప్రమాద బిందువులు (క్రాస్-చెకింగ్ కోసం) ---\n");
         else printf("--- NATAL VULNERABILITY TARGETS (For Cross-Checking) ---\n");
         

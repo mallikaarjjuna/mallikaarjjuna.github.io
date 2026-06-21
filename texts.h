@@ -196,8 +196,28 @@ const int natural_enemies[10][10] = {
     {0, 1, 1, 1, 0, 0, 0, 0, 0, 0}  
 };
 
+// =========================================================================
+// GOCHARA PHALA MATRIX (ENGLISH TRANSIT PREDICTIONS FROM MOON SIGN)
+// =========================================================================
+
 inline std::string get_gochar_text(int p_idx, int from_mo) {
-    if (p_idx == 5) {
+    if (p_idx == 1) { // SURYA (Sun)
+        switch(from_mo) {
+            case 3: case 6: case 10: case 11:
+                return "Highly Auspicious Transit. The bad times have passed. You will experience success in exams, interviews, and career. Great financial gains, government favors, and overall happiness for your family.";
+            case 1: case 2: case 4: case 5: case 7: case 8: case 9: case 12:
+                return "Challenging Transit. The Sun's position is currently unfavorable. You may experience unnecessary travel, physical fatigue, minor health issues (heat/eyes), or friction with authorities. Reduce your workload and stay vigilant.";
+        }
+    }
+    else if (p_idx == 3) { // MANGAL (Mars)
+        switch(from_mo) {
+            case 3: case 6: case 11:
+                return "Highly Auspicious Transit. You will exhibit immense courage and effortlessly defeat enemies or competitors. Excellent time for real estate gains, resolving debts, and experiencing robust health.";
+            case 1: case 2: case 4: case 5: case 7: case 8: case 9: case 10: case 12:
+                return "Volatile Transit. You may feel aggressive or easily irritated. Beware of heated arguments with family or your spouse. High caution is required regarding sudden accidents, cuts, or blood-pressure fluctuations.";
+        }
+    }
+    else if (p_idx == 5) { // GURU (Jupiter)
         switch(from_mo) {
             case 1: return "Transit in Janma Rasi: Indicates relocation, mental distress, friction with superiors, and increased expenses.";
             case 2: return "Transit in 2nd House: Highly Auspicious. Brings family happiness, financial gains, great recognition, and wealth accumulation.";
@@ -213,7 +233,7 @@ inline std::string get_gochar_text(int p_idx, int from_mo) {
             case 12: return "Transit in 12th House: Indicates heavy expenses for auspicious events and long-distance travels.";
         }
     }
-    else if (p_idx == 7) {
+    else if (p_idx == 7) { // SHANI (Saturn)
         switch(from_mo) {
             case 1: return "Janma Shani (Middle of Sade Sati): Severe mental anxiety, physical fatigue, heavy workload, and potential illness.";
             case 2: return "2nd House Shani (End of Sade Sati): Financial constraints, family disputes, and unexpected financial losses.";
@@ -229,14 +249,12 @@ inline std::string get_gochar_text(int p_idx, int from_mo) {
             case 12: return "12th House Shani (Start of Sade Sati): Wasteful expenses, hidden fears, and unexpected travels.";
         }
     }
-    else if (p_idx == 8 || p_idx == 9) {
+    else if (p_idx == 8 || p_idx == 9) { // RAHU & KETU
         if (from_mo == 3 || from_mo == 6 || from_mo == 11) return "Shadow Planet in Upachaya House: Highly favorable transit. Indicates sudden massive gains, foreign travels, and destruction of enemies.";
         else return "This shadow planet transit creates mental confusion, sudden changes, and karmic instability regarding the themes of this house.";
     }
-    if (from_mo == 3 || from_mo == 6 || from_mo == 10 || from_mo == 11) return "Favorable transit from the Moon. Brings short-term success in endeavors, gains, and a positive environment.";
-    else return "Standard transit results. May require routine effort or cause minor, short-term delays.";
+    return "Standard transit results. May require routine effort or cause minor, short-term delays.";
 }
-
 // =========================================================================
 // NEW: DYNAMIC VIMSHOTTARI DASHA PREDICTIONS (ENGLISH)
 // =========================================================================

@@ -255,6 +255,7 @@ inline std::string get_gochar_text(int p_idx, int from_mo) {
     }
     return "Standard transit results. May require routine effort or cause minor, short-term delays.";
 }
+
 // =========================================================================
 // NEW: DYNAMIC VIMSHOTTARI DASHA PREDICTIONS (ENGLISH)
 // =========================================================================

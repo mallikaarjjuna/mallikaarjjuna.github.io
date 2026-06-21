@@ -2375,19 +2375,23 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
         }
         printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
 
-        printf("\n[PHASE 3: TRANSIT SYNTHESIS (Dasha, AV Filtering & Gochara Phala)]\n");
-		if (telugu_mode) {
-            printf("\n=========================================================================================\n");
+		printf("\n[PHASE 3: TRANSIT SYNTHESIS (Dasha, AV Filtering & Gochara Phala)]\n");
+
+        if (telugu_mode) {
+            printf("=========================================================================================\n");
             printf("=== గోచార ఫలితాలు (DYNAMIC TRANSIT PREDICTIONS) ===\n");
             printf("=========================================================================================\n");
         } else {
-            printf("\n=========================================================================================\n");
+            printf("=========================================================================================\n");
             printf("=== DYNAMIC TRANSIT PREDICTIONS (GOCHARA PHALA) ===\n");
             printf("=========================================================================================\n");
         }
 
         int major_planets[] = {1, 3, 5, 7, 8, 9}; // Sun, Mars, Jup, Sat, Rahu, Ketu
         
+        // =========================================================================
+        // PART A: THE NARRATIVE TIMELINE (For the User)
+        // =========================================================================
         for (int i = 0; i < 6; i++) {
             int mp = major_planets[i];
             if (transit_triggers.find(mp) != transit_triggers.end() && !transit_triggers[mp].empty()) {
@@ -2396,7 +2400,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                 for (auto hit : transit_triggers[mp]) {
                     if (hit.p_name == "GOCHAR_RESULT") {
                         gochar_text = hit.hit_type;
-                        break; // We extract the payload and ignore all the technical Aspects/Conjuncts hits
+                        break; 
                     }
                 }
                 
@@ -2424,7 +2428,56 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                 }
             }
         }
-        printf("\n------------------------------------------------------------------------------------------------------------------------------------------\n");        
+        
+        // =========================================================================
+        // PART B: TECHNICAL TELEMETRY (For the Developer/Astrologer to trace)
+        // =========================================================================
+        if (telugu_mode) {
+            printf("\n------------------------------------------------------------------------------------------------------------------------------------------\n");
+            printf("[సాంకేతిక గోచార దృష్టి (TECHNICAL TRANSIT HITS ON NATAL CHART)]\n");
+        } else {
+            printf("\n------------------------------------------------------------------------------------------------------------------------------------------\n");
+            printf("[TECHNICAL TRANSIT HITS ON NATAL CHART]\n");
+        }
+
+        for (int i = 0; i < 6; i++) {
+            int mp = major_planets[i];
+            if (transit_triggers.find(mp) != transit_triggers.end() && !transit_triggers[mp].empty()) {
+                
+                // Check if there are any actual technical hits (ignoring the narrative payload)
+                bool has_hits = false;
+                for (auto hit : transit_triggers[mp]) {
+                    if (hit.p_name != "GOCHAR_RESULT") { has_hits = true; break; }
+                }
+
+                if (has_hits) {
+                    int d_map[] = {-1, 2, 3, 4, 8, 6, 1, 7, 5, 0}; 
+                    bool is_dasha_lord = (d_map[mp] == md_lord || d_map[mp] == ad_lord);
+                    string dasha_alert = is_dasha_lord ? (telugu_mode ? " [ప్రస్తుత దశా నాథుడు]" : " [ACTIVE DASHA LORD]") : "";
+
+                    string av_alert = "";
+                    if (mp < 8) {
+                        int r = t_rashis[mp];
+                        int r_sav = sav_scores[r];
+                        int r_bav = bav_scores[mp-1][r]; // Bringing back the specific BAV for the technical print
+                        if (r_sav >= 28 && r_bav >= 4) av_alert = telugu_mode ? " -> శుభ బలం (SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")" : " -> High Support (SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")";
+                        else if (r_sav <= 24 || r_bav <= 2) av_alert = telugu_mode ? " -> తీవ్ర ప్రతికూలం (Weak AV! SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")" : " -> HIGH FRICTION (Weak AV! SAV: " + to_string(r_sav) + ", BAV: " + to_string(r_bav) + ")";
+                        else av_alert = telugu_mode ? " -> మధ్యస్థం (SAV: " + to_string(r_sav) + ")" : " -> Average Environment (SAV: " + to_string(r_sav) + ")";
+                    }
+
+                    if (telugu_mode) printf("  => గోచార %s%s%s కింది గ్రహాలను (జన్మ కుండలిలో) తాకుతోంది:\n", get_planet_name(mp).c_str(), dasha_alert.c_str(), av_alert.c_str());
+                    else printf("  => Transit %s%s%s is hitting:\n", p_names_full[mp], dasha_alert.c_str(), av_alert.c_str());
+                    
+                    for (auto hit : transit_triggers[mp]) {
+                        if (hit.p_name != "GOCHAR_RESULT") {
+                            if (telugu_mode) printf("     * %-25s -> జన్మ %s\n", hit.hit_type.c_str(), hit.p_name.c_str());
+                            else printf("     * %-30s -> Natal %s\n", hit.hit_type.c_str(), hit.p_name.c_str());
+                        }
+                    }
+                }
+            }
+        }
+        printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
         // ==============================================================================
         // [PHASE 4: VULNERABILITY & DESTRUCTION MATRIX]
         // ==============================================================================

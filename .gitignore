@@ -24,6 +24,7 @@ dup
 /templates/
 /jyotisha_web/
 /public/
+/backup/
 
 # --- Ignore Heavy Files & Logs ---
 *.csv

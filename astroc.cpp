@@ -2256,7 +2256,7 @@ void print_dasha_web() {
         }
     } // End of function
 	
-void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool use_current_date) {
+void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool use_current_date, bool is_web_mode = false) {
         double trans_jd; int p_y = t_year, p_m = t_month, p_d = t_day, p_h = t_hour, p_min = t_min, p_s = t_sec;
         if (use_current_date) {
             time_t t = time(nullptr); tm* now_utc = gmtime(&t);
@@ -2481,361 +2481,365 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
         // ==============================================================================
         // [PHASE 4: VULNERABILITY & DESTRUCTION MATRIX]
         // ==============================================================================
-        printf("\n[PHASE 4: VULNERABILITY & DESTRUCTION MATRIX]\n");
-
-        int mb_degrees[10][12] = {
-            { 1,  9, 22, 22, 25,  2,  4, 23, 18, 20, 24, 10}, 
-            {20,  9, 12,  6,  8, 24, 16, 17, 22,  2,  3, 23}, 
-            {26, 12, 13, 25, 24, 11, 26, 14, 13, 25,  5, 12}, 
-            {19, 28, 25, 23, 29, 28, 14, 21,  2, 15, 11,  6}, 
-            {15, 14, 13, 12,  8, 18, 20, 10, 21, 22,  7,  5}, 
-            {19, 29, 12, 27,  6,  4, 13, 10, 17, 11, 15, 28}, 
-            {28, 15, 11, 17, 10, 13,  4,  6, 27, 12, 29, 19}, 
-            {10,  4,  7,  9, 12, 16,  3, 18, 28, 14, 13, 15}, 
-            {14, 13, 12, 11, 24, 23, 22, 21, 10, 20, 18,  8}, 
-            { 8, 18, 20, 10, 21, 22, 23, 24, 11, 12, 13, 14}  
-        };
-
-        double nav_64_lon = fmod(moon_lon + 210.0, 360.0);
-        double drek_22_lon = fmod(lagna_lon + 210.0, 360.0);
-        double bhrigu_bindu = fmod((moon_lon + planet_lons[8]) / 2.0, 360.0); 
-
-        int d9_lagna_rashi = (int)(fmod(lagna_lon * 9.0, 360.0) / 30.0);
-        double d9_proj_lon = (d9_lagna_rashi * 30.0) + fmod(lagna_lon, 30.0);
-
-        double geopos[3] = {location.lon, location.lat, 0.0};
-        double trise, tset, next_rise; char serr_g[256];
-        swe_rise_trans(tjd_ut - 0.5, SE_SUN, NULL, iflag, SE_CALC_RISE, geopos, 0, 0, &trise, serr_g);
-        swe_rise_trans(tjd_ut - 0.5, SE_SUN, NULL, iflag, SE_CALC_SET, geopos, 0, 0, &tset, serr_g);
-        swe_rise_trans(tjd_ut + 0.5, SE_SUN, NULL, iflag, SE_CALC_RISE, geopos, 0, 0, &next_rise, serr_g);
-
-        int weekday = (int)(floor(tjd_ut + location.tz_offset / 24.0 + 1.5)) % 7; 
-        bool is_day_birth = (tjd_ut >= trise && tjd_ut < tset);
-        double duration = is_day_birth ? (tset - trise) : (next_rise - tset);
-        int saturn_part = (6 - (is_day_birth ? weekday : (weekday + 4) % 7) + 7) % 7;
-        double gulika_ut = (is_day_birth ? trise : tset) + (saturn_part * (duration / 8.0));
         
-        double g_cusps[13], g_ascmc[10];
-        swe_houses_ex(gulika_ut, iflag, location.lat, location.lon, 'P', g_cusps, g_ascmc);
-        double gulika_lon = g_ascmc[0];
+		if (!is_web_mode) {
+				
+			printf("\n[PHASE 4: VULNERABILITY & DESTRUCTION MATRIX]\n");
 
-        int l_rashi = planet_rashis[0];
-        int maraka_2 = (l_rashi + 1) % 12;
-        int maraka_7 = (l_rashi + 6) % 12;
+			int mb_degrees[10][12] = {
+				{ 1,  9, 22, 22, 25,  2,  4, 23, 18, 20, 24, 10}, 
+				{20,  9, 12,  6,  8, 24, 16, 17, 22,  2,  3, 23}, 
+				{26, 12, 13, 25, 24, 11, 26, 14, 13, 25,  5, 12}, 
+				{19, 28, 25, 23, 29, 28, 14, 21,  2, 15, 11,  6}, 
+				{15, 14, 13, 12,  8, 18, 20, 10, 21, 22,  7,  5}, 
+				{19, 29, 12, 27,  6,  4, 13, 10, 17, 11, 15, 28}, 
+				{28, 15, 11, 17, 10, 13,  4,  6, 27, 12, 29, 19}, 
+				{10,  4,  7,  9, 12, 16,  3, 18, 28, 14, 13, 15}, 
+				{14, 13, 12, 11, 24, 23, 22, 21, 10, 20, 18,  8}, 
+				{ 8, 18, 20, 10, 21, 22, 23, 24, 11, 12, 13, 14}  
+			};
 
-        int badhaka_rashi;
-        if (l_rashi % 3 == 0) badhaka_rashi = (l_rashi + 10) % 12;     
-        else if (l_rashi % 3 == 1) badhaka_rashi = (l_rashi + 8) % 12; 
-        else badhaka_rashi = (l_rashi + 6) % 12;                       
+			double nav_64_lon = fmod(moon_lon + 210.0, 360.0);
+			double drek_22_lon = fmod(lagna_lon + 210.0, 360.0);
+			double bhrigu_bindu = fmod((moon_lon + planet_lons[8]) / 2.0, 360.0); 
 
-// --- CALC AVAYOGI POINT ---
-        double yogi_point_calc = fmod((sun_lon + moon_lon + 93.3333333), 360.0);
-        double avayogi_point = fmod((yogi_point_calc + 186.6666667), 360.0);
-        double avayogi_ni_point = fmod((yogi_point_calc + 80.0), 360.0); // North Indian Concept
+			int d9_lagna_rashi = (int)(fmod(lagna_lon * 9.0, 360.0) / 30.0);
+			double d9_proj_lon = (d9_lagna_rashi * 30.0) + fmod(lagna_lon, 30.0);
 
-		struct DangerPoint { string name; double lon; };
-        vector<DangerPoint> danger_points = {
-            {telugu_mode ? "64వ నవాంశ (కర్మ ప్రమాద బిందువు)" : "64th Navamsha (Karmic Danger Point)", nav_64_lon},
-            {telugu_mode ? "22వ ద్రేక్కాణ (సంక్షోభ బిందువు)" : "22nd Drekkana (Crisis & Fatigue Point)", drek_22_lon},
-            {telugu_mode ? "D9 లగ్న ప్రొజెక్షన్" : "D9 Lagna Physical Projection", d9_proj_lon},
-            {telugu_mode ? "భృగు బిందు (విధి మలుపు)" : "Bhrigu Bindu (Destiny Midpoint)", bhrigu_bindu},
-            {telugu_mode ? "గుళిక (విష బిందువు)" : "Gulika (Fatal Poison Node)", gulika_lon},
-            {telugu_mode ? "బాధక కచ్చితమైన డిగ్రీ" : "Badhaka Exact Degree", (badhaka_rashi * 30.0) + fmod(lagna_lon, 30.0)},
-            {telugu_mode ? "అవయోగి బిందువు (ఆర్థిక/శక్తి క్షీణత)" : "Avayogi Point (Wealth/Energy Drain)", avayogi_point},
-            {telugu_mode ? "ఉత్తర భారత అవయోగి (నార్త్ ఇండియన్)" : "Avayogi Point (North Indian Variant)", avayogi_ni_point},
-            {telugu_mode ? "8వ భావ ప్రారంభ బిందువు (రంధ్ర స్థానం)" : "8th House Cusp (Randhra / Fatality)", house_cusps[8]} // NEW: 8th Cusp
-        };
+			double geopos[3] = {location.lon, location.lat, 0.0};
+			double trise, tset, next_rise; char serr_g[256];
+			swe_rise_trans(tjd_ut - 0.5, SE_SUN, NULL, iflag, SE_CALC_RISE, geopos, 0, 0, &trise, serr_g);
+			swe_rise_trans(tjd_ut - 0.5, SE_SUN, NULL, iflag, SE_CALC_SET, geopos, 0, 0, &tset, serr_g);
+			swe_rise_trans(tjd_ut + 0.5, SE_SUN, NULL, iflag, SE_CALC_RISE, geopos, 0, 0, &next_rise, serr_g);
 
-        // --- NEW: 2. Upagrahas (Maandi & Yamaghantaka via Gulika offsets) ---
-        double maandi_lon = fmod(gulika_lon - 15.0 + 360.0, 360.0);
-        double yama_lon = fmod(gulika_lon + 45.0, 360.0);
-        danger_points.push_back({telugu_mode ? "మాంది (ప్రాణ సంక్షోభం)" : "Maandi (Sudden Shock/Surgery)", maandi_lon});
-        danger_points.push_back({telugu_mode ? "యమఘంటక (ప్రమాద బిందువు)" : "Yamaghantaka (Critical Care Trigger)", yama_lon});
+			int weekday = (int)(floor(tjd_ut + location.tz_offset / 24.0 + 1.5)) % 7; 
+			bool is_day_birth = (tjd_ut >= trise && tjd_ut < tset);
+			double duration = is_day_birth ? (tset - trise) : (next_rise - tset);
+			int saturn_part = (6 - (is_day_birth ? weekday : (weekday + 4) % 7) + 7) % 7;
+			double gulika_ut = (is_day_birth ? trise : tset) + (saturn_part * (duration / 8.0));
+			
+			double g_cusps[13], g_ascmc[10];
+			swe_houses_ex(gulika_ut, iflag, location.lat, location.lon, 'P', g_cusps, g_ascmc);
+			double gulika_lon = g_ascmc[0];
 
-        // --- NEW: 5. Sahams (Arabic Parts for Death & Disease) ---
-        double mrityu_saham = fmod(lagna_lon + house_cusps[8] - moon_lon + 360.0, 360.0);
-        double roga_saham = fmod(lagna_lon + house_cusps[6] - moon_lon + 360.0, 360.0);
-        if (!is_day_birth) {
-            mrityu_saham = fmod(lagna_lon + moon_lon - house_cusps[8] + 360.0, 360.0);
-            roga_saham = fmod(lagna_lon + moon_lon - house_cusps[6] + 360.0, 360.0);
-        }
-        danger_points.push_back({telugu_mode ? "మృత్యు సహం (ప్రాణ గండం)" : "Mrityu Saham (Fatality Trigger)", mrityu_saham});
-        danger_points.push_back({telugu_mode ? "రోగ సహం (వ్యాధి బిందువు)" : "Roga Saham (Disease Trigger)", roga_saham});
+			int l_rashi = planet_rashis[0];
+			int maraka_2 = (l_rashi + 1) % 12;
+			int maraka_7 = (l_rashi + 6) % 12;
 
-        // --- DYNAMIC LORDS INJECTION (Kharesha, Trik Lords, Marakas) ---
-        int drek_22_rashi = ((int)(drek_22_lon / 30.0)) % 12;
-        int nav_64_rashi = ((int)(nav_64_lon / 30.0)) % 12;
-        
-        for (int p = 1; p <= 7; p++) {
-            string p_lord_name = p_names_full[p];
-            double p_lon = planet_lons[p];
-            
-            if (p_lord_name == rashi_lords[maraka_2]) danger_points.push_back({telugu_mode ? "2వ భావాధిపతి (ప్రాథమిక మారక)" : "2nd Lord (Primary Maraka)", p_lon});
-            if (p_lord_name == rashi_lords[maraka_7]) danger_points.push_back({telugu_mode ? "7వ భావాధిపతి (ద్వితీయ మారక)" : "7th Lord (Secondary Maraka)", p_lon});
-            if (p_lord_name == rashi_lords[badhaka_rashi]) danger_points.push_back({telugu_mode ? "బాధకాధిపతి (అడ్డంకి)" : "Badhaka Lord (Obstruction)", p_lon});
-            
-            // NEW: 1. Kharesha & 64th Lord
-            if (p_lord_name == rashi_lords[drek_22_rashi]) danger_points.push_back({telugu_mode ? "ఖరేశ (22వ ద్రేక్కాణాధిపతి)" : "Kharesha (Lord of 22nd Drekkana)", p_lon});
-            if (p_lord_name == rashi_lords[nav_64_rashi]) danger_points.push_back({telugu_mode ? "64వ నవాంశాధిపతి" : "64th Navamsha Lord", p_lon});
-            
-            // NEW: 3. Trik Lords (6th and 12th)
-            if (p_lord_name == rashi_lords[(l_rashi + 5)%12]) danger_points.push_back({telugu_mode ? "6వ భావాధిపతి (రోగ స్థానం)" : "6th Lord (Roga/Disease)", p_lon});
-            if (p_lord_name == rashi_lords[(l_rashi + 11)%12]) danger_points.push_back({telugu_mode ? "12వ భావాధిపతి (వ్యయ స్థానం)" : "12th Lord (Loss/Hospital)", p_lon});
-        }
+			int badhaka_rashi;
+			if (l_rashi % 3 == 0) badhaka_rashi = (l_rashi + 10) % 12;     
+			else if (l_rashi % 3 == 1) badhaka_rashi = (l_rashi + 8) % 12; 
+			else badhaka_rashi = (l_rashi + 6) % 12;                       
 
-        // --- MRITYU BHAGAS & NEW SPECIFIC NATAL PLANET AFFLICTIONS ---
-        for (int p = 0; p <= 9; p++) {
-            double lon = planet_lons[p];
-            int rashi = planet_rashis[p];
-            double deg = fmod(lon, 30.0);
-            string p_name = (p == 0) ? (telugu_mode ? "లగ్న" : "Lagna") : get_planet_name(p);
-            
-            // Standard BPHS Mrityu Bhaga
-            double mb_absolute_lon = (rashi * 30.0) + mb_degrees[p][rashi];
-            danger_points.push_back({p_name + (telugu_mode ? " మృత్యు భాగ" : "'s Mrityu Bhaga"), mb_absolute_lon});
+			// --- CALC AVAYOGI POINT ---
+			double yogi_point_calc = fmod((sun_lon + moon_lon + 93.3333333), 360.0);
+			double avayogi_point = fmod((yogi_point_calc + 186.6666667), 360.0);
+			double avayogi_ni_point = fmod((yogi_point_calc + 80.0), 360.0); // North Indian Concept
 
-            // NEW: 4. Gandanta (Extreme Karmic Knots)
-            bool is_gandanta = false;
-            if ((rashi == 3 || rashi == 7 || rashi == 11) && deg >= 29.0) is_gandanta = true; // Last degree of Water
-            if ((rashi == 0 || rashi == 4 || rashi == 8) && deg <= 1.0) is_gandanta = true; // First degree of Fire
-            if (is_gandanta) danger_points.push_back({(telugu_mode ? "గండాంత గ్రహం: " : "Gandanta Planet: ") + p_name, lon});
+			struct DangerPoint { string name; double lon; };
+			vector<DangerPoint> danger_points = {
+				{telugu_mode ? "64వ నవాంశ (కర్మ ప్రమాద బిందువు)" : "64th Navamsha (Karmic Danger Point)", nav_64_lon},
+				{telugu_mode ? "22వ ద్రేక్కాణ (సంక్షోభ బిందువు)" : "22nd Drekkana (Crisis & Fatigue Point)", drek_22_lon},
+				{telugu_mode ? "D9 లగ్న ప్రొజెక్షన్" : "D9 Lagna Physical Projection", d9_proj_lon},
+				{telugu_mode ? "భృగు బిందు (విధి మలుపు)" : "Bhrigu Bindu (Destiny Midpoint)", bhrigu_bindu},
+				{telugu_mode ? "గుళిక (విష బిందువు)" : "Gulika (Fatal Poison Node)", gulika_lon},
+				{telugu_mode ? "బాధక కచ్చితమైన డిగ్రీ" : "Badhaka Exact Degree", (badhaka_rashi * 30.0) + fmod(lagna_lon, 30.0)},
+				{telugu_mode ? "అవయోగి బిందువు (ఆర్థిక/శక్తి క్షీణత)" : "Avayogi Point (Wealth/Energy Drain)", avayogi_point},
+				{telugu_mode ? "ఉత్తర భారత అవయోగి (నార్త్ ఇండియన్)" : "Avayogi Point (North Indian Variant)", avayogi_ni_point},
+				{telugu_mode ? "8వ భావ ప్రారంభ బిందువు (రంధ్ర స్థానం)" : "8th House Cusp (Randhra / Fatality)", house_cusps[8]} // NEW: 8th Cusp
+			};
 
-            // NEW: 4. Sarpa Drekkana
-            int drek = (int)(deg / 10.0) + 1;
-            if ((rashi == 3 && (drek == 1 || drek == 2)) || (rashi == 7 && (drek == 1 || drek == 2)) || (rashi == 11 && drek == 3)) {
-                danger_points.push_back({(telugu_mode ? "సర్ప ద్రేక్కాణ గ్రహం: " : "Sarpa Drekkana Planet: ") + p_name, lon});
-            }
+			// --- NEW: 2. Upagrahas (Maandi & Yamaghantaka via Gulika offsets) ---
+			double maandi_lon = fmod(gulika_lon - 15.0 + 360.0, 360.0);
+			double yama_lon = fmod(gulika_lon + 45.0, 360.0);
+			danger_points.push_back({telugu_mode ? "మాంది (ప్రాణ సంక్షోభం)" : "Maandi (Sudden Shock/Surgery)", maandi_lon});
+			danger_points.push_back({telugu_mode ? "యమఘంటక (ప్రమాద బిందువు)" : "Yamaghantaka (Critical Care Trigger)", yama_lon});
 
-            // NEW: 8. Nakshatra Vedha (Vipat, Pratyak, Vadha Taras)
-            if (p > 0) { // Skip Lagna for Tara check
-                int p_nak = (int)(lon / (360.0 / 27.0));
-                int tara = (p_nak - natal_mo_nak + 27) % 9;
-                if (tara == 2 || tara == 4 || tara == 6) { 
-                    string t_name = (tara == 2) ? "Vipat" : (tara == 4) ? "Pratyak" : "Vadha";
-                    string te_name = (tara == 2) ? "విపత్" : (tara == 4) ? "ప్రత్యక్" : "వధ";
-                    danger_points.push_back({(telugu_mode ? "ప్రతికూల తార ("+te_name+"): " : "Vedha Tara ("+t_name+"): ") + p_name, lon});
-                }
-            }
+			// --- NEW: 5. Sahams (Arabic Parts for Death & Disease) ---
+			double mrityu_saham = fmod(lagna_lon + house_cusps[8] - moon_lon + 360.0, 360.0);
+			double roga_saham = fmod(lagna_lon + house_cusps[6] - moon_lon + 360.0, 360.0);
+			if (!is_day_birth) {
+				mrityu_saham = fmod(lagna_lon + moon_lon - house_cusps[8] + 360.0, 360.0);
+				roga_saham = fmod(lagna_lon + moon_lon - house_cusps[6] + 360.0, 360.0);
+			}
+			danger_points.push_back({telugu_mode ? "మృత్యు సహం (ప్రాణ గండం)" : "Mrityu Saham (Fatality Trigger)", mrityu_saham});
+			danger_points.push_back({telugu_mode ? "రోగ సహం (వ్యాధి బిందువు)" : "Roga Saham (Disease Trigger)", roga_saham});
 
-            // NEW: 6. Visha Navamsha Degrees
-            bool is_visha = false;
-            if (rashi % 3 == 0 && std::abs(deg - 10.0) <= 1.0) is_visha = true; // Movable Signs
-            if (rashi % 3 == 1 && std::abs(deg - 14.0) <= 1.0) is_visha = true; // Fixed Signs
-            if (rashi % 3 == 2 && std::abs(deg - 18.0) <= 1.0) is_visha = true; // Dual Signs
-            if (is_visha) danger_points.push_back({(telugu_mode ? "విష నవాంశ బిందువు: " : "Visha Navamsha Point: ") + p_name, lon});
-        }
+			// --- DYNAMIC LORDS INJECTION (Kharesha, Trik Lords, Marakas) ---
+			int drek_22_rashi = ((int)(drek_22_lon / 30.0)) % 12;
+			int nav_64_rashi = ((int)(nav_64_lon / 30.0)) % 12;
+			
+			for (int p = 1; p <= 7; p++) {
+				string p_lord_name = p_names_full[p];
+				double p_lon = planet_lons[p];
+				
+				if (p_lord_name == rashi_lords[maraka_2]) danger_points.push_back({telugu_mode ? "2వ భావాధిపతి (ప్రాథమిక మారక)" : "2nd Lord (Primary Maraka)", p_lon});
+				if (p_lord_name == rashi_lords[maraka_7]) danger_points.push_back({telugu_mode ? "7వ భావాధిపతి (ద్వితీయ మారక)" : "7th Lord (Secondary Maraka)", p_lon});
+				if (p_lord_name == rashi_lords[badhaka_rashi]) danger_points.push_back({telugu_mode ? "బాధకాధిపతి (అడ్డంకి)" : "Badhaka Lord (Obstruction)", p_lon});
+				
+				// NEW: 1. Kharesha & 64th Lord
+				if (p_lord_name == rashi_lords[drek_22_rashi]) danger_points.push_back({telugu_mode ? "ఖరేశ (22వ ద్రేక్కాణాధిపతి)" : "Kharesha (Lord of 22nd Drekkana)", p_lon});
+				if (p_lord_name == rashi_lords[nav_64_rashi]) danger_points.push_back({telugu_mode ? "64వ నవాంశాధిపతి" : "64th Navamsha Lord", p_lon});
+				
+				// NEW: 3. Trik Lords (6th and 12th)
+				if (p_lord_name == rashi_lords[(l_rashi + 5)%12]) danger_points.push_back({telugu_mode ? "6వ భావాధిపతి (రోగ స్థానం)" : "6th Lord (Roga/Disease)", p_lon});
+				if (p_lord_name == rashi_lords[(l_rashi + 11)%12]) danger_points.push_back({telugu_mode ? "12వ భావాధిపతి (వ్యయ స్థానం)" : "12th Lord (Loss/Hospital)", p_lon});
+			}
 
-        // --- NEW: 7. Graha Yuddha (Planetary War Axis) ---
-        for (int p1 = 3; p1 <= 7; p1++) { // Check Mars, Merc, Jup, Ven, Sat
-            for (int p2 = p1 + 1; p2 <= 7; p2++) {
-                double dist = std::abs(planet_lons[p1] - planet_lons[p2]);
-                if (dist > 180.0) dist = 360.0 - dist;
-                if (dist <= 1.0) {
-                    double midpoint = fmod((planet_lons[p1] + planet_lons[p2]) / 2.0, 360.0);
-                    string yuddha_name = get_planet_name(p1) + " vs " + get_planet_name(p2);
-                    danger_points.push_back({(telugu_mode ? "గ్రహ యుద్ధం (వార్ జోన్): " : "Graha Yuddha (War Zone): ") + yuddha_name, midpoint});
-                }
-            }
-        }
-        if (telugu_mode) printf("--- జన్మ కుండలి ప్రమాద బిందువులు (క్రాస్-చెకింగ్ కోసం) ---\n");
-        else printf("--- NATAL VULNERABILITY TARGETS (For Cross-Checking) ---\n");
-        
-        for (const auto& dp : danger_points) {
-            int rashi = ((int)(fmod(dp.lon, 360.0) / 30.0)) % 12;
-            double rem = fmod(dp.lon, 30.0);
-            int d = (int)rem;
-            int m = (int)((rem - d) * 60.0);
-            int s = (int)round((((rem - d) * 60.0) - m) * 60.0);
-            if (s >= 60) { s -= 60; m += 1; }
-            if (m >= 60) { m -= 60; d += 1; }
-            if (d >= 30) { d -= 30; rashi = (rashi + 1) % 12; }
-            
-            // Now prints Degrees, Minutes, and Seconds!
-            printf(" * %-45s : %02d° %-7s %02d'%02d\"\n", dp.name.c_str(), d, get_rashi_name(rashi).c_str(), m, s);
-        }
-        printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
-		
-        int t_planets[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
-        bool destruction_triggered = false;
-        double master_orb = 2.0; // WIDENED ORB FOR TIMELINE CAPTURE
+			// --- MRITYU BHAGAS & NEW SPECIFIC NATAL PLANET AFFLICTIONS ---
+			for (int p = 0; p <= 9; p++) {
+				double lon = planet_lons[p];
+				int rashi = planet_rashis[p];
+				double deg = fmod(lon, 30.0);
+				string p_name = (p == 0) ? (telugu_mode ? "లగ్న" : "Lagna") : get_planet_name(p);
+				
+				// Standard BPHS Mrityu Bhaga
+				double mb_absolute_lon = (rashi * 30.0) + mb_degrees[p][rashi];
+				danger_points.push_back({p_name + (telugu_mode ? " మృత్యు భాగ" : "'s Mrityu Bhaga"), mb_absolute_lon});
 
-        for (int m_idx : t_planets) {
-            double t_lon;
-            if (m_idx < 9) { swe_calc_ut(trans_jd, planets[m_idx-1], iflag, xx, serr); t_lon = xx[0]; } 
-            else { swe_calc_ut(trans_jd, SE_TRUE_NODE, iflag, xx, serr); t_lon = fmod(xx[0] + 180.0, 360.0); }
+				// NEW: 4. Gandanta (Extreme Karmic Knots)
+				bool is_gandanta = false;
+				if ((rashi == 3 || rashi == 7 || rashi == 11) && deg >= 29.0) is_gandanta = true; // Last degree of Water
+				if ((rashi == 0 || rashi == 4 || rashi == 8) && deg <= 1.0) is_gandanta = true; // First degree of Fire
+				if (is_gandanta) danger_points.push_back({(telugu_mode ? "గండాంత గ్రహం: " : "Gandanta Planet: ") + p_name, lon});
 
-            int t_rashi = (int)(t_lon / 30.0);
-            double t_deg_in_rashi = t_lon - (t_rashi * 30.0);
-            bool is_toxic = (std::abs(t_deg_in_rashi - mb_degrees[m_idx][t_rashi]) <= 1.0);
-            string toxic_flag = is_toxic ? " [TOXIC: IN MRITYU BHAGA]" : "";
+				// NEW: 4. Sarpa Drekkana
+				int drek = (int)(deg / 10.0) + 1;
+				if ((rashi == 3 && (drek == 1 || drek == 2)) || (rashi == 7 && (drek == 1 || drek == 2)) || (rashi == 11 && drek == 3)) {
+					danger_points.push_back({(telugu_mode ? "సర్ప ద్రేక్కాణ గ్రహం: " : "Sarpa Drekkana Planet: ") + p_name, lon});
+				}
 
-            for (const auto& dp : danger_points) {
-                double dist = std::abs(t_lon - dp.lon);
-                if (dist > 180.0) dist = 360.0 - dist;
+				// NEW: 8. Nakshatra Vedha (Vipat, Pratyak, Vadha Taras)
+				if (p > 0) { // Skip Lagna for Tara check
+					int p_nak = (int)(lon / (360.0 / 27.0));
+					int tara = (p_nak - natal_mo_nak + 27) % 9;
+					if (tara == 2 || tara == 4 || tara == 6) { 
+						string t_name = (tara == 2) ? "Vipat" : (tara == 4) ? "Pratyak" : "Vadha";
+						string te_name = (tara == 2) ? "విపత్" : (tara == 4) ? "ప్రత్యక్" : "వధ";
+						danger_points.push_back({(telugu_mode ? "ప్రతికూల తార ("+te_name+"): " : "Vedha Tara ("+t_name+"): ") + p_name, lon});
+					}
+				}
 
-                if (dist <= master_orb) { 
-                    destruction_triggered = true;
-                    string severity;
-                    if (m_idx == 3 || m_idx == 7 || m_idx == 8 || m_idx == 9) severity = "[!!! CRITICAL DESTROYER !!!]";
-                    else if (m_idx == 5) severity = "[MAJOR KARMIC TRIGGER]";
-                    else severity = "[EXACT DAY/TIME TRIGGER]";
-                    
-                    string warning_type = "GENERAL TRIGGER";
-                    if (m_idx == 3) warning_type = "SUDDEN FIRE/TRAUMA";
-                    else if (m_idx == 7) warning_type = "CRUSHING DELAY/LOSS";
-                    else if (m_idx == 8 || m_idx == 9) warning_type = "ILLUSION/EXPLOSION";
-                    else if (m_idx == 2 || m_idx == 4) warning_type = "DAILY EVENT TRIGGER"; 
+				// NEW: 6. Visha Navamsha Degrees
+				bool is_visha = false;
+				if (rashi % 3 == 0 && std::abs(deg - 10.0) <= 1.0) is_visha = true; // Movable Signs
+				if (rashi % 3 == 1 && std::abs(deg - 14.0) <= 1.0) is_visha = true; // Fixed Signs
+				if (rashi % 3 == 2 && std::abs(deg - 18.0) <= 1.0) is_visha = true; // Dual Signs
+				if (is_visha) danger_points.push_back({(telugu_mode ? "విష నవాంశ బిందువు: " : "Visha Navamsha Point: ") + p_name, lon});
+			}
 
-                    double e_in, e_peak, e_out;
-                    refine_bubble(m_idx, dp.lon, trans_jd, master_orb, e_in, e_peak, e_out);
+			// --- NEW: 7. Graha Yuddha (Planetary War Axis) ---
+			for (int p1 = 3; p1 <= 7; p1++) { // Check Mars, Merc, Jup, Ven, Sat
+				for (int p2 = p1 + 1; p2 <= 7; p2++) {
+					double dist = std::abs(planet_lons[p1] - planet_lons[p2]);
+					if (dist > 180.0) dist = 360.0 - dist;
+					if (dist <= 1.0) {
+						double midpoint = fmod((planet_lons[p1] + planet_lons[p2]) / 2.0, 360.0);
+						string yuddha_name = get_planet_name(p1) + " vs " + get_planet_name(p2);
+						danger_points.push_back({(telugu_mode ? "గ్రహ యుద్ధం (వార్ జోన్): " : "Graha Yuddha (War Zone): ") + yuddha_name, midpoint});
+					}
+				}
+			}
+			if (telugu_mode) printf("--- జన్మ కుండలి ప్రమాద బిందువులు (క్రాస్-చెకింగ్ కోసం) ---\n");
+			else printf("--- NATAL VULNERABILITY TARGETS (For Cross-Checking) ---\n");
+			
+			for (const auto& dp : danger_points) {
+				int rashi = ((int)(fmod(dp.lon, 360.0) / 30.0)) % 12;
+				double rem = fmod(dp.lon, 30.0);
+				int d = (int)rem;
+				int m = (int)((rem - d) * 60.0);
+				int s = (int)round((((rem - d) * 60.0) - m) * 60.0);
+				if (s >= 60) { s -= 60; m += 1; }
+				if (m >= 60) { m -= 60; d += 1; }
+				if (d >= 30) { d -= 30; rashi = (rashi + 1) % 12; }
+				
+				// Now prints Degrees, Minutes, and Seconds!
+				printf(" * %-45s : %02d° %-7s %02d'%02d\"\n", dp.name.c_str(), d, get_rashi_name(rashi).c_str(), m, s);
+			}
+			printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+			
+			int t_planets[] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+			bool destruction_triggered = false;
+			double master_orb = 2.0; // WIDENED ORB FOR TIMELINE CAPTURE
 
-					if (telugu_mode) {
-                        printf("  %s [%s] గోచార %s%s మీ %s ను తాకుతోంది\n", 
-                               severity.c_str(), warning_type.c_str(), get_planet_name(m_idx).c_str(), toxic_flag.c_str(), dp.name.c_str());
-                        printf("      -> [కాలక్రమం] ప్రవేశం: %s | గరిష్ఠం: %s | నిష్క్రమణ: %s (వ్యత్యాసం: %.2f°)\n", 
-                               jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dist);
-                    } else {
-                        printf("  %s [%s] Transit %s%s is hitting your %s\n", 
-                               severity.c_str(), warning_type.c_str(), p_names_full[m_idx], toxic_flag.c_str(), dp.name.c_str());
-                        printf("      -> [TIMELINE] Enter: %s | PEAK: %s | Exit: %s (Orb: %.2f°)\n", 
-                               jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dist);
-                    }                }
-            }
-        }
+			for (int m_idx : t_planets) {
+				double t_lon;
+				if (m_idx < 9) { swe_calc_ut(trans_jd, planets[m_idx-1], iflag, xx, serr); t_lon = xx[0]; } 
+				else { swe_calc_ut(trans_jd, SE_TRUE_NODE, iflag, xx, serr); t_lon = fmod(xx[0] + 180.0, 360.0); }
 
-        if (!destruction_triggered) printf("  [System Clear] No active Maraka, Khara, Gulika, or Trika degree collisions detected for this date.\n");
-        printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
-        
-        // ==============================================================================
-        // [PHASE 5: AUSPICIOUS & OPPORTUNITY MATRIX (Blessings, Yogi & Pushkara)]
-        // ==============================================================================
-        printf("\n[PHASE 5: AUSPICIOUS & OPPORTUNITY MATRIX]\n");
+				int t_rashi = (int)(t_lon / 30.0);
+				double t_deg_in_rashi = t_lon - (t_rashi * 30.0);
+				bool is_toxic = (std::abs(t_deg_in_rashi - mb_degrees[m_idx][t_rashi]) <= 1.0);
+				string toxic_flag = is_toxic ? " [TOXIC: IN MRITYU BHAGA]" : "";
 
-        int pushkara_degrees[12] = {21, 14, 24, 7, 21, 14, 24, 14, 24, 14, 24, 9};
+				for (const auto& dp : danger_points) {
+					double dist = std::abs(t_lon - dp.lon);
+					if (dist > 180.0) dist = 360.0 - dist;
 
-        int h1_rashi_ausp = planet_rashis[0];
-        int h5_rashi_ausp = (h1_rashi_ausp + 4) % 12;
-        int h9_rashi_ausp = (h1_rashi_ausp + 8) % 12;
+					if (dist <= master_orb) { 
+						destruction_triggered = true;
+						string severity;
+						if (m_idx == 3 || m_idx == 7 || m_idx == 8 || m_idx == 9) severity = "[!!! CRITICAL DESTROYER !!!]";
+						else if (m_idx == 5) severity = "[MAJOR KARMIC TRIGGER]";
+						else severity = "[EXACT DAY/TIME TRIGGER]";
+						
+						string warning_type = "GENERAL TRIGGER";
+						if (m_idx == 3) warning_type = "SUDDEN FIRE/TRAUMA";
+						else if (m_idx == 7) warning_type = "CRUSHING DELAY/LOSS";
+						else if (m_idx == 8 || m_idx == 9) warning_type = "ILLUSION/EXPLOSION";
+						else if (m_idx == 2 || m_idx == 4) warning_type = "DAILY EVENT TRIGGER"; 
 
-        int l1_idx_ausp = 1, l5_idx_ausp = 1, l9_idx_ausp = 1;
-        for (int p=1; p<=7; p++) {
-            if (string(rashi_lords[h1_rashi_ausp]) == p_names_full[p]) l1_idx_ausp = p;
-            if (string(rashi_lords[h5_rashi_ausp]) == p_names_full[p]) l5_idx_ausp = p;
-            if (string(rashi_lords[h9_rashi_ausp]) == p_names_full[p]) l9_idx_ausp = p;
-        }
+						double e_in, e_peak, e_out;
+						refine_bubble(m_idx, dp.lon, trans_jd, master_orb, e_in, e_peak, e_out);
 
-        double yogi_point_ausp = fmod((sun_lon + moon_lon + 93.3333333), 360.0);
-        int y_nak_idx_ausp = (int)(yogi_point_ausp / (360.0 / 27.0));
-        int lord_map_yogi_ausp[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
-        int yogi_planet_idx_ausp = lord_map_yogi_ausp[y_nak_idx_ausp % 9];
+						if (telugu_mode) {
+							printf("  %s [%s] గోచార %s%s మీ %s ను తాకుతోంది\n", 
+								   severity.c_str(), warning_type.c_str(), get_planet_name(m_idx).c_str(), toxic_flag.c_str(), dp.name.c_str());
+							printf("      -> [కాలక్రమం] ప్రవేశం: %s | గరిష్ఠం: %s | నిష్క్రమణ: %s (వ్యత్యాసం: %.2f°)\n", 
+								   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dist);
+						} else {
+							printf("  %s [%s] Transit %s%s is hitting your %s\n", 
+								   severity.c_str(), warning_type.c_str(), p_names_full[m_idx], toxic_flag.c_str(), dp.name.c_str());
+							printf("      -> [TIMELINE] Enter: %s | PEAK: %s | Exit: %s (Orb: %.2f°)\n", 
+								   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dist);
+						}                }
+				}
+			}
 
-        // --- CALC UL (UPAPADA LAGNA) FOR MARRIAGE EVENTS ---
-        int h12_rashi = (planet_rashis[0] + 11) % 12;
-        int l12_idx = 1; 
-        for(int x = 1; x <= 7; x++) { if(string(rashi_lords[h12_rashi]) == p_names_full[x]) l12_idx = x; }
-        int distance = (planet_rashis[l12_idx] - h12_rashi + 12) % 12;
-        int ul_rashi = (planet_rashis[l12_idx] + distance) % 12;
-        if (ul_rashi == h12_rashi || ul_rashi == (h12_rashi + 6) % 12) ul_rashi = (ul_rashi + 9) % 12; 
-        double ul_lon = (ul_rashi * 30.0) + fmod(planet_lons[0], 30.0); // Exact Lagna degree projected to UL
+			if (!destruction_triggered) printf("  [System Clear] No active Maraka, Khara, Gulika, or Trika degree collisions detected for this date.\n");
+			printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+			
+			// ==============================================================================
+			// [PHASE 5: AUSPICIOUS & OPPORTUNITY MATRIX (Blessings, Yogi & Pushkara)]
+			// ==============================================================================
+			printf("\n[PHASE 5: AUSPICIOUS & OPPORTUNITY MATRIX]\n");
 
-		struct BlessingPoint { string name; double lon; };
-        vector<BlessingPoint> blessing_points = {
-            {telugu_mode ? "లగ్నాధిపతి (ఆరోగ్యం & వ్యక్తిత్వం)" : "Lagna Lord (Self & Vitality)", planet_lons[l1_idx_ausp]},
-            {telugu_mode ? "5వ భావాధిపతి (పూర్వ పుణ్యం & అదృష్టం)" : "5th Lord (Poorva Punya & Merit)", planet_lons[l5_idx_ausp]},
-            {telugu_mode ? "9వ భావాధిపతి (భాగ్యం & అదృష్టం)" : "9th Lord (Bhagya & Fortune)", planet_lons[l9_idx_ausp]},
-            {telugu_mode ? "యోగి బిందువు (ఆర్థిక వృద్ధి కేంద్రం)" : "Yogi Point (Core Prosperity Axis)", yogi_point_ausp},
-            {telugu_mode ? "భృగు బిందు (విధి మలుపు)" : "Bhrigu Bindu (Destiny Catalyst)", bhrigu_bindu},
-            {telugu_mode ? "దారకారక (జీవిత భాగస్వామి)" : "Darakaraka (Spouse / Partnership)", planet_lons[darakaraka_idx]},
-            {telugu_mode ? "ఉపపద లగ్నం (వివాహ స్థానం)" : "Upapada Lagna (Marriage Axis)", ul_lon}
-        };
+			int pushkara_degrees[12] = {21, 14, 24, 7, 21, 14, 24, 14, 24, 14, 24, 9};
 
-        // Inject ALL 12 Pushkara Points to catch Transiting Planets passing through them
-        for (int r = 0; r < 12; r++) {
-            string p_name = telugu_mode ? (get_rashi_name(r) + " పుష్కర భాగ (అదృష్ట బిందువు)") : ("Pushkara Luck Point of " + string(rashi_names[r]));
-            blessing_points.push_back({p_name, (r * 30.0) + pushkara_degrees[r]});
-        }
+			int h1_rashi_ausp = planet_rashis[0];
+			int h5_rashi_ausp = (h1_rashi_ausp + 4) % 12;
+			int h9_rashi_ausp = (h1_rashi_ausp + 8) % 12;
 
-        // Add Natal Lifelong Blessings
-        for (int p = 0; p <= 9; p++) {
-            int rashi = planet_rashis[p];
-            double deg_in_rashi = planet_lons[p] - (rashi * 30.0);
-            if (std::abs(deg_in_rashi - pushkara_degrees[rashi]) <= 1.0) {
-                string p_name = (p == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : get_planet_name(p);
-                string bless_text = telugu_mode ? ("జన్మ " + p_name + " పుష్కర భాగలో ఉంది (జీవితకాల అదృష్టం)") : ("Natal " + p_name + " in PUSHKARA BHAGA (Lifelong Blessing)");
-                blessing_points.push_back({bless_text, planet_lons[p]});
-            }
-        }
-		if (telugu_mode) printf("--- జన్మ కుండలి శుభ బిందువులు (క్రాస్-చెకింగ్ కోసం) ---\n");
-        else printf("--- NATAL AUSPICIOUS TARGETS (For Cross-Checking) ---\n");
-        
-        for (const auto& bp : blessing_points) {
-            int rashi = ((int)(fmod(bp.lon, 360.0) / 30.0)) % 12;
-            double rem = fmod(bp.lon, 30.0);
-            int d = (int)rem;
-            int m = (int)((rem - d) * 60.0);
-            int s = (int)round((((rem - d) * 60.0) - m) * 60.0);
-            if (s >= 60) { s -= 60; m += 1; }
-            if (m >= 60) { m -= 60; d += 1; }
-            if (d >= 30) { d -= 30; rashi = (rashi + 1) % 12; }
-            
-            printf(" * %-45s : %02d° %-7s %02d'%02d\"\n", bp.name.c_str(), d, get_rashi_name(rashi).c_str(), m, s);
-        }
-        printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
-		
-        int t_benefics[] = {2, 4, 5, 6, yogi_planet_idx_ausp};
-        bool blessing_triggered = false;
-        
-        vector<int> unique_benefics;
-        for (int idx : t_benefics) {
-            if (find(unique_benefics.begin(), unique_benefics.end(), idx) == unique_benefics.end()) {
-                unique_benefics.push_back(idx);
-            }
-        }
+			int l1_idx_ausp = 1, l5_idx_ausp = 1, l9_idx_ausp = 1;
+			for (int p=1; p<=7; p++) {
+				if (string(rashi_lords[h1_rashi_ausp]) == p_names_full[p]) l1_idx_ausp = p;
+				if (string(rashi_lords[h5_rashi_ausp]) == p_names_full[p]) l5_idx_ausp = p;
+				if (string(rashi_lords[h9_rashi_ausp]) == p_names_full[p]) l9_idx_ausp = p;
+			}
 
-        for (int m_idx : unique_benefics) {
-            double t_lon;
-            if (m_idx < 9) { swe_calc_ut(trans_jd, planets[m_idx-1], iflag, xx, serr); t_lon = xx[0]; } 
-            else { swe_calc_ut(trans_jd, SE_TRUE_NODE, iflag, xx, serr); t_lon = fmod(xx[0] + 180.0, 360.0); }
+			double yogi_point_ausp = fmod((sun_lon + moon_lon + 93.3333333), 360.0);
+			int y_nak_idx_ausp = (int)(yogi_point_ausp / (360.0 / 27.0));
+			int lord_map_yogi_ausp[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
+			int yogi_planet_idx_ausp = lord_map_yogi_ausp[y_nak_idx_ausp % 9];
 
-            int t_rashi = (int)(t_lon / 30.0);
-            double t_deg_in_rashi = t_lon - (t_rashi * 30.0);
-            bool is_pushkara = (std::abs(t_deg_in_rashi - pushkara_degrees[t_rashi]) <= 1.0);
-            string pushkara_flag = is_pushkara ? " [PUSHKARA: EXTREME LUCK DEGREE]" : "";
+			// --- CALC UL (UPAPADA LAGNA) FOR MARRIAGE EVENTS ---
+			int h12_rashi = (planet_rashis[0] + 11) % 12;
+			int l12_idx = 1; 
+			for(int x = 1; x <= 7; x++) { if(string(rashi_lords[h12_rashi]) == p_names_full[x]) l12_idx = x; }
+			int distance = (planet_rashis[l12_idx] - h12_rashi + 12) % 12;
+			int ul_rashi = (planet_rashis[l12_idx] + distance) % 12;
+			if (ul_rashi == h12_rashi || ul_rashi == (h12_rashi + 6) % 12) ul_rashi = (ul_rashi + 9) % 12; 
+			double ul_lon = (ul_rashi * 30.0) + fmod(planet_lons[0], 30.0); // Exact Lagna degree projected to UL
 
-            for (const auto& bp : blessing_points) {
-                double dist = std::abs(t_lon - bp.lon);
-                if (dist > 180.0) dist = 360.0 - dist;
+			struct BlessingPoint { string name; double lon; };
+			vector<BlessingPoint> blessing_points = {
+				{telugu_mode ? "లగ్నాధిపతి (ఆరోగ్యం & వ్యక్తిత్వం)" : "Lagna Lord (Self & Vitality)", planet_lons[l1_idx_ausp]},
+				{telugu_mode ? "5వ భావాధిపతి (పూర్వ పుణ్యం & అదృష్టం)" : "5th Lord (Poorva Punya & Merit)", planet_lons[l5_idx_ausp]},
+				{telugu_mode ? "9వ భావాధిపతి (భాగ్యం & అదృష్టం)" : "9th Lord (Bhagya & Fortune)", planet_lons[l9_idx_ausp]},
+				{telugu_mode ? "యోగి బిందువు (ఆర్థిక వృద్ధి కేంద్రం)" : "Yogi Point (Core Prosperity Axis)", yogi_point_ausp},
+				{telugu_mode ? "భృగు బిందు (విధి మలుపు)" : "Bhrigu Bindu (Destiny Catalyst)", bhrigu_bindu},
+				{telugu_mode ? "దారకారక (జీవిత భాగస్వామి)" : "Darakaraka (Spouse / Partnership)", planet_lons[darakaraka_idx]},
+				{telugu_mode ? "ఉపపద లగ్నం (వివాహ స్థానం)" : "Upapada Lagna (Marriage Axis)", ul_lon}
+			};
 
-                if (dist <= master_orb) { 
-                    blessing_triggered = true;
-                    
-                    string severity;
-                    if (m_idx == 5) severity = "[!!! DIVINE BLESSING / EXPANSION !!!]";
-                    else if (m_idx == 6) severity = "[!!! WEALTH / HARMONY TRIGGER !!!]";
-                    else if (m_idx == yogi_planet_idx_ausp) severity = "[!!! YOGI PROSPERITY TRIGGER !!!]";
-                    else severity = "[EXACT DAY/TIME OPPORTUNITY]";
-                    
-                    string warning_type = "OPPORTUNITY";
+			// Inject ALL 12 Pushkara Points to catch Transiting Planets passing through them
+			for (int r = 0; r < 12; r++) {
+				string p_name = telugu_mode ? (get_rashi_name(r) + " పుష్కర భాగ (అదృష్ట బిందువు)") : ("Pushkara Luck Point of " + string(rashi_names[r]));
+				blessing_points.push_back({p_name, (r * 30.0) + pushkara_degrees[r]});
+			}
 
-                    double e_in, e_peak, e_out;
-                    refine_bubble(m_idx, bp.lon, trans_jd, master_orb, e_in, e_peak, e_out);
+			// Add Natal Lifelong Blessings
+			for (int p = 0; p <= 9; p++) {
+				int rashi = planet_rashis[p];
+				double deg_in_rashi = planet_lons[p] - (rashi * 30.0);
+				if (std::abs(deg_in_rashi - pushkara_degrees[rashi]) <= 1.0) {
+					string p_name = (p == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : get_planet_name(p);
+					string bless_text = telugu_mode ? ("జన్మ " + p_name + " పుష్కర భాగలో ఉంది (జీవితకాల అదృష్టం)") : ("Natal " + p_name + " in PUSHKARA BHAGA (Lifelong Blessing)");
+					blessing_points.push_back({bless_text, planet_lons[p]});
+				}
+			}
+			if (telugu_mode) printf("--- జన్మ కుండలి శుభ బిందువులు (క్రాస్-చెకింగ్ కోసం) ---\n");
+			else printf("--- NATAL AUSPICIOUS TARGETS (For Cross-Checking) ---\n");
+			
+			for (const auto& bp : blessing_points) {
+				int rashi = ((int)(fmod(bp.lon, 360.0) / 30.0)) % 12;
+				double rem = fmod(bp.lon, 30.0);
+				int d = (int)rem;
+				int m = (int)((rem - d) * 60.0);
+				int s = (int)round((((rem - d) * 60.0) - m) * 60.0);
+				if (s >= 60) { s -= 60; m += 1; }
+				if (m >= 60) { m -= 60; d += 1; }
+				if (d >= 30) { d -= 30; rashi = (rashi + 1) % 12; }
+				
+				printf(" * %-45s : %02d° %-7s %02d'%02d\"\n", bp.name.c_str(), d, get_rashi_name(rashi).c_str(), m, s);
+			}
+			printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+			
+			int t_benefics[] = {2, 4, 5, 6, yogi_planet_idx_ausp};
+			bool blessing_triggered = false;
+			
+			vector<int> unique_benefics;
+			for (int idx : t_benefics) {
+				if (find(unique_benefics.begin(), unique_benefics.end(), idx) == unique_benefics.end()) {
+					unique_benefics.push_back(idx);
+				}
+			}
 
-					if (telugu_mode) {
-                        printf("  %s [%s] గోచార %s%s మీ %s ను తాకుతోంది\n", 
-                               severity.c_str(), warning_type.c_str(), get_planet_name(m_idx).c_str(), pushkara_flag.c_str(), bp.name.c_str());
-                        printf("      -> [కాలక్రమం] ప్రవేశం: %s | గరిష్ఠం: %s | నిష్క్రమణ: %s (వ్యత్యాసం: %.2f°)\n", 
-                               jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dist);
-                    } else {
-                        printf("  %s [%s] Transit %s%s is hitting your %s\n", 
-                               severity.c_str(), warning_type.c_str(), p_names_full[m_idx], pushkara_flag.c_str(), bp.name.c_str());
-                        printf("      -> [TIMELINE] Enter: %s | PEAK: %s | Exit: %s (Orb: %.2f°)\n", 
-                               jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dist);
-                    }                }
-            }
-        }
+			for (int m_idx : unique_benefics) {
+				double t_lon;
+				if (m_idx < 9) { swe_calc_ut(trans_jd, planets[m_idx-1], iflag, xx, serr); t_lon = xx[0]; } 
+				else { swe_calc_ut(trans_jd, SE_TRUE_NODE, iflag, xx, serr); t_lon = fmod(xx[0] + 180.0, 360.0); }
 
-        if (!blessing_triggered) printf("  [System Clear] No major benefic exact degree collisions detected for this date.\n");
-        printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+				int t_rashi = (int)(t_lon / 30.0);
+				double t_deg_in_rashi = t_lon - (t_rashi * 30.0);
+				bool is_pushkara = (std::abs(t_deg_in_rashi - pushkara_degrees[t_rashi]) <= 1.0);
+				string pushkara_flag = is_pushkara ? " [PUSHKARA: EXTREME LUCK DEGREE]" : "";
+
+				for (const auto& bp : blessing_points) {
+					double dist = std::abs(t_lon - bp.lon);
+					if (dist > 180.0) dist = 360.0 - dist;
+
+					if (dist <= master_orb) { 
+						blessing_triggered = true;
+						
+						string severity;
+						if (m_idx == 5) severity = "[!!! DIVINE BLESSING / EXPANSION !!!]";
+						else if (m_idx == 6) severity = "[!!! WEALTH / HARMONY TRIGGER !!!]";
+						else if (m_idx == yogi_planet_idx_ausp) severity = "[!!! YOGI PROSPERITY TRIGGER !!!]";
+						else severity = "[EXACT DAY/TIME OPPORTUNITY]";
+						
+						string warning_type = "OPPORTUNITY";
+
+						double e_in, e_peak, e_out;
+						refine_bubble(m_idx, bp.lon, trans_jd, master_orb, e_in, e_peak, e_out);
+
+						if (telugu_mode) {
+							printf("  %s [%s] గోచార %s%s మీ %s ను తాకుతోంది\n", 
+								   severity.c_str(), warning_type.c_str(), get_planet_name(m_idx).c_str(), pushkara_flag.c_str(), bp.name.c_str());
+							printf("      -> [కాలక్రమం] ప్రవేశం: %s | గరిష్ఠం: %s | నిష్క్రమణ: %s (వ్యత్యాసం: %.2f°)\n", 
+								   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dist);
+						} else {
+							printf("  %s [%s] Transit %s%s is hitting your %s\n", 
+								   severity.c_str(), warning_type.c_str(), p_names_full[m_idx], pushkara_flag.c_str(), bp.name.c_str());
+							printf("      -> [TIMELINE] Enter: %s | PEAK: %s | Exit: %s (Orb: %.2f°)\n", 
+								   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dist);
+						}                }
+				}
+			}
+
+			if (!blessing_triggered) printf("  [System Clear] No major benefic exact degree collisions detected for this date.\n");
+			printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+		}  
     }
 	void predict_marriage(int start_year, int end_year) {
         printf("\n=================================================================\n");
@@ -3968,20 +3972,31 @@ int main(int argc, char *argv[]) {
             }
             return 0;
         }
+		else if (strcasecmp(cmd.c_str(), "web_transit") == 0) {
+            if (clean_argc >= 12) { 
+                t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
+                engine.calculate_muhurat(t_year, t_month, t_day, true);
+                engine.calculate_daily_panchang_transitions(t_year, t_month, t_day);
+                // Passing 'true' at the end tells it to skip Phase 4 and 5
+                engine.calculate_transits(t_year, t_month, t_day, t_hour, t_min, t_sec, false, true); 
+            }
+            return 0;
+        }
         else if (strcasecmp(cmd.c_str(), "transit") == 0) {
             if (clean_argc >= 12) { 
                 t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
                 engine.calculate_muhurat(t_year, t_month, t_day, true);
                 engine.calculate_daily_panchang_transitions(t_year, t_month, t_day);
-                engine.calculate_transits(t_year, t_month, t_day, t_hour, t_min, t_sec, false);
+                // Passing 'false' runs the full heavy calculation for the CLI
+                engine.calculate_transits(t_year, t_month, t_day, t_hour, t_min, t_sec, false, false); 
             } else {
                 time_t t = time(nullptr); tm* now = localtime(&t);
                 engine.calculate_muhurat(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday, true);
                 engine.calculate_daily_panchang_transitions(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
-                engine.calculate_transits(0, 0, 0, 0, 0, 0, true);
+                engine.calculate_transits(0, 0, 0, 0, 0, 0, true, false);
             }
             return 0;
-        } 
+        }
         else if (strcasecmp(cmd.c_str(), "degree") == 0) {
             if (clean_argc >= 13) {
                 string s_planet = clean_argv[9], s_sign = clean_argv[10];

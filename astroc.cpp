@@ -352,12 +352,32 @@ public:
 	
     void draw_south_indian_chart() {
         if (telugu_mode) {
+            // Helper lambda to format the box content and pad with spaces (accounting for Telugu multi-byte lengths roughly)
+            auto c = [&](int idx) { 
+                string s = rashi_grid[idx]; 
+                // We truncate slightly differently here to avoid cutting Telugu words in half, but keep it within bounds
+                if (s.length() > 22) s = s.substr(0, 22); 
+                return s; 
+            };
+            
             printf("\n=== రాశి చక్రం (దక్షిణ భారత శైలి) ===\n");
-            printf("-----------------------------------------------------------------\n");
-            for (int i = 0; i < 12; i++) {
-                printf("%2d. %-15s : %s\n", i+1, get_rashi_name(i).c_str(), rashi_grid[i].c_str());
-            }
-            printf("-----------------------------------------------------------------\n");
+            printf("---------------------------------------------------------------------------------\n");
+            printf("| %-18s| %-18s| %-18s| %-18s|\n", "12 మీనం", "1 మేషం", "2 వృషభం", "3 మిథునం");
+            printf("| %-18s| %-18s| %-18s| %-18s|\n", c(11).c_str(), c(0).c_str(), c(1).c_str(), c(2).c_str());
+            printf("|                   |                   |                   |                   |\n");
+            printf("---------------------------------------------------------------------------------\n");
+            printf("| %-18s|                                       | %-18s|\n", "11 కుంభం", "4 కర్కాటకం");
+            printf("| %-18s|                                       | %-18s|\n", c(10).c_str(), c(3).c_str());
+            printf("|                   |                                       |                   |\n");
+            printf("---------------------         రాశి చక్రం        ---------------------\n");
+            printf("| %-18s|                                       | %-18s|\n", "10 మకరం", "5 సింహం");
+            printf("| %-18s|                                       | %-18s|\n", c(9).c_str(), c(4).c_str());
+            printf("|                   |                                       |                   |\n");
+            printf("---------------------------------------------------------------------------------\n");
+            printf("| %-18s| %-18s| %-18s| %-18s|\n", "9 ధనుస్సు", "8 వృశ్చికం", "7 తుల", "6 కన్య");
+            printf("| %-18s| %-18s| %-18s| %-18s|\n", c(8).c_str(), c(7).c_str(), c(6).c_str(), c(5).c_str());
+            printf("|                   |                   |                   |                   |\n");
+            printf("---------------------------------------------------------------------------------\n");
         } else {
             auto c = [&](int idx) { string s = rashi_grid[idx]; if (s.length() > 14) s = s.substr(0, 14); return s; };
             printf("\n=== SOUTH INDIAN RASI CHART ===\n");

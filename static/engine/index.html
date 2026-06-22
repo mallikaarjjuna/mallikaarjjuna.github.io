@@ -239,6 +239,7 @@
             
             <button class="tab-btn" onclick="openTab(event, 'tab-about')">About</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-contact')">Contact Us</button>
+			<button class="tab-btn" onclick="openTab(event, 'tab-legal')">Terms & Privacy</button>
         </div> <div id="tab-birth" class="tab-content active"></div>
         <div id="tab-general" class="tab-content"></div>
         <div id="tab-dasha" class="tab-content"></div>
@@ -275,6 +276,24 @@
                 
                 <br>
                 <p><em>Note: Because this engine runs entirely offline within your browser via WebAssembly, no personal birth data is ever transmitted to or stored on our servers. Your privacy is 100% secure.</em></p>
+            </div>
+        </div>
+		<div id="tab-legal" class="tab-content" style="display: none;">
+            <div class="terminal-view">
+                <h2>Privacy Policy & Terms of Service</h2>
+                
+                <h3 style="color: #4CAF50;">1. Privacy Policy (Data Security)</h3>
+                <p><strong>Zero Server Processing:</strong> This application represents a breakthrough in data privacy. The entire astronomical engine operates locally on your device via WebAssembly. Absolutely no personal birth details (dates, times, locations) are transmitted to, saved on, or collected by our servers. Once you close your browser, your data is gone.</p>
+                <p><strong>Cookies & Advertising:</strong> To support the hosting of this free tool, third-party vendors, including Google, may use cookies to serve ads based on a user's prior visits to this website. Google's use of advertising cookies enables it and its partners to serve ads based on your visit to this site and/or other sites on the Internet.</p>
+                
+                <br>
+                <h3 style="color: #4CAF50;">2. Terms of Service & Legal Disclaimer</h3>
+                <p><strong>Educational & Entertainment Purposes Only:</strong> The astrological calculations, dynamic predictions, Dasha timelines, and Synastry reports provided by this engine are generated via classical algorithmic texts (BPHS). They are intended strictly for educational, spiritual, and entertainment purposes. </p>
+                <p>They do not constitute, and should not be used as a replacement for, professional financial, medical, psychological, or legal advice. The developers and architects of this software assume no liability for any life decisions made by users based on these algorithmic readings.</p>
+
+                <br>
+                <h3 style="color: #4CAF50;">3. Software Licensing & Acknowledgements</h3>
+                <p><strong>Swiss Ephemeris:</strong> The core planetary longitude and ephemeris mathematics are powered by the Swiss Ephemeris (created by Astrodienst AG). The custom C++ predictive matrices, WebAssembly integrations, dynamic translation layers, and UI wrappers are proprietary to the developer.</p>
             </div>
         </div>
     </div>

@@ -242,17 +242,16 @@ public:
         double ascmc[10];
         if (swe_houses_ex(tjd_ut, iflag, location.lat, location.lon, 'P', house_cusps, ascmc) >= 0) {
             lagna_lon = ascmc[0]; planet_lons[0] = lagna_lon; planet_rashis[0] = (int)(lagna_lon / 30.0); 
-            if (!json_mode) {
-                printf("--------------------------------------------------------------------------------------------------------------------------\n");
-                // Dynamic Telugu/English Headers
+			if (!json_mode) {
+                printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
                 if (telugu_mode) {
-                    printf("%-15s | %-19s | %-10s | %-25s | %-30s | %-10s | %-10s\n", "గ్రహం", "రేఖాంశం", "D9 రాశి", "నక్షత్రం (పాదం)", "తార (నవతార)", "న. అధిపతి", "రా. అధిపతి");
+                    // Widened column padding to absorb Telugu UTF-8 byte lengths
+                    printf("%-20s | %-26s | %-18s | %-35s | %-45s | %-18s | %-18s\n", "గ్రహం", "రేఖాంశం", "D9 రాశి", "నక్షత్రం (పాదం)", "తార (నవతార)", "న. అధిపతి", "రా. అధిపతి");
                 } else {
                     printf("%-15s | %-19s | %-10s | %-25s | %-30s | %-10s | %-10s\n", "Graha", "Longitude", "D9 Rasi", "Nakshatra (Pada)", "Tara (Navatara)", "N. Lord", "R. Lord");
                 }
-                printf("--------------------------------------------------------------------------------------------------------------------------\n");
-            }
-            // Passing Integer Index 0 for Lagna
+                printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+            }            // Passing Integer Index 0 for Lagna
             process_planet(0, lagna_lon); 
         }
 
@@ -341,43 +340,45 @@ public:
         int r_lord_idx = 1;
         for (int p = 1; p <= 7; p++) { if (string(p_names_full[p]) == rashi_lords[rashi_index]) r_lord_idx = p; }
         
-        if (!json_mode) {
-            // Replaced hardcoded English arrays with the Telugu-aware wrappers
-            printf("%-15s | %02d° %-10s %02d' %02d\" | %-10s | %-25s | %-30s | %-10s | %-10s\n", 
-                   get_planet_name(p_idx).c_str(), degrees, get_rashi_name(rashi_index).c_str(), minutes, seconds, 
-                   get_rashi_name(d9_rashi_index).c_str(), nak_pada.c_str(), get_tara(tara_idx).c_str(), 
-                   get_dasha_lord(nak_lord_index).c_str(), get_planet_name(r_lord_idx).c_str());
+		if (!json_mode) {
+            if (telugu_mode) {
+                // Expanded byte-widths specifically for Telugu text alignment
+                printf("%-20s | %02d° %-16s %02d' %02d\" | %-18s | %-35s | %-45s | %-18s | %-18s\n", 
+                       get_planet_name(p_idx).c_str(), degrees, get_rashi_name(rashi_index).c_str(), minutes, seconds, 
+                       get_rashi_name(d9_rashi_index).c_str(), nak_pada.c_str(), get_tara(tara_idx).c_str(), 
+                       get_dasha_lord(nak_lord_index).c_str(), get_planet_name(r_lord_idx).c_str());
+            } else {
+                printf("%-15s | %02d° %-10s %02d' %02d\" | %-10s | %-25s | %-30s | %-10s | %-10s\n", 
+                       p_names_full[p_idx], degrees, short_rashi[rashi_index], minutes, seconds, 
+                       short_rashi[d9_rashi_index], nak_pada.c_str(), tara_names[tara_idx], 
+                       dasha_lords[nak_lord_index], p_names_full[r_lord_idx]);
+            }
         }
-    }
+	}
 	
-    void draw_south_indian_chart() {
+void draw_south_indian_chart() {
         if (telugu_mode) {
-            // Helper lambda to format the box content and pad with spaces (accounting for Telugu multi-byte lengths roughly)
-            auto c = [&](int idx) { 
-                string s = rashi_grid[idx]; 
-                // We truncate slightly differently here to avoid cutting Telugu words in half, but keep it within bounds
-                if (s.length() > 22) s = s.substr(0, 22); 
-                return s; 
-            };
+            // FIX: We completely remove .substr() for Telugu to prevent slicing multi-byte UTF-8 characters in half!
+            auto c = [&](int idx) { return rashi_grid[idx]; };
             
             printf("\n=== రాశి చక్రం (దక్షిణ భారత శైలి) ===\n");
-            printf("---------------------------------------------------------------------------------\n");
-            printf("| %-18s| %-18s| %-18s| %-18s|\n", "12 మీనం", "1 మేషం", "2 వృషభం", "3 మిథునం");
-            printf("| %-18s| %-18s| %-18s| %-18s|\n", c(11).c_str(), c(0).c_str(), c(1).c_str(), c(2).c_str());
-            printf("|                   |                   |                   |                   |\n");
-            printf("---------------------------------------------------------------------------------\n");
-            printf("| %-18s|                                       | %-18s|\n", "11 కుంభం", "4 కర్కాటకం");
-            printf("| %-18s|                                       | %-18s|\n", c(10).c_str(), c(3).c_str());
-            printf("|                   |                                       |                   |\n");
-            printf("---------------------         రాశి చక్రం        ---------------------\n");
-            printf("| %-18s|                                       | %-18s|\n", "10 మకరం", "5 సింహం");
-            printf("| %-18s|                                       | %-18s|\n", c(9).c_str(), c(4).c_str());
-            printf("|                   |                                       |                   |\n");
-            printf("---------------------------------------------------------------------------------\n");
-            printf("| %-18s| %-18s| %-18s| %-18s|\n", "9 ధనుస్సు", "8 వృశ్చికం", "7 తుల", "6 కన్య");
-            printf("| %-18s| %-18s| %-18s| %-18s|\n", c(8).c_str(), c(7).c_str(), c(6).c_str(), c(5).c_str());
-            printf("|                   |                   |                   |                   |\n");
-            printf("---------------------------------------------------------------------------------\n");
+            printf("-----------------------------------------------------------------------------------------------------------------\n");
+            printf("| %-25s| %-25s| %-25s| %-25s|\n", "12 మీనం", "1 మేషం", "2 వృషభం", "3 మిథునం");
+            printf("| %-25s| %-25s| %-25s| %-25s|\n", c(11).c_str(), c(0).c_str(), c(1).c_str(), c(2).c_str());
+            printf("|                          |                          |                          |                          |\n");
+            printf("-----------------------------------------------------------------------------------------------------------------\n");
+            printf("| %-25s|                                                      | %-25s|\n", "11 కుంభం", "4 కర్కాటకం");
+            printf("| %-25s|                                                      | %-25s|\n", c(10).c_str(), c(3).c_str());
+            printf("|                          |                                                      |                          |\n");
+            printf("----------------------------                    రాశి చక్రం                    ----------------------------\n");
+            printf("| %-25s|                                                      | %-25s|\n", "10 మకరం", "5 సింహం");
+            printf("| %-25s|                                                      | %-25s|\n", c(9).c_str(), c(4).c_str());
+            printf("|                          |                                                      |                          |\n");
+            printf("-----------------------------------------------------------------------------------------------------------------\n");
+            printf("| %-25s| %-25s| %-25s| %-25s|\n", "9 ధనుస్సు", "8 వృశ్చికం", "7 తుల", "6 కన్య");
+            printf("| %-25s| %-25s| %-25s| %-25s|\n", c(8).c_str(), c(7).c_str(), c(6).c_str(), c(5).c_str());
+            printf("|                          |                          |                          |                          |\n");
+            printf("-----------------------------------------------------------------------------------------------------------------\n");
         } else {
             auto c = [&](int idx) { string s = rashi_grid[idx]; if (s.length() > 14) s = s.substr(0, 14); return s; };
             printf("\n=== SOUTH INDIAN RASI CHART ===\n");

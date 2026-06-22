@@ -150,8 +150,11 @@ public:
     string json_output = "{\n";
 
     // Change this line:
-    JyotishaEngine(int y, int m, int d, int h, int min, int sec, City loc, bool j_mode, bool t_mode = false) {
-        location = loc; json_mode = j_mode; telugu_mode = t_mode;
+    bool html_mode = false;
+
+    JyotishaEngine(int y, int m, int d, int h, int min, int sec, City loc, bool j_mode, bool t_mode = false, bool h_mode = false) {
+        location = loc; json_mode = j_mode; telugu_mode = t_mode; html_mode = h_mode;
+		
         local_hour_decimal = h + (min / 60.0) + (sec / 3600.0);
         double time_ut = local_hour_decimal - location.tz_offset;
         swe_set_ephe_path((char*)"./ephe"); 
@@ -243,15 +246,19 @@ public:
         if (swe_houses_ex(tjd_ut, iflag, location.lat, location.lon, 'P', house_cusps, ascmc) >= 0) {
             lagna_lon = ascmc[0]; planet_lons[0] = lagna_lon; planet_rashis[0] = (int)(lagna_lon / 30.0); 
 			if (!json_mode) {
-                printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
-                if (telugu_mode) {
-                    // Widened column padding to absorb Telugu UTF-8 byte lengths
-                    printf("%-20s | %-26s | %-18s | %-35s | %-45s | %-18s | %-18s\n", "గ్రహం", "రేఖాంశం", "D9 రాశి", "నక్షత్రం (పాదం)", "తార (నవతార)", "న. అధిపతి", "రా. అధిపతి");
+                if (html_mode) {
+                    printf("<table class='data-table'>\n<tr>");
+                    if (telugu_mode) printf("<th>గ్రహం</th><th>రేఖాంశం</th><th>D9 రాశి</th><th>నక్షత్రం (పాదం)</th><th>తార (నవతార)</th><th>న. అధిపతి</th><th>రా. అధిపతి</th>");
+                    else printf("<th>Graha</th><th>Longitude</th><th>D9 Rasi</th><th>Nakshatra (Pada)</th><th>Tara (Navatara)</th><th>N. Lord</th><th>R. Lord</th>");
+                    printf("</tr>\n");
                 } else {
-                    printf("%-15s | %-19s | %-10s | %-25s | %-30s | %-10s | %-10s\n", "Graha", "Longitude", "D9 Rasi", "Nakshatra (Pada)", "Tara (Navatara)", "N. Lord", "R. Lord");
+                    printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+                    if (telugu_mode) printf("%-20s | %-26s | %-18s | %-35s | %-45s | %-18s | %-18s\n", "గ్రహం", "రేఖాంశం", "D9 రాశి", "నక్షత్రం (పాదం)", "తార (నవతార)", "న. అధిపతి", "రా. అధిపతి");
+                    else printf("%-15s | %-19s | %-10s | %-25s | %-30s | %-10s | %-10s\n", "Graha", "Longitude", "D9 Rasi", "Nakshatra (Pada)", "Tara (Navatara)", "N. Lord", "R. Lord");
+                    printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
                 }
-                printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
-            }            // Passing Integer Index 0 for Lagna
+            }            
+			// Passing Integer Index 0 for Lagna
             process_planet(0, lagna_lon); 
         }
 
@@ -270,6 +277,7 @@ public:
         planet_lons[9] = fmod(xx[0] + 180.0, 360.0); planet_rashis[9] = (int)(planet_lons[9] / 30.0);
         // Passing Integer Index 9 for Ketu
         process_planet(9, planet_lons[9]);
+		if (html_mode && !json_mode) printf("</table>\n");
 
         if (!json_mode) {
             printf("--------------------------------------------------------------------------------------------------------------------------\n");
@@ -341,44 +349,53 @@ public:
         for (int p = 1; p <= 7; p++) { if (string(p_names_full[p]) == rashi_lords[rashi_index]) r_lord_idx = p; }
         
 		if (!json_mode) {
-            if (telugu_mode) {
-                // Expanded byte-widths specifically for Telugu text alignment
-                printf("%-20s | %02d° %-16s %02d' %02d\" | %-18s | %-35s | %-45s | %-18s | %-18s\n", 
-                       get_planet_name(p_idx).c_str(), degrees, get_rashi_name(rashi_index).c_str(), minutes, seconds, 
-                       get_rashi_name(d9_rashi_index).c_str(), nak_pada.c_str(), get_tara(tara_idx).c_str(), 
-                       get_dasha_lord(nak_lord_index).c_str(), get_planet_name(r_lord_idx).c_str());
+            if (html_mode) {
+                if (telugu_mode) {
+                    printf("<tr><td>%s</td><td>%02d° %s %02d'%02d\"</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n", 
+                           get_planet_name(p_idx).c_str(), degrees, get_rashi_name(rashi_index).c_str(), minutes, seconds, 
+                           get_rashi_name(d9_rashi_index).c_str(), nak_pada.c_str(), get_tara(tara_idx).c_str(), 
+                           get_dasha_lord(nak_lord_index).c_str(), get_planet_name(r_lord_idx).c_str());
+                } else {
+                    printf("<tr><td>%s</td><td>%02d° %s %02d'%02d\"</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n", 
+                           p_names_full[p_idx], degrees, short_rashi[rashi_index], minutes, seconds, 
+                           short_rashi[d9_rashi_index], nak_pada.c_str(), tara_names[tara_idx], 
+                           dasha_lords[nak_lord_index], p_names_full[r_lord_idx]);
+                }
             } else {
-                printf("%-15s | %02d° %-10s %02d' %02d\" | %-10s | %-25s | %-30s | %-10s | %-10s\n", 
-                       p_names_full[p_idx], degrees, short_rashi[rashi_index], minutes, seconds, 
-                       short_rashi[d9_rashi_index], nak_pada.c_str(), tara_names[tara_idx], 
-                       dasha_lords[nak_lord_index], p_names_full[r_lord_idx]);
+                if (telugu_mode) {
+                    printf("%-20s | %02d° %-16s %02d' %02d\" | %-18s | %-35s | %-45s | %-18s | %-18s\n", 
+                           get_planet_name(p_idx).c_str(), degrees, get_rashi_name(rashi_index).c_str(), minutes, seconds, 
+                           get_rashi_name(d9_rashi_index).c_str(), nak_pada.c_str(), get_tara(tara_idx).c_str(), 
+                           get_dasha_lord(nak_lord_index).c_str(), get_planet_name(r_lord_idx).c_str());
+                } else {
+                    printf("%-15s | %02d° %-10s %02d' %02d\" | %-10s | %-25s | %-30s | %-10s | %-10s\n", 
+                           p_names_full[p_idx], degrees, short_rashi[rashi_index], minutes, seconds, 
+                           short_rashi[d9_rashi_index], nak_pada.c_str(), tara_names[tara_idx], 
+                           dasha_lords[nak_lord_index], p_names_full[r_lord_idx]);
+                }
             }
         }
 	}
 	
-void draw_south_indian_chart() {
-        if (telugu_mode) {
-            // FIX: We completely remove .substr() for Telugu to prevent slicing multi-byte UTF-8 characters in half!
+	void draw_south_indian_chart() {
+        if (html_mode) {
             auto c = [&](int idx) { return rashi_grid[idx]; };
-            
-            printf("\n=== రాశి చక్రం (దక్షిణ భారత శైలి) ===\n");
-            printf("-----------------------------------------------------------------------------------------------------------------\n");
-            printf("| %-25s| %-25s| %-25s| %-25s|\n", "12 మీనం", "1 మేషం", "2 వృషభం", "3 మిథునం");
-            printf("| %-25s| %-25s| %-25s| %-25s|\n", c(11).c_str(), c(0).c_str(), c(1).c_str(), c(2).c_str());
-            printf("|                          |                          |                          |                          |\n");
-            printf("-----------------------------------------------------------------------------------------------------------------\n");
-            printf("| %-25s|                                                      | %-25s|\n", "11 కుంభం", "4 కర్కాటకం");
-            printf("| %-25s|                                                      | %-25s|\n", c(10).c_str(), c(3).c_str());
-            printf("|                          |                                                      |                          |\n");
-            printf("----------------------------                    రాశి చక్రం                    ----------------------------\n");
-            printf("| %-25s|                                                      | %-25s|\n", "10 మకరం", "5 సింహం");
-            printf("| %-25s|                                                      | %-25s|\n", c(9).c_str(), c(4).c_str());
-            printf("|                          |                                                      |                          |\n");
-            printf("-----------------------------------------------------------------------------------------------------------------\n");
-            printf("| %-25s| %-25s| %-25s| %-25s|\n", "9 ధనుస్సు", "8 వృశ్చికం", "7 తుల", "6 కన్య");
-            printf("| %-25s| %-25s| %-25s| %-25s|\n", c(8).c_str(), c(7).c_str(), c(6).c_str(), c(5).c_str());
-            printf("|                          |                          |                          |                          |\n");
-            printf("-----------------------------------------------------------------------------------------------------------------\n");
+            string title = telugu_mode ? "రాశి చక్రం" : "RASI CHART";
+            string r12 = telugu_mode ? "12 మీనం" : "12 Meen"; string r1 = telugu_mode ? "1 మేషం" : "1 Mesh"; string r2 = telugu_mode ? "2 వృషభం" : "2 Vrish"; string r3 = telugu_mode ? "3 మిథునం" : "3 Mitu";
+            string r11 = telugu_mode ? "11 కుంభం" : "11 Kumb"; string r4 = telugu_mode ? "4 కర్కాటకం" : "4 Kark";
+            string r10 = telugu_mode ? "10 మకరం" : "10 Maka"; string r5 = telugu_mode ? "5 సింహం" : "5 Simh";
+            string r9 = telugu_mode ? "9 ధనుస్సు" : "9 Dhan"; string r8 = telugu_mode ? "8 వృశ్చికం" : "8 Vrishch"; string r7 = telugu_mode ? "7 తుల" : "7 Tula"; string r6 = telugu_mode ? "6 కన్య" : "6 Kany";
+
+            printf("<table class='rasi-table'>\n");
+            printf("<tr><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td></tr>\n", 
+                    r12.c_str(), c(11).c_str(), r1.c_str(), c(0).c_str(), r2.c_str(), c(1).c_str(), r3.c_str(), c(2).c_str());
+            printf("<tr><td>%s<span class='p-text'>%s</span></td><td colspan='2' rowspan='2' class='rasi-center'>%s</td><td>%s<span class='p-text'>%s</span></td></tr>\n", 
+                    r11.c_str(), c(10).c_str(), title.c_str(), r4.c_str(), c(3).c_str());
+            printf("<tr><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td></tr>\n", 
+                    r10.c_str(), c(9).c_str(), r5.c_str(), c(4).c_str());
+            printf("<tr><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td></tr>\n", 
+                    r9.c_str(), c(8).c_str(), r8.c_str(), c(7).c_str(), r7.c_str(), c(6).c_str(), r6.c_str(), c(5).c_str());
+            printf("</table>\n");
         } else {
             auto c = [&](int idx) { string s = rashi_grid[idx]; if (s.length() > 14) s = s.substr(0, 14); return s; };
             printf("\n=== SOUTH INDIAN RASI CHART ===\n");
@@ -400,8 +417,7 @@ void draw_south_indian_chart() {
             printf("|               |               |               |               |\n");
             printf("-----------------------------------------------------------------\n");
         }
-    }
-	
+    }	
 // =========================================================================
     // COLLISION SWEEPER (UPGRADED: UNIFIED BUBBLE & "ALL" FEATURE)
     // =========================================================================
@@ -3857,12 +3873,15 @@ void run_ayush_analysis(JyotishaEngine& p) {
 int main(int argc, char *argv[]) {
     // --- TELUGU INTERCEPTOR ---
     bool telugu_ui = false;
+	bool html_ui = false;
     vector<char*> clean_args;
     clean_args.push_back(argv[0]);
     
     for (int i = 1; i < argc; i++) {
         if (strcasecmp(argv[i], "telugu") == 0 || strcasecmp(argv[i], "--te") == 0) {
             telugu_ui = true;
+		} else if (strcasecmp(argv[i], "html") == 0) {
+            html_ui = true; // CATCH THE HTML FLAG
         } else {
             clean_args.push_back(argv[i]);
         }
@@ -3887,7 +3906,7 @@ int main(int argc, char *argv[]) {
     if (clean_argc >= 9 && strcasecmp(clean_argv[8], "json") == 0) json_mode = true;
 
     // 4. Initialize Core Engine (Global Access for all commands)
-    JyotishaEngine engine(year, month, day, hour, minute, second, *it, json_mode, telugu_ui);
+    JyotishaEngine engine(year, month, day, hour, minute, second, *it, json_mode, telugu_ui, html_ui);
     
     // We run calculate_chart() here because 99% of commands rely on the Natal arrays being populated!
     engine.calculate_chart(); 

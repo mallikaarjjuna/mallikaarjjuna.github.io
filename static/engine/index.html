@@ -64,6 +64,33 @@
             line-height: 1.5;            
             font-size: 14px;
         }
+		/* Native HTML Tables from C++ */
+        .data-table {
+            width: 100%; border-collapse: collapse; margin: 20px 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px;
+            background: #1e1e24; color: #e0e0e0;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid var(--border); padding: 8px 12px; text-align: left;
+        }
+        .data-table th { background: #2a2a35; color: var(--accent); font-weight: bold; }
+        
+        .rasi-table {
+            width: 100%; max-width: 700px; border-collapse: collapse; margin: 20px 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px;
+            background: #1e1e24; color: var(--accent);
+        }
+        .rasi-table td {
+            border: 1px solid var(--border); width: 25%; height: 110px;
+            vertical-align: top; padding: 10px; font-weight: bold;
+        }
+        .rasi-center {
+            text-align: center; vertical-align: middle !important;
+            font-size: 1.5em; letter-spacing: 2px; color: #888;
+        }
+        .p-text {
+            color: var(--term-text); font-weight: normal; display: block; margin-top: 8px; line-height: 1.6;
+        }
         #loading-spinner {
             text-align: center; color: var(--accent); font-weight: bold; margin: 20px 0;
         }
@@ -353,6 +380,7 @@
             if (lang === "telugu") {
                 args.push("telugu");
             }
+			args.push("html"); // Tell C++ to format matrices as HTML tables for the web
             
             // Push the rest of the standard arguments
             args.push(y, m, d, h, min, sec, city, cmdType);

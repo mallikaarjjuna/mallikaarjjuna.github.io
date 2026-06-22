@@ -240,7 +240,9 @@
             <button class="tab-btn" onclick="openTab(event, 'tab-about')">About</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-contact')">Contact Us</button>
 			<button class="tab-btn" onclick="openTab(event, 'tab-legal')">Terms & Privacy</button>
-        </div> <div id="tab-birth" class="tab-content active"></div>
+        </div>
+		
+		<div id="tab-birth" class="tab-content active"></div>
         <div id="tab-general" class="tab-content"></div>
         <div id="tab-dasha" class="tab-content"></div>
         <div id="tab-gochar" class="tab-content"></div>
@@ -278,6 +280,7 @@
                 <p><em>Note: Because this engine runs entirely offline within your browser via WebAssembly, no personal birth data is ever transmitted to or stored on our servers. Your privacy is 100% secure.</em></p>
             </div>
         </div>
+		
 		<div id="tab-legal" class="tab-content" style="display: none;">
             <div class="terminal-view">
                 <h2>Privacy Policy & Terms of Service</h2>
@@ -296,6 +299,7 @@
                 <p><strong>Swiss Ephemeris:</strong> The core planetary longitude and ephemeris mathematics are powered by the Swiss Ephemeris (created by Astrodienst AG). The custom C++ predictive matrices, WebAssembly integrations, dynamic translation layers, and UI wrappers are proprietary to the developer.</p>
             </div>
         </div>
+		
     </div>
 <script>
     // Helper to safely get values or return a default (prevents C++ stoi crashes on empty fields)

@@ -3649,47 +3649,6 @@ void export_web_json(int t_year, int t_month, int t_day) {
     cout << root.dump(4) << endl; 
 }
 
-void print_birth_details_html(string name, string gender, int y, int m, int d) {
-    if (!html_mode) return;
-    const char* months[] = {"", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
-    
-    double ayanamsa_val = swe_get_ayanamsa_ut(tjd_ut);
-    int ay_d = (int)ayanamsa_val; double ay_f = ayanamsa_val - ay_d;
-    int ay_m = (int)(ay_f * 60.0); int ay_s = (int)round((ay_f * 60.0 - ay_m) * 60.0);
-    
-    int mo_nak = (int)(moon_lon / (360.0 / 27.0));
-    int mo_rasi = planet_rashis[2]; // Moon is index 2
-
-    double noon_jd = swe_julday(y, m, d, 12.0, SE_GREG_CAL);
-    int calc_weekday = (int)(floor(noon_jd + 1.5)) % 7; 
-
-    int th = (int)local_hour_decimal;
-    int tmin = (int)((local_hour_decimal - th) * 60.0);
-    int tz_h = (int)location.tz_offset;
-    int tz_m = (int)(abs(location.tz_offset - tz_h) * 60);
-    char tz_sign = (location.tz_offset >= 0) ? '+' : '-';
-
-    char date_buf[64], time_buf[64], ay_buf[64];
-    snprintf(date_buf, sizeof(date_buf), "%s %02d, %04d %s", months[m], d, y, weekdays[calc_weekday]);
-    snprintf(time_buf, sizeof(time_buf), "%d:%02d %s (%c%02d:%02d)", (th % 12 == 0 ? 12 : th % 12), tmin, (th >= 12 ? "PM" : "AM"), tz_sign, abs(tz_h), tz_m);
-    snprintf(ay_buf, sizeof(ay_buf), "Lahiri (%02d° %02d' %02d\")", ay_d, ay_m, ay_s);
-
-    printf("<div style='max-width: 700px; margin-bottom: 20px;'>\n");
-    printf("  <p style='color: #888; font-size: 14px; margin-bottom: 15px;'>All calculations & chart are based on the following input:</p>\n");
-    printf("  <table class='data-table'>\n");
-    printf("    <tr><th style='width: 35%%;'>Name</th><td>%s</td></tr>\n", name.c_str());
-    printf("    <tr><th>Gender</th><td>%s</td></tr>\n", gender.c_str());
-    printf("    <tr><th>Birth Date</th><td>%s</td></tr>\n", date_buf);
-    printf("    <tr><th>Birth Time</th><td>%s</td></tr>\n", time_buf);
-    printf("    <tr><th>Place of Birth</th><td>%s</td></tr>\n", location.name.c_str());
-    printf("    <tr><th><span style='color: #3498db;'>Nakshatra</span></th><td><span style='color: #3498db;'>%s</span></td></tr>\n", nak_names[mo_nak]);
-    printf("    <tr><th>Rasi</th><td>%s</td></tr>\n", rashi_names[mo_rasi]);
-    printf("    <tr><th>Ayanamsa</th><td>%s</td></tr>\n", ay_buf);
-    printf("  </table>\n");
-    printf("  <h2 style='margin-top: 30px; color: var(--accent);'>Planet Positions</h2>\n");
-    printf("  <p style='color: #888; font-size: 14px;'>The table below shows the position of planets at the date, time and place of birth.</p>\n");
-    printf("</div>\n");
-}
 void print_birth_details_html() {
         if (!html_mode || user_name.empty()) return;
         const char* months[] = {"", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
@@ -3698,6 +3657,7 @@ void print_birth_details_html() {
         int ay_d = (int)ayanamsa_val; double ay_f = ayanamsa_val - ay_d;
         int ay_m = (int)(ay_f * 60.0); int ay_s = (int)round((ay_f * 60.0 - ay_m) * 60.0);
         
+        // Independently calculate Moon position for the header
         double xx[6]; char serr[256];
         swe_calc_ut(tjd_ut, SE_MOON, iflag, xx, serr);
         double temp_moon_lon = xx[0];
@@ -3721,6 +3681,7 @@ void print_birth_details_html() {
         snprintf(time_buf, sizeof(time_buf), "%d:%02d %s (%c%02d:%02d)", (th % 12 == 0 ? 12 : th % 12), tmin, (th >= 12 ? "PM" : "AM"), tz_sign, abs(tz_h), tz_m);
         snprintf(ay_buf, sizeof(ay_buf), "Lahiri (%02d° %02d' %02d\")", ay_d, ay_m, ay_s);
 
+        // NOTE: All \n characters have been removed from the HTML strings below to fix the frontend gap
         printf("<br><div style='max-width: 700px; margin-bottom: 20px;'>");
         printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 10px;'>All calculations & chart are based on the following input:</p>");
         printf("<table class='data-table' style='margin-top: 0;'>");

@@ -30,6 +30,7 @@ dup
 *.csv
 *.xlsx
 *.deb
+*.backup*
 results*.txt*
 filtered_results.txt
 charts*.txt

@@ -66,6 +66,8 @@ struct TransitHit { string p_name; string hit_type; };
 
 class JyotishaEngine {
 public:
+	string user_name = "";
+    string user_gender = "";
     bool json_mode = false;
 	bool telugu_mode = false;
 	string get_month_name(int month) const {
@@ -232,6 +234,7 @@ public:
             lagna_lon = ascmc[0]; planet_lons[0] = lagna_lon; planet_rashis[0] = (int)(lagna_lon / 30.0); 
 			if (!json_mode) {
                 if (html_mode) {
+					print_birth_details_html();
                     printf("<table class='data-table'>\n<tr>");
                     if (telugu_mode) printf("<th>గ్రహం</th><th>రేఖాంశం</th><th>D9 రాశి</th><th>నక్షత్రం (పాదం)</th><th>తార (నవతార)</th><th>న. అధిపతి</th><th>రా. అధిపతి</th>");
                     else printf("<th>Graha</th><th>Longitude</th><th>D9 Rasi</th><th>Nakshatra (Pada)</th><th>Tara (Navatara)</th><th>N. Lord</th><th>R. Lord</th>");
@@ -3693,7 +3696,54 @@ void print_birth_details_html(string name, string gender, int y, int m, int d) {
     printf("  <p style='color: #888; font-size: 14px;'>The table below shows the position of planets at the date, time and place of birth.</p>\n");
     printf("</div>\n");
 }
+void print_birth_details_html() {
+        if (!html_mode || user_name.empty()) return;
+        const char* months[] = {"", "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
+        
+        double ayanamsa_val = swe_get_ayanamsa_ut(tjd_ut);
+        int ay_d = (int)ayanamsa_val; double ay_f = ayanamsa_val - ay_d;
+        int ay_m = (int)(ay_f * 60.0); int ay_s = (int)round((ay_f * 60.0 - ay_m) * 60.0);
+        
+        // Independently calculate Moon position for the header
+        double xx[6]; char serr[256];
+        swe_calc_ut(tjd_ut, SE_MOON, iflag, xx, serr);
+        double temp_moon_lon = xx[0];
+        int mo_nak = (int)(temp_moon_lon / (360.0 / 27.0));
+        int mo_rasi = (int)(temp_moon_lon / 30.0);
 
+        int y, m, d; double jut;
+        swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+
+        double noon_jd = swe_julday(y, m, d, 12.0, SE_GREG_CAL);
+        int calc_weekday = (int)(floor(noon_jd + 1.5)) % 7; 
+
+        int th = (int)local_hour_decimal;
+        int tmin = (int)((local_hour_decimal - th) * 60.0);
+        int tz_h = (int)location.tz_offset;
+        int tz_m = (int)(abs(location.tz_offset - tz_h) * 60);
+        char tz_sign = (location.tz_offset >= 0) ? '+' : '-';
+
+        char date_buf[64], time_buf[64], ay_buf[64];
+        snprintf(date_buf, sizeof(date_buf), "%s %02d, %04d %s", months[m], d, y, weekdays[calc_weekday]);
+        snprintf(time_buf, sizeof(time_buf), "%d:%02d %s (%c%02d:%02d)", (th % 12 == 0 ? 12 : th % 12), tmin, (th >= 12 ? "PM" : "AM"), tz_sign, abs(tz_h), tz_m);
+        snprintf(ay_buf, sizeof(ay_buf), "Lahiri (%02d° %02d' %02d\")", ay_d, ay_m, ay_s);
+
+        printf("<div style='max-width: 700px; margin-bottom: 20px;'>\n");
+        printf("  <p style='color: #888; font-size: 14px; margin-bottom: 15px;'>All calculations & chart are based on the following input:</p>\n");
+        printf("  <table class='data-table'>\n");
+        printf("    <tr><th style='width: 35%%;'>Name</th><td>%s</td></tr>\n", user_name.c_str());
+        printf("    <tr><th>Gender</th><td>%s</td></tr>\n", user_gender.c_str());
+        printf("    <tr><th>Birth Date</th><td>%s</td></tr>\n", date_buf);
+        printf("    <tr><th>Birth Time</th><td>%s</td></tr>\n", time_buf);
+        printf("    <tr><th>Place of Birth</th><td>%s</td></tr>\n", location.name.c_str());
+        printf("    <tr><th><span style='color: #3498db;'>Nakshatra</span></th><td><span style='color: #3498db;'>%s</span></td></tr>\n", nak_names[mo_nak]);
+        printf("    <tr><th>Rasi</th><td>%s</td></tr>\n", rashi_names[mo_rasi]);
+        printf("    <tr><th>Ayanamsa</th><td>%s</td></tr>\n", ay_buf);
+        printf("  </table>\n");
+        printf("  <h2 style='margin-top: 30px; color: var(--accent);'>Planet Positions</h2>\n");
+        printf("  <p style='color: #888; font-size: 14px;'>The table below shows the position of planets at the date, time and place of birth.</p>\n");
+        printf("</div>\n");
+    }
 };
 
 void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
@@ -4627,6 +4677,14 @@ int main(int argc, char *argv[]) {
     // 4. Initialize Core Engine (Global Access for all commands)
     JyotishaEngine engine(year, month, day, hour, minute, second, *it, json_mode, telugu_ui, html_ui);
     
+	if (clean_argc >= 9) {
+        string cmd = clean_argv[8];
+        if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
+            engine.user_name = (clean_argc > 9) ? clean_argv[9] : "Guest";
+            engine.user_gender = (clean_argc > 10) ? clean_argv[10] : "Not Specified";
+        }
+    }
+	
     // We run calculate_chart() here because 99% of commands rely on the Natal arrays being populated!
     engine.calculate_chart(); 
 
@@ -4658,15 +4716,8 @@ int main(int argc, char *argv[]) {
             engine.export_web_json(year, month, day); // Dummy target dates for JSON output
             return 0;
         }
-		else if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
-            // Extract Name and Gender if provided by the frontend payload
-            string user_name = (clean_argc > 9) ? clean_argv[9] : "Guest";
-            string user_gender = (clean_argc > 10) ? clean_argv[10] : "Not Specified";
-            
-            if (html_ui) {
-                engine.print_birth_details_html(user_name, user_gender, year, month, day);
-            }
-            return 0; 
+		if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
+            return 0; // Already printed perfectly during calculate_chart()
         }
         else if (strcasecmp(cmd.c_str(), "web_general") == 0) {
             int v_lord = -1, m_lord = -1;

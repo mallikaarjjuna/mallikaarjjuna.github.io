@@ -228,17 +228,17 @@ public:
         } return s;
     }
 
-	void calculate_chart() {
+void calculate_chart() {
         double ascmc[10];
         if (swe_houses_ex(tjd_ut, iflag, location.lat, location.lon, 'P', house_cusps, ascmc) >= 0) {
             lagna_lon = ascmc[0]; planet_lons[0] = lagna_lon; planet_rashis[0] = (int)(lagna_lon / 30.0); 
-			if (!json_mode) {
+            if (!json_mode) {
                 if (html_mode) {
-					print_birth_details_html();
-                    printf("<table class='data-table'>\n<tr>");
+                    print_birth_details_html(); 
+                    printf("<table class='data-table'><tr>");
                     if (telugu_mode) printf("<th>గ్రహం</th><th>రేఖాంశం</th><th>D9 రాశి</th><th>నక్షత్రం (పాదం)</th><th>తార (నవతార)</th><th>న. అధిపతి</th><th>రా. అధిపతి</th>");
                     else printf("<th>Graha</th><th>Longitude</th><th>D9 Rasi</th><th>Nakshatra (Pada)</th><th>Tara (Navatara)</th><th>N. Lord</th><th>R. Lord</th>");
-                    printf("</tr>\n");
+                    printf("</tr>");
                 } else {
                     printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
                     if (telugu_mode) printf("%-20s | %-26s | %-18s | %-35s | %-45s | %-18s | %-18s\n", "గ్రహం", "రేఖాంశం", "D9 రాశి", "నక్షత్రం (పాదం)", "తార (నవతార)", "న. అధిపతి", "రా. అధిపతి");
@@ -246,7 +246,6 @@ public:
                     printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
                 }
             }            
-			// Passing Integer Index 0 for Lagna
             process_planet(0, lagna_lon); 
         }
 
@@ -256,22 +255,20 @@ public:
         for (int i = 0; i < 8; i++) {
             if (swe_calc_ut(tjd_ut, planets[i], iflag, xx, serr) >= 0) {
                 planet_lons[i+1] = xx[0]; planet_rashis[i+1] = (int)(xx[0] / 30.0);
-                // Passing Integer Indices 1 through 8
                 process_planet(i+1, xx[0]); 
                 if (planets[i] == SE_SUN) sun_lon = xx[0]; if (planets[i] == SE_MOON) moon_lon = xx[0]; 
             }
         }
         swe_calc_ut(tjd_ut, SE_TRUE_NODE, iflag, xx, serr);
         planet_lons[9] = fmod(xx[0] + 180.0, 360.0); planet_rashis[9] = (int)(planet_lons[9] / 30.0);
-        // Passing Integer Index 9 for Ketu
         process_planet(9, planet_lons[9]);
-		if (html_mode && !json_mode) printf("</table>\n");
+        if (html_mode && !json_mode) printf("</table><br>");
 
         if (!json_mode) {
-            printf("--------------------------------------------------------------------------------------------------------------------------\n");
+            if (!html_mode) printf("--------------------------------------------------------------------------------------------------------------------------\n");
             draw_south_indian_chart();
         }
-		// --- JAIMINI KARAKAS (Soul Significators) ---
+        // --- JAIMINI KARAKAS (Soul Significators) ---
         if (!json_mode) {
             if (telugu_mode) printf("\n[జైమిని కారకత్వాలు & ఆరూఢ లగ్నాలు]\n");
             else printf("\n[JAIMINI KARAKAS & ARUDHAS]\n");
@@ -313,14 +310,13 @@ public:
         }
     }
 	
-    void process_planet(int p_idx, double decimal_degrees) {
+void process_planet(int p_idx, double decimal_degrees) {
         int rashi_index = (int)(decimal_degrees / 30.0); double rashi_degrees = decimal_degrees - (rashi_index * 30.0);
         int degrees = (int)rashi_degrees; int minutes = (int)((rashi_degrees - degrees) * 60.0);
         int seconds = (int)round((((rashi_degrees - degrees) * 60.0) - minutes) * 60.0);
         if (seconds >= 60) { seconds -= 60; minutes += 1; } if (minutes >= 60) { minutes -= 60; degrees += 1; }
         if (degrees >= 30) { degrees -= 30; rashi_index = (rashi_index + 1) % 12; }
 
-        // Added wrapper for the South Indian Rasi Chart grid
         rashi_grid[rashi_index] += get_short_planet(p_idx) + " ";
         
         int d9_rashi_index = ((int)(decimal_degrees / (10.0 / 3.0))) % 12;
@@ -329,22 +325,20 @@ public:
         int nak_lord_index = nak_index % 9;
         int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0)); int tara_idx = (nak_index - natal_mo_nak + 27) % 9;
         
-        // Added wrappers for Nakshatra names
         string nak_pada = get_nak_name(nak_index) + " " + to_string(pada);
         
-        // Find Rashi Lord Index (1-7) to translate the Lord's Name
         int r_lord_idx = 1;
         for (int p = 1; p <= 7; p++) { if (string(p_names_full[p]) == rashi_lords[rashi_index]) r_lord_idx = p; }
         
-		if (!json_mode) {
+        if (!json_mode) {
             if (html_mode) {
                 if (telugu_mode) {
-                    printf("<tr><td>%s</td><td>%02d° %s %02d'%02d\"</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n", 
+                    printf("<tr><td>%s</td><td>%02d° %s %02d'%02d\"</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
                            get_planet_name(p_idx).c_str(), degrees, get_rashi_name(rashi_index).c_str(), minutes, seconds, 
                            get_rashi_name(d9_rashi_index).c_str(), nak_pada.c_str(), get_tara(tara_idx).c_str(), 
                            get_dasha_lord(nak_lord_index).c_str(), get_planet_name(r_lord_idx).c_str());
                 } else {
-                    printf("<tr><td>%s</td><td>%02d° %s %02d'%02d\"</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n", 
+                    printf("<tr><td>%s</td><td>%02d° %s %02d'%02d\"</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
                            p_names_full[p_idx], degrees, short_rashi[rashi_index], minutes, seconds, 
                            short_rashi[d9_rashi_index], nak_pada.c_str(), tara_names[tara_idx], 
                            dasha_lords[nak_lord_index], p_names_full[r_lord_idx]);
@@ -363,9 +357,9 @@ public:
                 }
             }
         }
-	}
+    }
 	
-	void draw_south_indian_chart() {
+void draw_south_indian_chart() {
         if (html_mode) {
             auto c = [&](int idx) { return rashi_grid[idx]; };
             string title = telugu_mode ? "రాశి చక్రం" : "RASI CHART";
@@ -374,16 +368,16 @@ public:
             string r10 = telugu_mode ? "10 మకరం" : "10 Maka"; string r5 = telugu_mode ? "5 సింహం" : "5 Simh";
             string r9 = telugu_mode ? "9 ధనుస్సు" : "9 Dhan"; string r8 = telugu_mode ? "8 వృశ్చికం" : "8 Vrishch"; string r7 = telugu_mode ? "7 తుల" : "7 Tula"; string r6 = telugu_mode ? "6 కన్య" : "6 Kany";
 
-            printf("<table class='rasi-table'>\n");
-            printf("<tr><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td></tr>\n", 
+            printf("<table class='rasi-table'>");
+            printf("<tr><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td></tr>", 
                     r12.c_str(), c(11).c_str(), r1.c_str(), c(0).c_str(), r2.c_str(), c(1).c_str(), r3.c_str(), c(2).c_str());
-            printf("<tr><td>%s<span class='p-text'>%s</span></td><td colspan='2' rowspan='2' class='rasi-center'>%s</td><td>%s<span class='p-text'>%s</span></td></tr>\n", 
+            printf("<tr><td>%s<span class='p-text'>%s</span></td><td colspan='2' rowspan='2' class='rasi-center'>%s</td><td>%s<span class='p-text'>%s</span></td></tr>", 
                     r11.c_str(), c(10).c_str(), title.c_str(), r4.c_str(), c(3).c_str());
-            printf("<tr><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td></tr>\n", 
+            printf("<tr><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td></tr>", 
                     r10.c_str(), c(9).c_str(), r5.c_str(), c(4).c_str());
-            printf("<tr><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td></tr>\n", 
+            printf("<tr><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td><td>%s<span class='p-text'>%s</span></td></tr>", 
                     r9.c_str(), c(8).c_str(), r8.c_str(), c(7).c_str(), r7.c_str(), c(6).c_str(), r6.c_str(), c(5).c_str());
-            printf("</table>\n");
+            printf("</table><br><br>");
         } else {
             auto c = [&](int idx) { string s = rashi_grid[idx]; if (s.length() > 14) s = s.substr(0, 14); return s; };
             printf("\n=== SOUTH INDIAN RASI CHART ===\n");
@@ -395,7 +389,7 @@ public:
             printf("| %-14s|                               | %-14s|\n", "11 Kumb", "4 Kark");
             printf("| %-14s|                               | %-14s|\n", c(10).c_str(), c(3).c_str());
             printf("|               |                               |               |\n");
-            printf("-----------------           RASI CHART          -----------------\n");
+            printf("-----------------            RASI CHART         -----------------\n");
             printf("| %-14s|                               | %-14s|\n", "10 Maka", "5 Simh");
             printf("| %-14s|                               | %-14s|\n", c(9).c_str(), c(4).c_str());
             printf("|               |                               |               |\n");
@@ -405,8 +399,8 @@ public:
             printf("|               |               |               |               |\n");
             printf("-----------------------------------------------------------------\n");
         }
-    }	
-// =========================================================================
+    }
+	// =========================================================================
     // COLLISION SWEEPER (UPGRADED: UNIFIED BUBBLE & "ALL" FEATURE)
     // =========================================================================
 
@@ -3704,7 +3698,6 @@ void print_birth_details_html() {
         int ay_d = (int)ayanamsa_val; double ay_f = ayanamsa_val - ay_d;
         int ay_m = (int)(ay_f * 60.0); int ay_s = (int)round((ay_f * 60.0 - ay_m) * 60.0);
         
-        // Independently calculate Moon position for the header
         double xx[6]; char serr[256];
         swe_calc_ut(tjd_ut, SE_MOON, iflag, xx, serr);
         double temp_moon_lon = xx[0];
@@ -3728,22 +3721,23 @@ void print_birth_details_html() {
         snprintf(time_buf, sizeof(time_buf), "%d:%02d %s (%c%02d:%02d)", (th % 12 == 0 ? 12 : th % 12), tmin, (th >= 12 ? "PM" : "AM"), tz_sign, abs(tz_h), tz_m);
         snprintf(ay_buf, sizeof(ay_buf), "Lahiri (%02d° %02d' %02d\")", ay_d, ay_m, ay_s);
 
-        printf("<div style='max-width: 700px; margin-bottom: 20px;'>\n");
-        printf("  <p style='color: #888; font-size: 14px; margin-bottom: 15px;'>All calculations & chart are based on the following input:</p>\n");
-        printf("  <table class='data-table'>\n");
-        printf("    <tr><th style='width: 35%%;'>Name</th><td>%s</td></tr>\n", user_name.c_str());
-        printf("    <tr><th>Gender</th><td>%s</td></tr>\n", user_gender.c_str());
-        printf("    <tr><th>Birth Date</th><td>%s</td></tr>\n", date_buf);
-        printf("    <tr><th>Birth Time</th><td>%s</td></tr>\n", time_buf);
-        printf("    <tr><th>Place of Birth</th><td>%s</td></tr>\n", location.name.c_str());
-        printf("    <tr><th><span style='color: #3498db;'>Nakshatra</span></th><td><span style='color: #3498db;'>%s</span></td></tr>\n", nak_names[mo_nak]);
-        printf("    <tr><th>Rasi</th><td>%s</td></tr>\n", rashi_names[mo_rasi]);
-        printf("    <tr><th>Ayanamsa</th><td>%s</td></tr>\n", ay_buf);
-        printf("  </table>\n");
-        printf("  <h2 style='margin-top: 30px; color: var(--accent);'>Planet Positions</h2>\n");
-        printf("  <p style='color: #888; font-size: 14px;'>The table below shows the position of planets at the date, time and place of birth.</p>\n");
-        printf("</div>\n");
+        printf("<br><div style='max-width: 700px; margin-bottom: 20px;'>");
+        printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 10px;'>All calculations & chart are based on the following input:</p>");
+        printf("<table class='data-table' style='margin-top: 0;'>");
+        printf("<tr><th style='width: 35%%;'>Name</th><td>%s</td></tr>", user_name.c_str());
+        printf("<tr><th>Gender</th><td>%s</td></tr>", user_gender.c_str());
+        printf("<tr><th>Birth Date</th><td>%s</td></tr>", date_buf);
+        printf("<tr><th>Birth Time</th><td>%s</td></tr>", time_buf);
+        printf("<tr><th>Place of Birth</th><td>%s</td></tr>", location.name.c_str());
+        printf("<tr><th><span style='color: #3498db;'>Nakshatra</span></th><td><span style='color: #3498db;'>%s</span></td></tr>", nak_names[mo_nak]);
+        printf("<tr><th>Rasi</th><td>%s</td></tr>", rashi_names[mo_rasi]);
+        printf("<tr><th>Ayanamsa</th><td>%s</td></tr>", ay_buf);
+        printf("</table>");
+        printf("<h2 style='margin-top: 25px; margin-bottom: 5px; color: var(--accent);'>Planet Positions</h2>");
+        printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 10px;'>The table below shows the position of planets at the date, time and place of birth.</p>");
+        printf("</div>");
     }
+	
 };
 
 void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {

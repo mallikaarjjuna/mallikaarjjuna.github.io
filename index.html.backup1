@@ -51,7 +51,7 @@
         .tab-content { display: none; padding: 20px 0; }
         .tab-content.active { display: block; }
         
-        /* Terminal */
+		/* Terminal */
         .terminal-view {
             background: var(--term-bg); 
             color: var(--term-text); 
@@ -64,7 +64,7 @@
             line-height: 1.5;            
             font-size: 14px;
         }
-        /* Native HTML Tables from C++ */
+		/* Native HTML Tables from C++ */
         .data-table {
             width: 100%; border-collapse: collapse; margin: 20px 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px;
@@ -101,7 +101,7 @@
         let isEngineComputing = false;
         let isWasmReady = false;
 
-        var Module = {
+		var Module = {
             print: function(text) {
                 terminalBuffer += text + "\n";
             },
@@ -136,7 +136,13 @@
                     if (loadingEl) {
                         loadingEl.style.display = 'none';
                     }
+
+                    // ==========================================
+                    // CRITICAL FIX: UNLOCK THE UI
+                    // ==========================================
                     isWasmReady = true; 
+                    // ==========================================
+					
                 } catch (err) {
                     console.error("Data loading error:", err);
                     const loadingEl = document.getElementById('loading-msg');
@@ -159,14 +165,6 @@
     <form id="calc-form">
         <h2>1. Natal Birth Parameters</h2>
         <div class="form-grid">
-            <div class="form-group"><label>Name</label><input type="text" name="user_name" value="Mallikarjuna" required></div>
-            <div class="form-group">
-                <label>Gender</label>
-                <select name="user_gender">
-                    <option value="Male" selected>Male</option>
-                    <option value="Female">Female</option>
-                </select>
-            </div>
             <div class="form-group"><label>Day</label><input type="number" name="birth_day" value="29" required></div>
             <div class="form-group"><label>Month</label><input type="number" name="birth_month" value="7" required></div>
             <div class="form-group"><label>Year</label><input type="number" name="birth_year" value="1981" required></div>
@@ -198,8 +196,8 @@
             <div class="form-group"><label>Minute</label><input type="number" name="transit_minute" value="0"></div>
             <div class="form-group"><label>Second</label><input type="number" name="transit_second" value="0"></div>
         </div>
-        
-        <h2>3. Partner Birth Parameters (For Synastry)</h2>
+		
+		<h2>3. Partner Birth Parameters (For Synastry)</h2>
         <div class="form-grid">
             <div class="form-group"><label>Partner Day</label><input type="number" name="p2_day" value="1"></div>
             <div class="form-group"><label>Partner Month</label><input type="number" name="p2_month" value="1"></div>
@@ -222,9 +220,9 @@
                 </select>
             </div>
         </div>
-        
+		
 
-        <h2>4. Interface Settings & Events</h2>
+		<h2>4. Interface Settings & Events</h2>
         <div class="form-grid">
             <div class="form-group">
                 <label>Muhurat Event Type</label>
@@ -245,13 +243,13 @@
             </div>
         </div>        
         <button type="submit">Initialize C++ Engine & AI Core</button>
-    </form>
+	</form>
 
     <h4 id="loading-msg" style="color: orange; text-align: center; margin-top: 20px;">
-        Downloading Astronomical Ephemeris Virtual Memory... Please Wait.
-    </h4>
+		Downloading Astronomical Ephemeris Virtual Memory... Please Wait.
+	</h4>
 
-    <div id="loading-spinner" style="display:none; text-align: center; color: var(--accent); font-weight: bold; margin: 20px 0;">
+	<div id="loading-spinner" style="display:none; text-align: center; color: var(--accent); font-weight: bold; margin: 20px 0;">
         Computing High-Precision Orbital Mechanics...
     </div>
 
@@ -263,22 +261,22 @@
             <button class="tab-btn" onclick="openTab(event, 'tab-gochar')">Gochar (Transit)</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-dosha')">Mangal Dosha</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-varsh')">Year (Varshaphal)</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-progeny')">Children (Progeny)</button>
+			<button class="tab-btn" onclick="openTab(event, 'tab-progeny')">Children (Progeny)</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-soulmate')">Soul Mate (Synastry)</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-muhurat')">Event Muhurat</button> 
             
             <button class="tab-btn" onclick="openTab(event, 'tab-about')">About</button>
             <button class="tab-btn" onclick="openTab(event, 'tab-contact')">Contact Us</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-legal')">Terms & Privacy</button>
+			<button class="tab-btn" onclick="openTab(event, 'tab-legal')">Terms & Privacy</button>
         </div>
-        
-        <div id="tab-birth" class="tab-content active"></div>
+		
+		<div id="tab-birth" class="tab-content active"></div>
         <div id="tab-general" class="tab-content"></div>
         <div id="tab-dasha" class="tab-content"></div>
         <div id="tab-gochar" class="tab-content"></div>
         <div id="tab-dosha" class="tab-content"></div>
         <div id="tab-varsh" class="tab-content"></div>
-        <div id="tab-progeny" class="tab-content"></div>
+		<div id="tab-progeny" class="tab-content"></div>
         <div id="tab-soulmate" class="tab-content"></div>
         <div id="tab-muhurat" class="tab-content"></div>
     
@@ -311,14 +309,14 @@
                 <p><em>Note: Because this engine runs entirely offline within your browser via WebAssembly, no personal birth data is ever transmitted to or stored on our servers. Your privacy is 100% secure.</em></p>
             </div>
         </div>
-        
-        <div id="tab-legal" class="tab-content">
+		
+		<div id="tab-legal" class="tab-content">
             <div class="terminal-view">
                 <h2>Privacy Policy & Terms of Service</h2>
                 
                 <h3 style="color: #4CAF50;">1. Privacy Policy (Data Security)</h3>
                 <p><strong>Zero Server Processing:</strong> This application represents a breakthrough in data privacy. The entire astronomical engine operates locally on your device via WebAssembly. Absolutely no personal birth details (dates, times, locations) are transmitted to, saved on, or collected by our servers. Once you close your browser, your data is gone.</p>
-                <p><strong>Cookies & Advertising:</strong> To support the hosting of this free tool, third-party vendors, including Google, may use cookies to serve ads based on a user's prior visits to this website. Google's use of advertising cookies enables it and partners to serve ads based on your visit to this site and/or other sites on the Internet.</p>
+                <p><strong>Cookies & Advertising:</strong> To support the hosting of this free tool, third-party vendors, including Google, may use cookies to serve ads based on a user's prior visits to this website. Google's use of advertising cookies enables it and its partners to serve ads based on your visit to this site and/or other sites on the Internet.</p>
                 
                 <br>
                 <h3 style="color: #4CAF50;">2. Terms of Service & Legal Disclaimer</h3>
@@ -328,12 +326,13 @@
                 <br>
                 <h3 style="color: #4CAF50;">3. Software Licensing & Acknowledgements</h3>
                 <p><strong>Swiss Ephemeris:</strong> The core planetary longitude and ephemeris mathematics are powered by the Swiss Ephemeris (created by Astrodienst AG). The custom C++ predictive matrices, WebAssembly integrations, dynamic translation layers, and UI wrappers are proprietary to the developer. <br><br>
-                <a href="LICENSE.txt" target="_blank" style="color: #f39c12; text-decoration: underline;">View Full Software License & Disclaimer (LICENSE.txt)</a></p>
+				<a href="LICENSE.txt" target="_blank" style="color: #f39c12; text-decoration: underline;">View Full Software License & Disclaimer (LICENSE.txt)</a></p>
             </div>
         </div>
-        
+		
     </div>
 <script>
+    // Helper to safely get values or return a default (prevents C++ stoi crashes on empty fields)
     const getVal = (name, def) => document.querySelector(`input[name="${name}"]`).value || def;
 
     async function fetchTabData(tabId) {
@@ -349,6 +348,7 @@
         spinner.style.display = 'block';
         document.querySelector('.tabs').style.opacity = '0.5';
 
+        // Brief timeout to let the DOM paint
         await new Promise(resolve => setTimeout(resolve, 50));
 
         try {
@@ -359,13 +359,14 @@
                 'tab-gochar': 'web_transit',
                 'tab-dosha': 'web_dosha',
                 'tab-varsh': 'annual',
-                'tab-progeny': 'web_progeny',
+				'tab-progeny': 'web_progeny',
                 'tab-soulmate': 'match',
-                'tab-muhurat': 'muhurat'
+				'tab-muhurat': 'muhurat'
             };
             
             const cmdType = commandMap[tabId] || 'web_natal';
 
+            // Gather inputs with safe fallbacks
             const y = getVal('birth_year', '1980');
             const m = getVal('birth_month', '1');
             const d = getVal('birth_day', '1');
@@ -375,19 +376,20 @@
             const city = document.querySelector('select[name="birth_place"]').value;
             const lang = document.querySelector('select[name="ui_language"]').value;
             
+            // Base Execution Command
             let args = [];
             
+            // CRITICAL: Push the Telugu flag first if selected!
             if (lang === "telugu") {
                 args.push("telugu");
             }
-            args.push("html"); 
+			args.push("html"); // Tell C++ to format matrices as HTML tables for the web
             
+            // Push the rest of the standard arguments
             args.push(y, m, d, h, min, sec, city, cmdType);
-            
-            // NEW: Inject Name and Gender for the Birth Chart display
-            if (tabId === 'tab-birth') {
-                args.push(getVal('user_name', 'Guest'), document.querySelector('select[name="user_gender"]').value);
-            } else if (tabId === 'tab-gochar') {
+			
+            // Tab-specific arguments
+            if (tabId === 'tab-gochar') {
                 args.push(
                     getVal('transit_year', new Date().getFullYear().toString()),
                     getVal('transit_month', (new Date().getMonth() + 1).toString()),
@@ -398,7 +400,8 @@
                 );
             } else if (tabId === 'tab-varsh') {
                 args.push(getVal('transit_year', new Date().getFullYear().toString()));
-            } else if (tabId === 'tab-soulmate') {
+			} else if (tabId === 'tab-soulmate') {
+                // Dynamically fetch Person 2's data from the UI
                 args.push(
                     getVal('p2_year', '1985'),
                     getVal('p2_month', '1'),
@@ -409,6 +412,7 @@
                     document.querySelector('select[name="p2_place"]').value
                 );
             } else if (tabId === 'tab-muhurat') {
+                // NEW: Push the Event Type, Target Year, and Target Month
                 args.push(
                     document.querySelector('select[name="muhurat_event"]').value,
                     getVal('transit_year', new Date().getFullYear().toString()),
@@ -416,10 +420,12 @@
                 );
             }
 
+            // CLEAR BUFFER AND EXECUTE C++ IN THE BROWSER
             terminalBuffer = ""; 
             console.log("Calling WebAssembly with args:", args);
             Module.callMain(args); 
 
+            // Render Output
             const targetDiv = document.getElementById(tabId);
             if (targetDiv) {
                 targetDiv.innerHTML = `<pre class="terminal-view">${terminalBuffer}</pre>`;
@@ -460,6 +466,7 @@
         e.preventDefault();
         if (isEngineComputing) return;
         
+        // Wipe old data cache on new calculation
         const tabsToClear = ['tab-birth', 'tab-general', 'tab-dasha', 'tab-gochar', 'tab-dosha', 'tab-varsh', 'tab-progeny', 'tab-soulmate', 'tab-muhurat'];
         tabsToClear.forEach(id => {
             const el = document.getElementById(id);

@@ -2129,7 +2129,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
     }
 	
-	void calculate_event_muhurat(string event_type, int target_year, int target_month) {
+void calculate_event_muhurat(string event_type, int target_year, int target_month) {
         string e_lower = event_type;
         transform(e_lower.begin(), e_lower.end(), e_lower.begin(), ::tolower);
 
@@ -2138,9 +2138,9 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
 
         if (e_lower == "marriage" || e_lower == "vivaha") {
             e_name_en = "Marriage / Vivaha"; e_name_te = "వివాహం (మ్యారేజ్)";
-            valid_naks = {3, 4, 9, 11, 12, 14, 16, 18, 20, 25, 26}; // Rohini, Mrig, Magha, U.Phal, Hasta, Swati, Anu, Mula, U.Ash, U.Bha, Revati
-            valid_tithis = {1, 2, 4, 6, 9, 10, 12}; // Dwitiya, Tritiya, Panchami, Saptami, Dashami, Ekadashi, Trayodashi
-            valid_days = {1, 3, 4, 5}; // Mon, Wed, Thu, Fri
+            valid_naks = {3, 4, 9, 11, 12, 14, 16, 18, 20, 25, 26}; 
+            valid_tithis = {1, 2, 4, 6, 9, 10, 12}; 
+            valid_days = {1, 3, 4, 5}; 
         } 
         else if (e_lower == "house" || e_lower == "griha") {
             e_name_en = "House Warming / Griha Pravesh"; e_name_te = "గృహ ప్రవేశం";
@@ -2150,7 +2150,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
         else if (e_lower == "vehicle" || e_lower == "vahana") {
             e_name_en = "Vehicle Purchase"; e_name_te = "వాహన కొనుగోలు (వెహికల్)";
-            valid_naks = {0, 6, 7, 12, 14, 21, 22, 23, 26}; // Ashwini, Punarvasu, Pushya, Hasta, Swati, Shravana, Dhanishtha, Shatabhisha, Revati
+            valid_naks = {0, 6, 7, 12, 14, 21, 22, 23, 26}; 
             valid_tithis = {2, 3, 4, 6, 9, 10, 12, 14}; 
             valid_days = {0, 1, 3, 4, 5}; 
         }
@@ -2171,30 +2171,39 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
             return;
         }
 
-        if (telugu_mode) {
-            printf("\n===============================================================================================================\n");
-            printf("=== వ్యక్తిగత ముహూర్త శోధన (PERSONALIZED MUHURAT SCANNER) ===\n");
-            printf("కార్యక్రమం  : %s\n", e_name_te.c_str());
-            printf("శోధన నెల   : %02d/%04d\n", target_month, target_year);
-            printf("జన్మ నక్షత్రం : %s (తారాబలం ఫిల్టర్ చేయబడింది)\n", get_nak_name((int)(moon_lon / (360.0 / 27.0))).c_str());
-            printf("===============================================================================================================\n");
-            printf("%-12s | %-12s | %-20s | %-15s | %-25s | %-15s\n", "తేదీ", "వారం", "తిథి", "నక్షత్రం", "తారాబలం", "శుభ సమయం");
+        if (html_mode) {
+            printf("<h2 style='margin-top: 20px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_mode ? "వ్యక్తిగత ముహూర్త శోధన (Personalized Muhurat)" : "Personalized Event Muhurat Scanner");
+            printf("<p style='color: #888;'>%s: <b style='color:var(--term-text);'>%s</b> | %s: <b style='color:var(--term-text);'>%02d/%04d</b></p>", 
+                   telugu_mode ? "కార్యక్రమం" : "Event", telugu_mode ? e_name_te.c_str() : e_name_en.c_str(), 
+                   telugu_mode ? "శోధన నెల" : "Search Month", target_month, target_year);
+            printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", 
+                   telugu_mode ? "తేదీ" : "Date", telugu_mode ? "వారం" : "Day", telugu_mode ? "తిథి" : "Tithi", 
+                   telugu_mode ? "నక్షత్రం" : "Star", telugu_mode ? "తారాబలం" : "Tara Bala", telugu_mode ? "శుభ సమయం" : "Best Window");
         } else {
-            printf("\n===============================================================================================================\n");
-            printf("=== PERSONALIZED EVENT MUHURAT SCANNER ===\n");
-            printf("Event Type  : %s\n", e_name_en.c_str());
-            printf("Search Month: %02d/%04d\n", target_month, target_year);
-            printf("Natal Star  : %s (Tara Bala Filter Applied)\n", nak_names[(int)(moon_lon / (360.0 / 27.0))]);
-            printf("===============================================================================================================\n");
-            printf("%-12s | %-12s | %-20s | %-15s | %-25s | %-15s\n", "Date", "Weekday", "Tithi", "Nakshatra", "Tara Bala", "Best Window");
+            if (telugu_mode) {
+                printf("\n===============================================================================================================\n");
+                printf("=== వ్యక్తిగత ముహూర్త శోధన (PERSONALIZED MUHURAT SCANNER) ===\n");
+                printf("కార్యక్రమం  : %s\n", e_name_te.c_str());
+                printf("శోధన నెల   : %02d/%04d\n", target_month, target_year);
+                printf("జన్మ నక్షత్రం : %s (తారాబలం ఫిల్టర్ చేయబడింది)\n", get_nak_name((int)(moon_lon / (360.0 / 27.0))).c_str());
+                printf("===============================================================================================================\n");
+                printf("%-12s | %-12s | %-20s | %-15s | %-25s | %-15s\n", "తేదీ", "వారం", "తిథి", "నక్షత్రం", "తారాబలం", "శుభ సమయం");
+            } else {
+                printf("\n===============================================================================================================\n");
+                printf("=== PERSONALIZED EVENT MUHURAT SCANNER ===\n");
+                printf("Event Type  : %s\n", e_name_en.c_str());
+                printf("Search Month: %02d/%04d\n", target_month, target_year);
+                printf("Natal Star  : %s (Tara Bala Filter Applied)\n", nak_names[(int)(moon_lon / (360.0 / 27.0))]);
+                printf("===============================================================================================================\n");
+                printf("%-12s | %-12s | %-20s | %-15s | %-25s | %-15s\n", "Date", "Weekday", "Tithi", "Nakshatra", "Tara Bala", "Best Window");
+            }
+            printf("---------------------------------------------------------------------------------------------------------------\n");
         }
-        printf("---------------------------------------------------------------------------------------------------------------\n");
 
         double start_jd = swe_julday(target_year, target_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
         int valid_hits = 0;
-        int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0)); // User's Birth Star!
+        int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0)); 
 
-        // Sweep every day of the month
         for (int i = 0; i < 31; i++) {
             double noon_jd = start_jd + i + (12.0 / 24.0); 
             
@@ -2213,9 +2222,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
             int tithi_15_scale = t_idx % 15; 
             int n_idx = (int)(xx_moon[0] / (360.0 / 27.0));
 
-            // --- PERSONALIZED TARA BALA CHECK ---
             int tara_idx = (n_idx - natal_mo_nak + 27) % 9;
-            // Reject Vipat (2), Pratyak (4), and Vadha (6) Taras automatically!
             bool tara_ok = (tara_idx != 2 && tara_idx != 4 && tara_idx != 6);
 
             bool day_ok = std::find(valid_days.begin(), valid_days.end(), weekday) != valid_days.end();
@@ -2237,22 +2244,33 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
                 string full_tithi = get_tithi(t_idx) + " (" + get_paksha(t_idx).substr(0,3) + ")";
                 
                 string tara_print = get_tara(tara_idx);
-                // Strip description in English for neatness in table
                 if (!telugu_mode) tara_print = tara_print.substr(0, tara_print.find(" ("));
 
-                printf("%-12s | %-12s | %-20s | %-15s | %-25s | %-15s\n", 
-                       date_buf, get_weekday(weekday).c_str(), full_tithi.c_str(), get_nak_name(n_idx).c_str(), tara_print.c_str(), ab_window.c_str());
+                if (html_mode) {
+                    printf("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+                           date_buf, get_weekday(weekday).c_str(), full_tithi.c_str(), get_nak_name(n_idx).c_str(), tara_print.c_str(), ab_window.c_str());
+                } else {
+                    printf("%-12s | %-12s | %-20s | %-15s | %-25s | %-15s\n", 
+                           date_buf, get_weekday(weekday).c_str(), full_tithi.c_str(), get_nak_name(n_idx).c_str(), tara_print.c_str(), ab_window.c_str());
+                }
                 valid_hits++;
             }
         }
         
-        if (valid_hits == 0) {
-            if (telugu_mode) printf("మీ జన్మ నక్షత్రం ఆధారంగా ఈ మాసంలో %s కొరకు ఎటువంటి అనుకూల ముహూర్తాలు లేవు.\n", e_name_te.c_str());
-            else printf("Based on your Natal Star, no personalized safe Panchang alignments were found for %s in this month.\n", e_name_en.c_str());
+        if (html_mode) {
+            if (valid_hits == 0) {
+                printf("<tr><td colspan='6' style='text-align:center; color:#e74c3c;'>%s</td></tr>", 
+                       telugu_mode ? "మీ జన్మ నక్షత్రం ఆధారంగా ఈ మాసంలో ఎటువంటి అనుకూల ముహూర్తాలు లేవు." : "No personalized safe Panchang alignments were found for this month.");
+            }
+            printf("</table><br>\n");
+        } else {
+            if (valid_hits == 0) {
+                if (telugu_mode) printf("మీ జన్మ నక్షత్రం ఆధారంగా ఈ మాసంలో %s కొరకు ఎటువంటి అనుకూల ముహూర్తాలు లేవు.\n", e_name_te.c_str());
+                else printf("Based on your Natal Star, no personalized safe Panchang alignments were found for %s in this month.\n", e_name_en.c_str());
+            }
+            printf("===============================================================================================================\n");
         }
-        printf("===============================================================================================================\n");
-    }
-	
+    }	
 	// =========================================================================
     // DAILY PANCHANG & TIMINGS (RESTORED & ENHANCED)
     // =========================================================================
@@ -5000,16 +5018,19 @@ int main(int argc, char *argv[]) {
             }
         };
 
-		if (strcasecmp(cmd.c_str(), "json") == 0) {
+        if (strcasecmp(cmd.c_str(), "json") == 0) {
             engine.calculate_ashtakavarga(true);
             engine.analyze_auspiciousness(engine.planet_rashis[0], engine.planet_rashis);
             engine.export_web_json(year, month, day); 
-            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
+            printf("\n"); fflush(stdout); 
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
+            engine.user_name = (clean_argc > 9) ? clean_argv[9] : "Guest";
+            engine.user_gender = (clean_argc > 10) ? clean_argv[10] : "Not Specified";
+            engine.html_mode = html_ui; 
             engine.print_birth_chart_ui(); 
-            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
+            printf("\n"); fflush(stdout); 
             return 0; 
         }
         else if (strcasecmp(cmd.c_str(), "web_general") == 0) {
@@ -5020,7 +5041,7 @@ int main(int argc, char *argv[]) {
                                       engine.current_weekday, v_lord, m_lord, false, engine.json_output);
             engine.calculate_ashtakavarga(true); 
             engine.analyze_chart("D1"); 
-            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
+            printf("\n"); fflush(stdout); 
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_dasha") == 0) {
@@ -5035,12 +5056,12 @@ int main(int argc, char *argv[]) {
                 double current_jd = swe_julday(now_utc->tm_year + 1900, now_utc->tm_mon + 1, now_utc->tm_mday, ut_dec, SE_GREG_CAL);
                 engine.print_dasha_tables_html(current_jd);
             }
-            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
+            printf("\n"); fflush(stdout); 
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_dosha") == 0) {
             engine.analyze_doshas(engine.planet_rashis, engine.planet_rashis[0]);
-            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
+            printf("\n"); fflush(stdout); 
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_transit") == 0) {
@@ -5048,7 +5069,7 @@ int main(int argc, char *argv[]) {
                 t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
                 engine.calculate_transits(t_year, t_month, t_day, t_hour, t_min, t_sec, false, true); 
             }
-            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
+            printf("\n"); fflush(stdout); 
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_progeny") == 0 || strcasecmp(cmd.c_str(), "progeny") == 0) {
@@ -5062,10 +5083,217 @@ int main(int argc, char *argv[]) {
                 }
             }
             engine.analyze_progeny(is_female, gender_provided);
-            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
+            printf("\n"); fflush(stdout); 
             return 0;
         }
-		
+
+        // --- RESTORED ORIGINAL CLI COMMANDS & WEB ALIASES ---
+        
+        else if (strcasecmp(cmd.c_str(), "kp") == 0) {
+            engine.calculate_kp(); 
+            printf("\n"); fflush(stdout); 
+            return 0; 
+        }
+        else if (strcasecmp(cmd.c_str(), "analyze") == 0) {
+            string varga = "D1"; if (clean_argc >= 10) varga = clean_argv[9];
+            engine.analyze_chart(varga); 
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "collision") == 0) {
+            if (clean_argc >= 10) {
+                string col_planet = clean_argv[9];
+                bool col_year_only = false, col_month_only = false;
+                if (clean_argc == 11) { t_year = stoi(clean_argv[10]); col_year_only = true; }
+                else if (clean_argc == 12) { t_year = stoi(clean_argv[10]); t_month = stoi(clean_argv[11]); col_month_only = true; }
+                else if (clean_argc >= 13) { t_year = stoi(clean_argv[10]); t_month = stoi(clean_argv[11]); t_day = stoi(clean_argv[12]); }
+                engine.calculate_collisions(col_planet, t_year, t_month, t_day, col_year_only, col_month_only); 
+            } else print_help_menu();
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "daily") == 0) {
+            if (clean_argc >= 12) { t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); }
+            else { t_year = year; t_month = month; t_day = day; }
+            engine.calculate_muhurat(t_year, t_month, t_day, true);
+            engine.calculate_daily_panchang_transitions(t_year, t_month, t_day);
+            engine.calculate_daily_lagnas(t_year, t_month, t_day); 
+            engine.calculate_daily_horas(t_year, t_month, t_day); 
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "dasha") == 0) {
+            if (clean_argc >= 10 && strcasecmp(clean_argv[9], "all") == 0) engine.export_all_dashas_csv();
+            else if (clean_argc >= 12) { 
+                t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
+                engine.calculate_muhurat(t_year, t_month, t_day, true);
+                engine.calculate_daily_panchang_transitions(t_year, t_month, t_day);
+                engine.calculate_6_level_dasha_target(t_year, t_month, t_day, t_hour, t_min, t_sec, false);
+            }
+            else { engine.calculate_dasha_balance(); engine.interactive_dasha(); }
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "deha") == 0) {
+            if (clean_argc >= 12) { 
+                t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
+                engine.calculate_muhurat(t_year, t_month, t_day, true);
+                engine.calculate_daily_panchang_transitions(t_year, t_month, t_day);
+                engine.calculate_daily_dehas(t_year, t_month, t_day, t_hour, t_min, t_sec, false, time_provided);
+            } else {
+                time_t t = time(nullptr); tm* now = localtime(&t);
+                engine.calculate_muhurat(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday, true);
+                engine.calculate_daily_panchang_transitions(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
+                engine.calculate_daily_dehas(0, 0, 0, 0, 0, 0, true, false);
+            }
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "transit") == 0) {
+            if (clean_argc >= 12) { 
+                t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
+                engine.calculate_muhurat(t_year, t_month, t_day, true);
+                engine.calculate_daily_panchang_transitions(t_year, t_month, t_day);
+                engine.calculate_transits(t_year, t_month, t_day, t_hour, t_min, t_sec, false, false); 
+            } else {
+                time_t t = time(nullptr); tm* now = localtime(&t);
+                engine.calculate_muhurat(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday, true);
+                engine.calculate_daily_panchang_transitions(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday);
+                engine.calculate_transits(0, 0, 0, 0, 0, 0, true, false);
+            }
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "degree") == 0) {
+            if (clean_argc >= 13) {
+                string s_planet = clean_argv[9], s_sign = clean_argv[10];
+                int s_deg = stoi(clean_argv[11]), s_min = stoi(clean_argv[12]), s_sec = stoi(clean_argv[13]);
+                int s_year = 0, s_month = 0;
+                if (clean_argc >= 15) s_year = stoi(clean_argv[14]);
+                if (clean_argc >= 16) s_month = stoi(clean_argv[15]);
+                engine.search_exact_degree(s_planet, s_sign, s_deg, s_min, s_sec, s_year, s_month);
+            } else printf("Error: 'degree' requires Planet, Sign, Deg, Min, Sec. Example: degree ravi meena 13 11 00\n");
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "tithi") == 0) {
+            if (clean_argc >= 10) engine.calculate_tithi_return(stoi(clean_argv[9]));
+            else printf("Error: 'tithi' requires a target year. Example: tithi 2026\n");
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "match") == 0 || strcasecmp(cmd.c_str(), "match_predict") == 0 || strcasecmp(cmd.c_str(), "web_match") == 0 || strcasecmp(cmd.c_str(), "web_synastry") == 0) {
+            if (clean_argc >= 16) {
+                int start_y = 0, end_y = 0, m_idx = 9;
+                bool is_predict = (strcasecmp(cmd.c_str(), "match_predict") == 0);
+                if (is_predict) {
+                    if (clean_argc < 18) { printf("Error: match_predict requires StartY EndY P2_Y P2_M P2_D P2_H P2_Min P2_S P2_City\n"); return 1; }
+                    start_y = stoi(clean_argv[m_idx++]); end_y = stoi(clean_argv[m_idx++]);
+                }
+                int m_y = stoi(clean_argv[m_idx++]), m_m = stoi(clean_argv[m_idx++]), m_d = stoi(clean_argv[m_idx++]);
+                int m_h = stoi(clean_argv[m_idx++]), m_min = stoi(clean_argv[m_idx++]), m_s = stoi(clean_argv[m_idx++]);
+                string m_city = clean_argv[m_idx++];
+                
+                auto it2 = find_if(city_db.begin(), city_db.end(), [&](const City& c) { return strcasecmp(c.name.c_str(), m_city.c_str()) == 0; });
+                if (it2 == city_db.end()) { printf("Error: Person 2 City '%s' not found.\n", m_city.c_str()); return 1; }
+                
+                JyotishaEngine p2_engine(m_y, m_m, m_d, m_h, m_min, m_s, *it2, json_mode, telugu_ui, html_ui);
+                p2_engine.calculate_chart();
+                
+                if (html_ui) printf("<h2 style='margin-top: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", telugu_ui ? "వధూవరుల జాతక పొంతన & దోష పరిహార నివేదిక" : "ULTIMATE SOULMATE & DOSHA RECTIFICATION AUDIT");
+                
+                if (is_predict) predict_synastry_events(engine, p2_engine, start_y, end_y);
+                else calculate_synastry(engine, p2_engine);
+            } else printf("Error: Missing parameters for match command.\n");
+            
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "annual") == 0 || strcasecmp(cmd.c_str(), "web_annual") == 0 || strcasecmp(cmd.c_str(), "web_varshaphal") == 0) {
+            if (clean_argc >= 10) {
+                int annual_year = stoi(clean_argv[9]);
+                double tithi_jd = engine.calculate_tithi_return(annual_year);
+                if (tithi_jd > 0.0) {
+                    int ty, tm, td; double jut; 
+                    swe_revjul(tithi_jd + (engine.location.tz_offset / 24.0), SE_GREG_CAL, &ty, &tm, &td, &jut);
+                    int th = (int)jut; int tmin = (int)((jut - th) * 60.0); int tsec = (int)((((jut - th) * 60.0) - tmin) * 60.0);
+                    
+                    if (html_ui) {
+                        printf("<h2 style='margin-top: 20px; margin-bottom: 15px; color: var(--accent);'>VARSHA KUNDALI (ANNUAL CHART FOR %d)</h2>", annual_year);
+                    } else {
+                        printf("\n=================================================================\n");
+                        printf("=== VARSHA KUNDALI (ANNUAL CHART FOR %d) ===\n", annual_year);
+                        printf("=================================================================\n");
+                    }
+                    
+                    JyotishaEngine annual_engine(ty, tm, td, th, tmin, tsec, *it, json_mode, telugu_ui, html_ui);
+                    annual_engine.calculate_chart();
+                    annual_engine.analyze_chart("D1");
+                }
+            } else printf("Error: 'annual' requires a target year.\n");
+            
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "muhurat") == 0 || strcasecmp(cmd.c_str(), "web_muhurat") == 0) {
+            if (clean_argc >= 12) {
+                engine.calculate_event_muhurat(clean_argv[9], stoi(clean_argv[10]), stoi(clean_argv[11]));
+            } else printf("Error: 'muhurat' requires Event, Year, Month. Ex: muhurat marriage 2026 6\n");
+            
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "predict") == 0) {
+            if (clean_argc >= 11) engine.predict_marriage(stoi(clean_argv[9]), stoi(clean_argv[10]));
+            else printf("Error: 'predict' requires Start Year and End Year.\n");
+            
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+        else if (strcasecmp(cmd.c_str(), "ayush") == 0) { 
+            run_ayush_analysis(engine); 
+            printf("\n"); fflush(stdout); 
+            return 0; 
+        }
+        else if (strcasecmp(cmd.c_str(), "all") == 0) {
+            string target_planet_all = "all";
+            if (clean_argc > 9 && !isdigit(clean_argv[9][0])) {
+                target_planet_all = clean_argv[9];
+                if (clean_argc > 10) t_year = stoi(clean_argv[10]);
+                if (clean_argc > 11) t_month = stoi(clean_argv[11]);
+                if (clean_argc > 12) t_day = stoi(clean_argv[12]);
+            } else if (clean_argc > 9) {
+                t_year = stoi(clean_argv[9]);
+                if (clean_argc > 10) t_month = stoi(clean_argv[10]);
+                if (clean_argc > 11) t_day = stoi(clean_argv[11]);
+            }
+
+            engine.calculate_navatara_table();
+            engine.calculate_special_karakas();
+            engine.calculate_muhurat(year, month, day, true); 
+            engine.calculate_daily_panchang_transitions(year, month, day);
+            
+            int varsha_lord_idx = -1, masa_lord_idx = -1;
+            engine.calculate_varsha_masa(varsha_lord_idx, masa_lord_idx);
+            ShadbalaEngine::calculate(engine.lagna_lon, engine.planet_lons, engine.moon_lon, engine.tjd_ut, 
+                                      engine.local_hour_decimal, engine.sunrise_hour_decimal, engine.sunset_hour_decimal, 
+                                      engine.current_weekday, varsha_lord_idx, masa_lord_idx, false, engine.json_output);
+            
+            engine.calculate_aspects();
+            engine.calculate_shodashvarga(); 
+            engine.calculate_ashtakavarga();
+            engine.calculate_panchang();
+            
+            int target_year = (t_year > 0) ? t_year : year; 
+            engine.calculate_dasha_balance();
+            engine.calculate_6_level_dasha_target(0, 0, 0, 12, 0, 0, true);
+            engine.print_birth_chart_ui();
+            engine.analyze_chart("D1");
+            engine.scan_planetary_collisions(target_planet_all, target_year, t_month, t_day);
+            
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
         else { print_help_menu(); return 1; }
     }
 

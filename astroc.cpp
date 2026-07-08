@@ -2570,19 +2570,12 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
 	void calculate_ashtakavarga(bool silent = false) {
         if (json_mode) return;
         const string av_masks[7][8] = {
-            // Sun (Total: 48)
             {"110100111110", "001001000110", "110100111110", "001011001111", "000011001010", "000001100001", "110100111110", "001101000111"},
-            // Moon (Total: 49)
             {"001001110110", "111001100110", "011011001110", "101110110110", "100100110111", "001110101110", "001011000010", "001001000110"},
-            // Mars (Total: 39 - Fixed Sat->Ma mask)
             {"001011000110", "001001000010", "110100110110", "001011000010", "000001000111", "000001010011", "100100111110", "101001000110"},
-            // Mercury (Total: 54)
             {"000011001011", "010101010110", "110100111110", "101011001111", "000001010011", "111110011010", "110100111110", "110101010110"},
-            // Jupiter (Total: 56 - Fixed Asc->Ju mask)
             {"111100111110", "010010101010", "110100110110", "110111001110", "111100110110", "010011001110", "001011000001", "110111101110"},
-            // Venus (Total: 52)
             {"000000010011", "111110011011", "001011001011", "001011001010", "000010011110", "111110011110", "001110011110", "111110011010"},
-            // Saturn (Total: 39 - Fixed Ma->Sa mask)
             {"110100110110", "001001000010", "001011000111", "000001011111", "000011000011", "000001000011", "001011000010", "101101000110"}
         };
         
@@ -2591,8 +2584,6 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
 
         for (int target = 0; target < 7; target++) {
             for (int source = 0; source < 8; source++) {
-                
-                // CRITICAL FIX: Map the AV array index (0=Sun...7=Asc) to our planet_rashis array index (0=Asc, 1=Sun...)
                 int pr_idx = (source == 7) ? 0 : source + 1;
                 int source_rashi = planet_rashis[pr_idx]; 
                 
@@ -2608,17 +2599,27 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         av_calculated = true;
 
         if (!silent) {
-            printf("\n=== ASHTAKAVARGA (BAV & SAV TOTALS) ===\n");
-            printf("----------------------------------------------------------------------\n");
-            printf("%-10s | %-2s | %-2s | %-2s | %-2s | %-2s | %-2s | %-2s | %-9s\n", "Rashi", "Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "SAV Total");
-            printf("----------------------------------------------------------------------\n");
-            for (int r = 0; r < 12; r++) {
-                printf("%-10s | %2d | %2d | %2d | %2d | %2d | %2d | %2d |    %3d\n", rashi_names[r], bav_scores[0][r], bav_scores[1][r], bav_scores[2][r], bav_scores[3][r], bav_scores[4][r], bav_scores[5][r], bav_scores[6][r], sav_scores[r]);
+            if (html_mode) {
+                printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_mode ? "అష్టకవర్గ (Ashtakavarga BAV/SAV)" : "Ashtakavarga (BAV & SAV Totals)");
+                printf("<table class='data-table'><tr><th>%s</th><th>Su</th><th>Mo</th><th>Ma</th><th>Me</th><th>Ju</th><th>Ve</th><th>Sa</th><th>SAV Total</th></tr>", telugu_mode ? "రాశి" : "Rashi");
+                for (int r = 0; r < 12; r++) {
+                    printf("<tr><td>%s</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td><b style='color:var(--accent);'>%d</b></td></tr>", 
+                           telugu_mode ? get_rashi_name(r).c_str() : rashi_names[r], 
+                           bav_scores[0][r], bav_scores[1][r], bav_scores[2][r], bav_scores[3][r], bav_scores[4][r], bav_scores[5][r], bav_scores[6][r], sav_scores[r]);
+                }
+                printf("</table>\n");
+            } else {
+                printf("\n=== ASHTAKAVARGA (BAV & SAV TOTALS) ===\n");
+                printf("----------------------------------------------------------------------\n");
+                printf("%-10s | %-2s | %-2s | %-2s | %-2s | %-2s | %-2s | %-2s | %-9s\n", "Rashi", "Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "SAV Total");
+                printf("----------------------------------------------------------------------\n");
+                for (int r = 0; r < 12; r++) {
+                    printf("%-10s | %2d | %2d | %2d | %2d | %2d | %2d | %2d |    %3d\n", telugu_mode ? get_rashi_name(r).c_str() : rashi_names[r], bav_scores[0][r], bav_scores[1][r], bav_scores[2][r], bav_scores[3][r], bav_scores[4][r], bav_scores[5][r], bav_scores[6][r], sav_scores[r]);
+                }
+                printf("----------------------------------------------------------------------\n");
             }
-            printf("----------------------------------------------------------------------\n");
         }
     }
-
     void calculate_panchang() {
         if (json_mode) return;
         double tithi_angle = fmod((moon_lon - sun_lon + 360.0), 360.0);
@@ -5025,21 +5026,38 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
+		else if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
             engine.user_name = (clean_argc > 9) ? clean_argv[9] : "Guest";
             engine.user_gender = (clean_argc > 10) ? clean_argv[10] : "Not Specified";
             engine.html_mode = html_ui; 
+            
+            // 1. Print Standard Birth Chart UI (Planets, Jaimini, etc)
             engine.print_birth_chart_ui(); 
+            
+            // 2. Print Ashtakavarga Table
+            engine.calculate_ashtakavarga(false); // Passing false tells it to print
+
+            // 3. Calculate and Print Shadbala safely in a Preformatted Code Block
+            int v_lord = -1, m_lord = -1;
+            engine.calculate_varsha_masa(v_lord, m_lord);
+            
+            if (html_ui) {
+                printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_ui ? "షడ్బల విశ్లేషణ (Shadbala)" : "Comprehensive Shadbala");
+                // The <pre> tag preserves the beautiful CLI spacing created by shadbala.h
+                printf("<pre style='background:#1e1e2e; color:#a6accd; padding:15px; border-radius:5px; overflow-x:auto; font-family:monospace; line-height:1.5;'>\n");
+            }
+            
+            ShadbalaEngine::calculate(engine.lagna_lon, engine.planet_lons, engine.moon_lon, engine.tjd_ut, 
+                                      engine.local_hour_decimal, engine.sunrise_hour_decimal, engine.sunset_hour_decimal, 
+                                      engine.current_weekday, v_lord, m_lord, false, engine.json_output);
+                                      
+            if (html_ui) printf("</pre>\n");
+
             printf("\n"); fflush(stdout); 
             return 0; 
         }
         else if (strcasecmp(cmd.c_str(), "web_general") == 0) {
-            int v_lord = -1, m_lord = -1;
-            engine.calculate_varsha_masa(v_lord, m_lord);
-            ShadbalaEngine::calculate(engine.lagna_lon, engine.planet_lons, engine.moon_lon, engine.tjd_ut, 
-                                      engine.local_hour_decimal, engine.sunrise_hour_decimal, engine.sunset_hour_decimal, 
-                                      engine.current_weekday, v_lord, m_lord, false, engine.json_output);
-            engine.calculate_ashtakavarga(true); 
+            // General Tab is now strictly for Predictive Text!
             engine.analyze_chart("D1"); 
             printf("\n"); fflush(stdout); 
             return 0;

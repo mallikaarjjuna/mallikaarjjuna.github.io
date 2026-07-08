@@ -4730,14 +4730,6 @@ int main(int argc, char *argv[]) {
     // 4. Initialize Core Engine (Global Access for all commands)
     JyotishaEngine engine(year, month, day, hour, minute, second, *it, json_mode, telugu_ui, html_ui);
     
-	if (clean_argc >= 9) {
-        string cmd = clean_argv[8];
-        if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
-            engine.user_name = (clean_argc > 9) ? clean_argv[9] : "Guest";
-            engine.user_gender = (clean_argc > 10) ? clean_argv[10] : "Not Specified";
-        }
-    }
-	
     // We run calculate_chart() here because 99% of commands rely on the Natal arrays being populated!
     engine.calculate_chart(); 
 
@@ -4766,12 +4758,19 @@ int main(int argc, char *argv[]) {
         if (strcasecmp(cmd.c_str(), "json") == 0) {
             engine.calculate_ashtakavarga(true);
             engine.analyze_auspiciousness(engine.planet_rashis[0], engine.planet_rashis);
-            engine.export_web_json(year, month, day); // Dummy target dates for JSON output
+            engine.export_web_json(year, month, day); 
             return 0;
         }
-		if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
-			engine.print_birth_chart_ui(); // <-- NOW PRINTS THE FULL BIRTH TAB
-            return 0; // Already printed perfectly during calculate_chart()
+        else if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
+            // Set User Name and Gender BEFORE calling print UI
+            engine.user_name = (clean_argc > 9) ? clean_argv[9] : "Guest";
+            engine.user_gender = (clean_argc > 10) ? clean_argv[10] : "Not Specified";
+            
+            // Explicitly force html_mode to be true just in case
+            engine.html_mode = html_ui; 
+            
+            engine.print_birth_chart_ui(); 
+            return 0; 
         }
         else if (strcasecmp(cmd.c_str(), "web_general") == 0) {
             int v_lord = -1, m_lord = -1;
@@ -4786,7 +4785,6 @@ int main(int argc, char *argv[]) {
         else if (strcasecmp(cmd.c_str(), "web_dasha") == 0) {
             engine.calculate_ashtakavarga(true); 
             engine.analyze_auspiciousness(engine.planet_rashis[0], engine.planet_rashis);
-            
             engine.calculate_dasha_balance();
             engine.print_dasha_web(); 
             return 0;
@@ -4850,7 +4848,6 @@ int main(int argc, char *argv[]) {
                 t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
                 engine.calculate_muhurat(t_year, t_month, t_day, true);
                 engine.calculate_daily_panchang_transitions(t_year, t_month, t_day);
-                // Passing 'true' at the end tells it to skip Phase 4 and 5
                 engine.calculate_transits(t_year, t_month, t_day, t_hour, t_min, t_sec, false, true); 
             }
             return 0;
@@ -4860,7 +4857,6 @@ int main(int argc, char *argv[]) {
                 t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
                 engine.calculate_muhurat(t_year, t_month, t_day, true);
                 engine.calculate_daily_panchang_transitions(t_year, t_month, t_day);
-                // Passing 'false' runs the full heavy calculation for the CLI
                 engine.calculate_transits(t_year, t_month, t_day, t_hour, t_min, t_sec, false, false); 
             } else {
                 time_t t = time(nullptr); tm* now = localtime(&t);
@@ -4973,12 +4969,12 @@ int main(int argc, char *argv[]) {
             int target_year = (t_year > 0) ? t_year : year; 
             engine.calculate_dasha_balance();
             engine.calculate_6_level_dasha_target(0, 0, 0, 12, 0, 0, true);
-			engine.print_birth_chart_ui();
+            engine.print_birth_chart_ui();
             engine.analyze_chart("D1");
             engine.scan_planetary_collisions(target_planet_all, target_year, t_month, t_day);
             return 0;
         }
-		else if (strcasecmp(cmd.c_str(), "progeny") == 0 || strcasecmp(cmd.c_str(), "web_progeny") == 0) {
+        else if (strcasecmp(cmd.c_str(), "progeny") == 0 || strcasecmp(cmd.c_str(), "web_progeny") == 0) {
             bool is_female = false;
             bool gender_provided = false;
             if (clean_argc >= 10) {

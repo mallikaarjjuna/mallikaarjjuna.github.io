@@ -150,12 +150,12 @@ public:
         swe_set_topo(location.lon, location.lat, 0.0);
         iflag = SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED | SEFLG_TRUEPOS;
 
-        if (!json_mode) {
+		if (!json_mode && !html_mode) {
             printf("\n=== PURE ASTRONOMICAL C++ ENGINE OUTPUT ===\n");
             printf("Local Date: %02d/%02d/%04d | Local Time: %02d:%02d:%02d\n", d, m, y, h, min, sec);
             printf("Location: %s (Lat: %f, Lon: %f, TZ: %+.1f)\n", location.name.c_str(), location.lat, location.lon, location.tz_offset);
         }
-    }
+	}
 
     ~JyotishaEngine() { swe_close(); }
 
@@ -590,8 +590,9 @@ void print_birth_chart_ui() {
             else printf("%-26s : %-10s\n", "Upa Pada Lagna (UL)", rashi_names[ul_rashi]);
             printf("-----------------------------------------------------------------\n");
         }
-		
+		fflush(stdout); // <--- CRITICAL FIX: Forces WASM to send the tables to the browser!
     }	
+
 	// =========================================================================
     // PHASE 1: INTERPRETATION ENGINE (D1 OUTCOMES + VARGA FATE)
     // =========================================================================
@@ -4902,11 +4903,10 @@ int main(int argc, char *argv[]) {
             }
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "web_transit") == 0) {
+		else if (strcasecmp(cmd.c_str(), "web_transit") == 0) {
             if (clean_argc >= 12) { 
                 t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
-                engine.calculate_muhurat(t_year, t_month, t_day, true);
-                engine.calculate_daily_panchang_transitions(t_year, t_month, t_day);
+                // Removed Muhurat and Panchang. Only process the transits!
                 engine.calculate_transits(t_year, t_month, t_day, t_hour, t_min, t_sec, false, true); 
             }
             return 0;

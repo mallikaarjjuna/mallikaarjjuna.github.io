@@ -581,6 +581,7 @@ void draw_south_indian_chart() {
         printf("================================================================================\n");
 
         if (v_num == 1) {
+			analyze_general_personality();
             analyze_functional_nature(v_lagn_rasi);
             analyze_yogas(v_planets, v_lagn_rasi);
             analyze_doshas(v_planets, v_lagn_rasi);
@@ -1054,6 +1055,32 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
     }
 
+	void analyze_general_personality() {
+        int asc_nak = (int)(planet_lons[0] / (360.0 / 27.0));
+        int asc_pada = (int)((planet_lons[0] - (asc_nak * (360.0 / 27.0))) / ((360.0 / 27.0) / 4.0)) + 1;
+
+        int mo_nak = (int)(moon_lon / (360.0 / 27.0));
+        int mo_pada = (int)((moon_lon - (mo_nak * (360.0 / 27.0))) / ((360.0 / 27.0) / 4.0)) + 1;
+
+        if (telugu_mode) {
+            printf("\n[లగ్న & చంద్ర నక్షత్ర ఆధారిత వ్యక్తిత్వ విశ్లేషణ (CORE PERSONALITY)]\n");
+            printf("-------------------------------------------------------------------------------------------------\n");
+            printf(" ✦ భౌతిక స్వభావం (లగ్న నక్షత్రం - %s %dవ పాదం):\n", te_nak_names[asc_nak], asc_pada);
+            printf("   %s\n\n", te_get_nakshatra_pada_text(asc_nak, asc_pada).c_str());
+            printf(" ✦ మానసిక స్వభావం (చంద్ర నక్షత్రం - %s %dవ పాదం):\n", te_nak_names[mo_nak], mo_pada);
+            printf("   %s\n", te_get_nakshatra_pada_text(mo_nak, mo_pada).c_str());
+            printf("-------------------------------------------------------------------------------------------------\n");
+        } else {
+            printf("\n[CORE PERSONALITY MATRIX (Based on Ascendant & Moon Padas)]\n");
+            printf("-------------------------------------------------------------------------------------------------\n");
+            printf(" ✦ Physical Persona (Lagna in %s, Pada %d):\n", nak_names[asc_nak], asc_pada);
+            printf("   %s\n\n", get_nakshatra_pada_text(asc_nak, asc_pada).c_str());
+            printf(" ✦ Mental & Emotional Core (Moon in %s, Pada %d):\n", nak_names[mo_nak], mo_pada);
+            printf("   %s\n", get_nakshatra_pada_text(mo_nak, mo_pada).c_str());
+            printf("-------------------------------------------------------------------------------------------------\n");
+        }
+    }
+	
 	void analyze_functional_nature(int lagna_rasi) {
         if (telugu_mode) printf("\n[నైసర్గిక స్వభావం (%s లగ్నం ఆధారంగా)]\n", get_rashi_name(lagna_rasi).c_str());
         else printf("\n[FUNCTIONAL NATURE (Based on %s Lagna Lordship)]\n", rashi_names[lagna_rasi]);

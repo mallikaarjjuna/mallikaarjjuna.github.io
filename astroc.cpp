@@ -584,11 +584,13 @@ void print_birth_chart_ui() {
             printf("<tr><td>%s</td><td>%s</td><td>-</td></tr></table>", 
                    telugu_mode ? "ఉపపద లగ్నం (UL)" : "Upa Pada Lagna (UL)", 
                    telugu_mode ? get_rashi_name(ul_rashi).c_str() : rashi_names[ul_rashi]);
+				   fflush(stdout); // <--- FORCES DATA TO JAVASCRIPT IMMEDIATELY
         } else {
             if (telugu_mode) printf("%-28s : %-10s\n", "ఉపపద లగ్నం (UL) [వివాహం]", get_rashi_name(ul_rashi).c_str());
             else printf("%-26s : %-10s\n", "Upa Pada Lagna (UL)", rashi_names[ul_rashi]);
             printf("-----------------------------------------------------------------\n");
         }
+		
     }	
 	// =========================================================================
     // PHASE 1: INTERPRETATION ENGINE (D1 OUTCOMES + VARGA FATE)
@@ -2725,7 +2727,7 @@ void print_dasha_web() {
                     }
                 }
 
-                if (telugu_mode) {
+if (telugu_mode) {
                     if (html_mode) {
                         printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
                         printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s భుక్తి <span style='color:#888; font-size:12px;'>(%s నుండి %s వరకు)</span></h4>", get_planet_name(ad_p).c_str(), ad_start_str.c_str(), ad_end_str.c_str());
@@ -2735,14 +2737,14 @@ void print_dasha_web() {
                         } else {
                             printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>ముఖ్య సంఘటనలు:</b> %s</p>", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str());
                         }
-                        printf("</div>");
+                        printf("</div>\n"); // <-- ADDED \n
                     } else {
                         printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
                         printf("        %s\n", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
                         if (ad_p == 8 || ad_p == 9) printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, html_mode).c_str());
                         else printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str());
                     }
-                } else {
+				} else {
                     if (html_mode) {
                         printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
                         printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s Bhukti <span style='color:#888; font-size:12px;'>(%s to %s)</span></h4>", p_names_full[ad_p], ad_start_str.c_str(), ad_end_str.c_str());
@@ -2752,7 +2754,8 @@ void print_dasha_web() {
                         } else {
                             printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>Key Events:</b> %s</p>", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, html_mode).c_str());
                         }
-                        printf("</div>");
+                        printf("</div>\n"); // <-- ADDED \n
+                        fflush(stdout); // <-- FLUSH
                     } else {
                         printf("     -> [ %s - %s ] : %s Bhukti\n", ad_start_str.c_str(), ad_end_str.c_str(), p_names_full[ad_p]);
                         printf("        %s\n", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
@@ -3791,6 +3794,7 @@ void print_birth_details_html() {
         printf("<h2 style='margin-top: 25px; margin-bottom: 5px; color: var(--accent);'>Planet Positions</h2>");
         printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 10px;'>The table below shows the position of planets at the date, time and place of birth.</p>");
         printf("</div>");
+		fflush(stdout); // <--- FORCES DATA TO JAVASCRIPT IMMEDIATELY
     }
 	
 };

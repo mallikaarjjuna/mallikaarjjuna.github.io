@@ -248,15 +248,23 @@ public:
         swe_calc_ut(tjd_ut, SE_TRUE_NODE, iflag, xx, serr);
         planet_lons[9] = fmod(xx[0] + 180.0, 360.0); planet_rashis[9] = (int)(planet_lons[9] / 30.0);
         process_planet(9, planet_lons[9]);
+        
+        // Calculate Jaimini Karakas mathematically (No Printing Here)
+        struct Karaka { int p_idx; double deg; };
+        std::vector<Karaka> karakas;
+        for (int i = 1; i <= 7; i++) karakas.push_back({i, fmod(planet_lons[i], 30.0)});
+        std::sort(karakas.begin(), karakas.end(), [](const Karaka& a, const Karaka& b) { return a.deg > b.deg; });
+        atmakaraka_idx = karakas[0].p_idx;
+        darakaraka_idx = karakas[6].p_idx;
     }
-	
-// 1. This function ONLY populates the Rasi Chart Grid during calculation
+
+	// 1. This function ONLY populates the Rasi Chart Grid during calculation
     void process_planet(int p_idx, double decimal_degrees) {
         int rashi_index = (int)(decimal_degrees / 30.0);
         rashi_grid[rashi_index] += get_short_planet(p_idx) + " ";
     }
 
-    // 2. This function ONLY prints the Planet Positions Table (No Rasi Grid modification)
+    // 2. This function ONLY prints the Planet Positions Table
     void process_planet_print(int p_idx, double decimal_degrees) {
         int rashi_index = (int)(decimal_degrees / 30.0); double rashi_degrees = decimal_degrees - (rashi_index * 30.0);
         int degrees = (int)rashi_degrees; int minutes = (int)((rashi_degrees - degrees) * 60.0);
@@ -271,7 +279,6 @@ public:
         int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0)); int tara_idx = (nak_index - natal_mo_nak + 27) % 9;
         
         string nak_pada = get_nak_name(nak_index) + " " + to_string(pada);
-        
         int r_lord_idx = 1;
         for (int p = 1; p <= 7; p++) { if (string(p_names_full[p]) == rashi_lords[rashi_index]) r_lord_idx = p; }
         
@@ -507,7 +514,7 @@ void draw_south_indian_chart() {
             sweep_collisions(p_idx, start_jd, end_jd);
         }
     }
-	
+
 void print_birth_chart_ui() {
         if (json_mode) return;
         
@@ -524,6 +531,7 @@ void print_birth_chart_ui() {
             printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
         }
 
+        // Print Planet Rows
         for (int i = 0; i < 10; i++) {
             process_planet_print(i, planet_lons[i]);
         }
@@ -532,7 +540,7 @@ void print_birth_chart_ui() {
         if (!html_mode) printf("--------------------------------------------------------------------------------------------------------------------------\n");
         draw_south_indian_chart();
 
-        // --- JAIMINI KARAKAS (Soul Significators) ---
+        // --- JAIMINI KARAKAS PRINTING ---
         struct Karaka { int p_idx; double deg; };
         std::vector<Karaka> karakas;
         for (int i = 1; i <= 7; i++) karakas.push_back({i, fmod(planet_lons[i], 30.0)});

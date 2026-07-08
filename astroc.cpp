@@ -1236,7 +1236,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
     }
 
-void analyze_doshas(int* p_rasi, int lagna) {
+	void analyze_doshas(int* p_rasi, int lagna) {
         if (!html_mode) {
             if (telugu_mode) printf("\n[ప్రధాన దోషాలు (గమనించాల్సినవి)]\n");
             else printf("\n[MAJOR DOSHAS DETECTED]\n");
@@ -1251,17 +1251,55 @@ void analyze_doshas(int* p_rasi, int lagna) {
         bool moon_kuja = (ma_h_moon==1 || ma_h_moon==2 || ma_h_moon==4 || ma_h_moon==7 || ma_h_moon==8 || ma_h_moon==12);
 
         if (lagna_kuja || moon_kuja) {
-            // --- NEW: KUJA DOSHA CANCELLATION (BHANGA) LOGIC ---
+            // --- NEW: KUJA DOSHA CANCELLATION (BHANGA) ALGORITHMS ---
             int cancel_code = 0;
             int ma_rashi = p_rasi[3];
             int ju_rashi = p_rasi[5];
+            int mo_rashi = p_rasi[2];
+            int ve_rashi = p_rasi[6];
+            int sa_rashi = p_rasi[7];
+            int ra_rashi = p_rasi[8];
             
-            if (ma_rashi == 0 || ma_rashi == 7) cancel_code = 1; // Own Sign (Aries/Scorpio)
-            else if (ma_rashi == 9) cancel_code = 2; // Exalted (Capricorn)
-            else {
-                int ju_dist = (ma_rashi - ju_rashi + 12) % 12 + 1;
-                if (ju_dist == 1 || ju_dist == 5 || ju_dist == 7 || ju_dist == 9) cancel_code = 3; // Jupiter Aspect/Conj
-            }
+            auto aspects = [&](int p, int target_rashi) {
+                int r = p_rasi[p];
+                int d = (target_rashi - r + 12) % 12 + 1;
+                if (d == 7) return true;
+                if (p == 3 && (d == 4 || d == 8)) return true;
+                if (p == 5 && (d == 5 || d == 9)) return true;
+                if (p == 7 && (d == 3 || d == 10)) return true;
+                return false;
+            };
+
+            bool ju_aspects_ma = (ju_rashi == ma_rashi || aspects(5, ma_rashi));
+            bool mo_aspects_ma = (mo_rashi == ma_rashi || aspects(2, ma_rashi));
+            bool ve_aspects_ma = (ve_rashi == ma_rashi || aspects(6, ma_rashi));
+            bool sa_aspects_ma = (sa_rashi == ma_rashi || aspects(7, ma_rashi));
+            bool ra_conjunct_ma = (ra_rashi == ma_rashi);
+
+            int d9_ma_rashi = get_varga(9, planet_lons[3]);
+
+            // Calculate Age using system clock vs birth date (tjd_ut)
+            time_t t = time(nullptr); tm* now = localtime(&t);
+            int current_year = now->tm_year + 1900;
+            int by, bm, bd; double bjut;
+            swe_revjul(tjd_ut + (location.tz_offset/24.0), SE_GREG_CAL, &by, &bm, &bd, &bjut);
+            int age = current_year - by;
+
+            // Priority Check list (1 to 10 based on strength of cancellation)
+            if (ma_rashi == 0 || ma_rashi == 7 || ma_rashi == 9) cancel_code = 1; // Own/Exalted
+            else if (ju_aspects_ma) cancel_code = 2; // Jupiter blessing
+            else if (mo_aspects_ma) cancel_code = 3; // Moon blessing
+            else if (ve_aspects_ma || ve_rashi == (lagna + 6)%12) cancel_code = 4; // Venus blessing / in 7th
+            else if (sa_aspects_ma || ra_conjunct_ma) cancel_code = 5; // Saturn/Rahu absorbs
+            else if (ma_h_lagna == 2 && (ma_rashi == 2 || ma_rashi == 5)) cancel_code = 6; // 2nd house Gemini/Virgo
+            else if (ma_h_lagna == 4 && (ma_rashi == 0 || ma_rashi == 7 || ma_rashi == 9)) cancel_code = 6; // 4th house Ari/Sco/Cap
+            else if (ma_h_lagna == 7 && (ma_rashi == 3 || ma_rashi == 9 || ma_rashi == 2 || ma_rashi == 5)) cancel_code = 6; // 7th house Can/Cap/Gem/Vir
+            else if (ma_h_lagna == 8 && (ma_rashi == 8 || ma_rashi == 11 || ma_rashi == 3 || ma_rashi == 4)) cancel_code = 6; // 8th house Sag/Pis/Can/Leo
+            else if (ma_h_lagna == 12 && (ma_rashi == 1 || ma_rashi == 6)) cancel_code = 6; // 12th house Tau/Lib
+            else if (ma_h_lagna == 1) cancel_code = 7; // Mars in Lagna exception
+            else if (d9_ma_rashi == 0 || d9_ma_rashi == 7 || d9_ma_rashi == 9) cancel_code = 8; // Strong in D9
+            else if (ma_rashi == 3 || ma_rashi == 4 || ma_rashi == 8 || ma_rashi == 11) cancel_code = 9; // Friendly sign
+            else if (age >= 28) cancel_code = 10; // Age maturity override
 
             string severity = "Medium";
             if (cancel_code == 0 && (ma_h_lagna == 7 || ma_h_lagna == 8 || ma_h_moon == 7 || ma_h_moon == 8)) severity = "High";
@@ -1280,7 +1318,7 @@ void analyze_doshas(int* p_rasi, int lagna) {
                 printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", 
                        telugu_mode ? te_get_mangal_dosha_text(ma_h_lagna, ma_h_moon, cancel_code, severity, html_mode).c_str() 
                                    : get_mangal_dosha_text(ma_h_lagna, ma_h_moon, cancel_code, severity, html_mode).c_str());
-                printf("</div>");
+                printf("</div>\n");
             } else {
                 if (telugu_mode) printf("  - కుజ దోషం (%s): %s\n", severity.c_str(), te_get_mangal_dosha_text(ma_h_lagna, ma_h_moon, cancel_code, severity, html_mode).c_str());
                 else printf("  - Mangal Dosha (%s): %s\n", severity.c_str(), get_mangal_dosha_text(ma_h_lagna, ma_h_moon, cancel_code, severity, html_mode).c_str());
@@ -1304,7 +1342,7 @@ void analyze_doshas(int* p_rasi, int lagna) {
                 printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", 
                        telugu_mode ? "అన్ని ప్రధాన గ్రహాలు రాహు/కేతువుల అక్షంలో బంధించబడ్డాయి. ఇది జీవితం మొదటి భాగంలో తీవ్రమైన జాప్యాన్ని సృష్టిస్తుంది, కానీ వయసు పెరిగేకొద్దీ అపారమైన ఒత్తిడి ద్వారా భారీ విజయాన్ని ఇస్తుంది." 
                                    : "All major physical planets are hemmed within the Rahu/Ketu axis. This enforces delays in the first half of life, building immense pressure that releases into success later.");
-                printf("</div>");
+                printf("</div>\n");
             } else {
                 if (telugu_mode) printf("  - కాల సర్ప దోషం: అన్ని గ్రహాలు రాహు/కేతువుల అక్షంలో బంధించబడ్డాయి.\n");
                 else {
@@ -1319,7 +1357,7 @@ void analyze_doshas(int* p_rasi, int lagna) {
             if (html_mode) {
                 printf("<div style='padding:15px; background:#2a2a35; border-left:4px solid #2ecc71; border-radius:4px;'>");
                 printf("<p style='margin:0; font-size:14px; color:#e0e0e0;'>%s</p>", telugu_mode ? "ఈ జాతకంలో ఎటువంటి ప్రధాన నిర్మాణ దోషాలు లేవు. జాతకం చాలా పరిశుభ్రంగా ఉంది." : "No major structural doshas (Mangal/Kala Sarpa) detected. The chart is clear.");
-                printf("</div>");
+                printf("</div>\n");
             } else {
                 if (telugu_mode) printf("  - ఈ జాతకంలో ఎటువంటి ప్రధాన నిర్మాణ దోషాలు లేవు.\n");
                 else printf("  - No major structural doshas detected.\n");
@@ -1328,7 +1366,7 @@ void analyze_doshas(int* p_rasi, int lagna) {
         
         fflush(stdout); // CRITICAL FIX: Flush the UI immediately!
     }
-// ---------------------------------------------------------
+	// ---------------------------------------------------------
     // CRITICAL MATH FIX: Force floating-point division with 30.0
     // ---------------------------------------------------------
     int get_varga(int varga, double lon) {

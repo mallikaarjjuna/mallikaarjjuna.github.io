@@ -667,14 +667,23 @@ inline std::string get_mangal_dosha_text(int h_lagna, int h_moon, int cancel_cod
     std::string text = "Mars occupies House " + std::to_string(h_lagna) + " from the Ascendant and House " + std::to_string(h_moon) + " from the Moon. ";
     
     if (cancel_code > 0) {
-        std::string reason = (cancel_code == 1) ? "Mars is in its own sign (Aries/Scorpio)." :
-                             (cancel_code == 2) ? "Mars is Exalted in Capricorn." : 
-                                                  "Mars is heavily blessed by Jupiter's aspect or conjunction.";
-        text += "However, this Dosha is CANCELLED (Dosha Bhanga) because " + reason + " This neutralizes the aggressive marital friction, turning Mars into a protective rather than destructive force. No special Mangalik matching is strictly required.";
+        std::string reason = "";
+        if (cancel_code == 1) reason = "Mars is highly comfortable in its Own/Exalted sign (Aries, Scorpio, or Capricorn).";
+        else if (cancel_code == 2) reason = "Mars is pacified by the aspect or conjunction of Jupiter (the greatest benefic).";
+        else if (cancel_code == 3) reason = "Mars's fiery energy is cooled by the aspect or conjunction of the Moon.";
+        else if (cancel_code == 4) reason = "Venus (the Karaka of marriage) strongly aspects Mars or protects the 7th house.";
+        else if (cancel_code == 5) reason = "Saturn or Rahu's association with Mars absorbs and disciplines its malefic energy.";
+        else if (cancel_code == 6) reason = "Mars is placed in a specific sign-house exception (e.g., Mercury or Jupiter-ruled signs in specific houses) where classical texts state it loses its destructive power.";
+        else if (cancel_code == 7) reason = "Mars is placed in the 1st House (Lagna), making your core vitality strong enough to naturally handle its energy.";
+        else if (cancel_code == 8) reason = "Mars is exceptionally strong (Own/Exalted) in the Navamsa (D9) chart, overriding the D1 affliction.";
+        else if (cancel_code == 9) reason = "Mars is placed in a friendly sign (Cancer, Leo, Sagittarius, or Pisces) where its aggression is softened.";
+        else if (cancel_code == 10) reason = "you have crossed the age of 28, the natural age of maturity for Mars, significantly nullifying the dosha's intensity.";
+
+        text += "However, this Dosha is CANCELLED (Dosha Bhanga) because " + reason + " This neutralizes the aggressive marital friction, turning Mars into a protective force. No special Mangalik matching is strictly required.";
     } else if (severity == "High") {
-        text += "Because Mars is in the highly sensitive 7th (Marriage) or 8th (Longevity/Intimacy) house, this is a HIGH severity dosha. It generates explosive, sudden friction in partnerships. It is highly recommended to match with another Mangalik profile to balance this intense fiery energy.";
+        text += "Because Mars is in the highly sensitive 7th (Marriage) or 8th (Longevity/Intimacy) house, this is a HIGH severity dosha. It generates explosive, sudden friction in partnerships. It is highly recommended to match with another Mangalik profile, or marry after age 28 to balance this intense fiery energy.";
     } else {
-        text += "This creates a MEDIUM severity dosha. It brings stubbornness, ego clashes, and aggressive energy into domestic life or partnerships. It generally mellows down after the age of 28. Standard chart matching is sufficient.";
+        text += "This creates a MEDIUM severity dosha. It brings stubbornness, ego clashes, and aggressive energy into domestic life. It naturally mellows down after the age of 28. Standard chart matching is sufficient, and if the partner also has Kuja Dosha, it perfectly cancels out.";
     }
     return text;
 }

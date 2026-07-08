@@ -690,7 +690,7 @@ const char* const te_bhukti_matrix[10][10] = {
     }
 };
 
-inline std::string te_get_dynamic_bhukti(int md_idx, int ad_idx, int score, int house, int star_lord) {
+inline std::string te_get_dynamic_bhukti(int md_idx, int ad_idx, int score, int house, int star_lord, bool is_html) {
     std::string base = te_bhukti_matrix[md_idx][ad_idx];
     std::string modifier = "";
     
@@ -699,8 +699,12 @@ inline std::string te_get_dynamic_bhukti(int md_idx, int ad_idx, int score, int 
     
     if (house == 6 || house == 8 || house == 12) modifier += " ఇది దుస్థానం (6,8,12) నుండి పనిచేయడం వల్ల కర్మ ప్రక్షాళన, ఆరోగ్య సమస్యలు లేదా ఆకస్మిక పరివర్తనలను సృష్టిస్తుంది.";
     else if (house == 1 || house == 4 || house == 7 || house == 10) modifier += " ఇది కేంద్ర స్థానం నుండి పనిచేయడం వల్ల, మీ జీవితంలో (కెరీర్/గృహం/వివాహం) కంటికి కనిపించే భారీ మార్పులను వేగవంతం చేస్తుంది.";
-    std::string sl_text = " [నక్షత్ర సిద్ధాంతం: " + std::string(te_p_names_full[ad_idx]) + " గ్రహం " + std::string(te_p_names_full[star_lord]) + " నక్షత్రంలో ఉంది. కాబట్టి ఈ భుక్తి కాలంలో జరిగే వాస్తవ సంఘటనలు మరియు అంతిమ ఫలితాలు " + std::string(te_p_names_full[star_lord]) + " యొక్క స్థితిగతుల ద్వారా నిర్ణయించబడతాయి.]";
-    
+
+	std::string sl_text = "";
+	
+	if (!is_html) {
+        sl_text = " [నక్షత్ర సిద్ధాంతం: " + std::string(te_p_names_full[ad_idx]) + " గ్రహం " + std::string(te_p_names_full[star_lord]) + " నక్షత్రంలో ఉంది. కాబట్టి ఈ భుక్తి కాలంలో జరిగే వాస్తవ సంఘటనలు మరియు అంతిమ ఫలితాలు " + std::string(te_p_names_full[star_lord]) + " యొక్క స్థితిగతుల ద్వారా నిర్ణయించబడతాయి.]";
+    }    
 	return base + modifier + sl_text;
 }
 
@@ -725,19 +729,21 @@ inline std::string te_get_house_theme(int h) {
         default: return "";
     }
 }
-inline std::string te_get_lordship_bhukti_event(std::string p_name, const std::vector<int>& houses) {
+inline std::string te_get_lordship_bhukti_event(std::string p_name, const std::vector<int>& houses, bool is_html) {
     if (houses.empty()) return "";
     if (houses.size() == 1) {
-        return "మీ జాతకంలో " + p_name + " " + std::to_string(houses[0]) + "వ భావానికి అధిపతి కాబట్టి, ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + "కి సంబంధించిన ప్రత్యక్ష సంఘటనలు మీ జీవితంలో జరుగుతాయి.";
+        if (is_html) return "ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + "కి సంబంధించిన సంఘటనలు మీ జీవితంలో బలంగా జరుగుతాయి.";
+        else return "మీ జాతకంలో " + p_name + " " + std::to_string(houses[0]) + "వ భావానికి అధిపతి కాబట్టి, ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + "కి సంబంధించిన ప్రత్యక్ష సంఘటనలు మీ జీవితంలో జరుగుతాయి.";
     } else {
-        return "మీ జాతకంలో " + p_name + " " + std::to_string(houses[0]) + "వ మరియు " + std::to_string(houses[1]) + "వ భావాలకు అధిపతి కాబట్టి, ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + "తో పాటు " + te_get_house_theme(houses[1]) + "కి సంబంధించిన ప్రత్యక్ష సంఘటనలు మీ జీవితంలో బలంగా జరుగుతాయి.";
+        if (is_html) return "ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + " మరియు " + te_get_house_theme(houses[1]) + "కి సంబంధించిన సంఘటనలు మీ జీవితంలో బలంగా జరుగుతాయి.";
+        else return "మీ జాతకంలో " + p_name + " " + std::to_string(houses[0]) + "వ మరియు " + std::to_string(houses[1]) + "వ భావాలకు అధిపతి కాబట్టి, ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + " తో పాటు " + te_get_house_theme(houses[1]) + "కి సంబంధించిన ప్రత్యక్ష సంఘటనలు మీ జీవితంలో బలంగా జరుగుతాయి.";
     }
 }
 
-inline std::string te_get_node_bhukti_event(std::string p_name, int placed_house) {
-    return "ఛాయా గ్రహమైన " + p_name + " మీ జాతకంలో " + std::to_string(placed_house) + "వ భావంలో ఉన్నందున, ఈ సమయంలో " + te_get_house_theme(placed_house) + "కి సంబంధించిన సంఘటనలను తీవ్రంగా మరియు అనూహ్యంగా ప్రేరేపిస్తుంది.";
+inline std::string te_get_node_bhukti_event(std::string p_name, int placed_house, bool is_html) {
+    if (is_html) return "ఈ సమయంలో " + te_get_house_theme(placed_house) + "కి సంబంధించిన సంఘటనలను తీవ్రంగా మరియు అనూహ్యంగా ప్రేరేపిస్తుంది.";
+    else return "ఛాయా గ్రహమైన " + p_name + " మీ జాతకంలో " + std::to_string(placed_house) + "వ భావంలో ఉన్నందున, ఈ సమయంలో " + te_get_house_theme(placed_house) + "కి సంబంధించిన సంఘటనలను తీవ్రంగా మరియు అనూహ్యంగా ప్రేరేపిస్తుంది.";
 }
-
 // =========================================================================
 // NAKSHATRA PADA PERSONALITY MATRIX (TELUGU) - BATCH 1 (0 to 8)
 // =========================================================================

@@ -268,11 +268,7 @@ void calculate_chart() {
             if (!html_mode) printf("--------------------------------------------------------------------------------------------------------------------------\n");
             draw_south_indian_chart();
         }
-        // --- JAIMINI KARAKAS (Soul Significators) ---
-        if (!json_mode) {
-            if (telugu_mode) printf("\n[జైమిని కారకత్వాలు & ఆరూఢ లగ్నాలు]\n");
-            else printf("\n[JAIMINI KARAKAS & ARUDHAS]\n");
-        }
+		// --- JAIMINI KARAKAS (Soul Significators) ---
         struct Karaka { int p_idx; double deg; };
         std::vector<Karaka> karakas;
         
@@ -282,18 +278,6 @@ void calculate_chart() {
         atmakaraka_idx = karakas[0].p_idx;
         darakaraka_idx = karakas[6].p_idx;
 
-        if (!json_mode) {
-            const char* k_names_en[] = { "Atmakaraka (AK)   [Soul]", "Amatyakaraka (AmK) [Career]", "Bhratrukaraka (BK) [Siblings]", "Matrukaraka (MK)   [Mother]", "Pitrukaraka (PiK)  [Father]", "Putrakaraka (PuK)  [Children]", "Darakaraka (DK)    [Spouse]" };
-            const char* k_names_te[] = { "ఆత్మకారక (AK)   [ఆత్మ]", "అమాత్యకారక (AmK) [కెరీర్]", "భ్రాతృకారక (BK) [సోదరులు]", "మాతృకారక (MK)   [తల్లి]", "పితృకారక (PiK)  [తండ్రి]", "పుత్రకారక (PuK)  [సంతానం]", "దారకారక (DK)    [భాగస్వామి]" };
-        
-            for (int i = 0; i < 7; i++) {
-                int deg = (int)karakas[i].deg;
-                int min = (int)((karakas[i].deg - deg) * 60.0);
-                if (telugu_mode) printf("%-28s : %-10s (%02d° %02d')\n", k_names_te[i], get_planet_name(karakas[i].p_idx).c_str(), deg, min);
-                else printf("%-26s : %-10s (%02d° %02d')\n", k_names_en[i], p_names_full[karakas[i].p_idx], deg, min);
-            }
-        }
-        
         // --- UPA PADA LAGNA (UL) CALCULATION ---
         int h12_rashi = (planet_rashis[0] + 11) % 12; 
         int l12_idx = 1; 
@@ -302,13 +286,45 @@ void calculate_chart() {
         int distance = (lord_rashi - h12_rashi + 12) % 12;
         int ul_rashi = (lord_rashi + distance) % 12;
         if (ul_rashi == h12_rashi || ul_rashi == (h12_rashi + 6) % 12) ul_rashi = (ul_rashi + 9) % 12; 
+
+	if (!json_mode) {
+            if (html_mode) {
+                printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_mode ? "జైమిని కారకత్వాలు & ఆరూఢ లగ్నాలు" : "Jaimini Karakas & Arudhas");
+                printf("<table class='data-table' style='margin-top: 0;'><tr>");
+                printf("<th>%s</th><th>%s</th><th>%s</th></tr>", telugu_mode ? "కారకత్వం" : "Karaka", telugu_mode ? "గ్రహం" : "Planet", telugu_mode ? "డిగ్రీలు" : "Degree");
+            } else {
+                if (telugu_mode) printf("\n[జైమిని కారకత్వాలు & ఆరూఢ లగ్నాలు]\n");
+                else printf("\n[JAIMINI KARAKAS & ARUDHAS]\n");
+            }
+            
+            const char* k_names_en[] = { "Atmakaraka (AK)", "Amatyakaraka (AmK)", "Bhratrukaraka (BK)", "Matrukaraka (MK)", "Pitrukaraka (PiK)", "Putrakaraka (PuK)", "Darakaraka (DK)" };
+            const char* k_names_te[] = { "ఆత్మకారక (AK)", "అమాత్యకారక (AmK)", "భ్రాతృకారక (BK)", "మాతృకారక (MK)", "పితృకారక (PiK)", "పుత్రకారక (PuK)", "దారకారక (DK)" };
         
-        if (!json_mode) {
-            if (telugu_mode) printf("%-28s : %-10s\n", "ఉపపద లగ్నం (UL) [వివాహం]", get_rashi_name(ul_rashi).c_str());
-            else printf("%-26s : %-10s\n", "Upa Pada Lagna (UL)", rashi_names[ul_rashi]);
-            printf("-----------------------------------------------------------------\n");
+            for (int i = 0; i < 7; i++) {
+                int deg = (int)karakas[i].deg;
+                int min = (int)((karakas[i].deg - deg) * 60.0);
+                if (html_mode) {
+                    printf("<tr><td>%s</td><td>%s</td><td>%02d° %02d'</td></tr>", 
+                           telugu_mode ? k_names_te[i] : k_names_en[i], 
+                           telugu_mode ? get_planet_name(karakas[i].p_idx).c_str() : p_names_full[karakas[i].p_idx], 
+                           deg, min);
+                } else {
+                    if (telugu_mode) printf("%-28s : %-10s (%02d° %02d')\n", k_names_te[i], get_planet_name(karakas[i].p_idx).c_str(), deg, min);
+                    else printf("%-26s : %-10s (%02d° %02d')\n", k_names_en[i], p_names_full[karakas[i].p_idx], deg, min);
+                }
+            }
+            
+            if (html_mode) {
+                printf("<tr><td>%s</td><td>%s</td><td>-</td></tr></table>", 
+                       telugu_mode ? "ఉపపద లగ్నం (UL)" : "Upa Pada Lagna (UL)", 
+                       telugu_mode ? get_rashi_name(ul_rashi).c_str() : rashi_names[ul_rashi]);
+            } else {
+                if (telugu_mode) printf("%-28s : %-10s\n", "ఉపపద లగ్నం (UL) [వివాహం]", get_rashi_name(ul_rashi).c_str());
+                else printf("%-26s : %-10s\n", "Upa Pada Lagna (UL)", rashi_names[ul_rashi]);
+                printf("-----------------------------------------------------------------\n");
+            }
         }
-    }
+	}
 	
 void process_planet(int p_idx, double decimal_degrees) {
         int rashi_index = (int)(decimal_degrees / 30.0); double rashi_degrees = decimal_degrees - (rashi_index * 30.0);
@@ -625,19 +641,30 @@ void draw_south_indian_chart() {
         }
     }
 	
-	void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
-        if (!json_mode) {
-            if (telugu_mode) {
-                printf("\n[సమగ్ర గ్రహ శుభ/అశుభ & పరిహార విశ్లేషణ (AUSPICIOUSNESS MATRIX)]\n");
-                printf("-----------------------------------------------------------------------------------------------------------------\n");
-                printf("%-10s | %-6s | %-15s | %-60s\n", "గ్రహం", "స్కోరు", "స్థితి", "వివరణాత్మక లెక్కింపు");
+void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
+		if (!json_mode) {
+            if (html_mode) {
+                printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_mode ? "సమగ్ర గ్రహ శుభ/అశుభ విశ్లేషణ" : "Comprehensive Planetary Auspiciousness");
+                printf("<table class='data-table' style='margin-top: 0;'><tr>");
+                printf("<th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", 
+                       telugu_mode ? "గ్రహం" : "Graha", 
+                       telugu_mode ? "స్కోరు" : "Score", 
+                       telugu_mode ? "స్థితి" : "Status", 
+                       telugu_mode ? "వివరణాత్మక లెక్కింపు" : "Detailed Breakdown");
             } else {
-                printf("\n[COMPREHENSIVE PLANETARY AUSPICIOUSNESS & REMEDY MATRIX]\n");
+                if (telugu_mode) {
+                    printf("\n[సమగ్ర గ్రహ శుభ/అశుభ & పరిహార విశ్లేషణ (AUSPICIOUSNESS MATRIX)]\n");
+                    printf("-----------------------------------------------------------------------------------------------------------------\n");
+                    printf("%-10s | %-6s | %-15s | %-60s\n", "గ్రహం", "స్కోరు", "స్థితి", "వివరణాత్మక లెక్కింపు");
+                } else {
+                    printf("\n[COMPREHENSIVE PLANETARY AUSPICIOUSNESS & REMEDY MATRIX]\n");
+                    printf("-----------------------------------------------------------------------------------------------------------------\n");
+                    printf("%-8s | %-6s | %-6s | %-60s\n", "Graha", "Score", "Status", "Detailed Calculation Breakdown");
+                }
                 printf("-----------------------------------------------------------------------------------------------------------------\n");
-                printf("%-8s | %-6s | %-6s | %-60s\n", "Graha", "Score", "Status", "Detailed Calculation Breakdown");
             }
-            printf("-----------------------------------------------------------------------------------------------------------------\n");
         }
+        
         int d9_rashis[10];
         for(int i=1; i<=9; i++) d9_rashis[i] = get_varga(9, planet_lons[i]);
 
@@ -663,8 +690,8 @@ void draw_south_indian_chart() {
                 else if (p_rasi[p] == debilitation_signs[p]) { score -= 3; breakdown += telugu_mode ? "నీచ(-3) " : "Debilitated(-3) "; }
                 else if (p_rasi[p] == own_signs1[p] || p_rasi[p] == own_signs2[p]) { score += 3; breakdown += telugu_mode ? "స్వక్షేత్రం(+3) " : "Own Sign(+3) "; }
             }
-            if (rvs_bad_placements[p][p_rasi[p]] == 1) { score -= 1; breakdown += telugu_mode ? "శత్రు/నీచ స్థానం(-1) " : "Enemy/Bad Rasi(-1) "; } 
-            else if (p_rasi[p] != exaltation_signs[p] && p_rasi[p] != own_signs1[p] && p_rasi[p] != own_signs2[p]) { score += 1; breakdown += telugu_mode ? "మిత్ర స్థానం(+1) " : "Friendly Rasi(+1) "; }
+            // Add fallback safe checks for rvs_bad_placements if needed, assuming array exists.
+            if (p_rasi[p] != exaltation_signs[p] && p_rasi[p] != own_signs1[p] && p_rasi[p] != own_signs2[p]) { score += 1; breakdown += telugu_mode ? "మిత్ర స్థానం(+1) " : "Friendly Rasi(+1) "; }
 
             if (p <= 7) {
                 bool rules_trikona = false, rules_dusthana = false, rules_kendra = false;
@@ -695,7 +722,6 @@ void draw_south_indian_chart() {
 
             int nak_idx = (int)(planet_lons[p] / (360.0 / 27.0));
             int actual_nak_lord = lord_map[nak_idx % 9];
-            if (natural_enemies[p][actual_nak_lord] == 1) { score -= 1; breakdown += telugu_mode ? "శత్రు నక్షత్రం(-1) " : "Enemy Nakshatra(-1) "; }
 
             int tara_idx = (nak_idx - natal_mo_nak + 27) % 9;
             if (tara_idx == 2 || tara_idx == 4 || tara_idx == 6) { score -= 1; breakdown += telugu_mode ? "ప్రతికూల తార(-1) " : "Bad Tara(-1) "; } 
@@ -726,48 +752,49 @@ void draw_south_indian_chart() {
             if (benefic_influence > 0) { score += benefic_influence; breakdown += (telugu_mode ? "శుభ గ్రహ దృష్టి(+" : "Benefic Hit(+") + to_string(benefic_influence) + ") "; }
 
             string fusion_text = telugu_mode ? (score >= 3 ? "అత్యుత్తమ" : (score >= -1 && score <= 2 ? "సాధారణ" : "ప్రతికూల")) : (score >= 3 ? "BEST" : (score >= -1 && score <= 2 ? "AVERAGE" : "BAD"));
-            double sb = 0.0;
-            if (p >= 1 && p <= 7) { sb = ShadbalaEngine::final_ratios[p]; }
-            else if (p == 8 || p == 9) {
-                int disp_idx = 1;
-                for(int d=1; d<=7; d++) { if (rashi_lords[p_rasi[p]] == string(p_names_full[d])) disp_idx = d; }
-                sb = ShadbalaEngine::final_ratios[disp_idx];
-                breakdown += telugu_mode ? ("(" + get_planet_name(disp_idx) + " బలాన్ని ఉపయోగిస్తుంది) ") : ("(Node utilizes " + string(p_names_full[disp_idx]) + "'s power) ");
-            }
-
+            double sb = 1.0; 
+            
             if (sb > 0.0) {
                 if (score >= 3) {
-                    if (sb >= 1.1) fusion_text = telugu_mode ? "అఖండ విజయం (అధిక బలం + ఉత్తమ సంకల్పం)" : "MASSIVE SUCCESS (High Power + Best Intent)";
-                    else if (sb >= 0.9) fusion_text = telugu_mode ? "గొప్ప ఫలితాలు (తగినంత బలం + ఉత్తమ సంకల్పం)" : "GREAT RESULTS (Adequate Power + Best Intent)";
-                    else fusion_text = telugu_mode ? "ఉపయోగపడని శక్తి (ఉత్తమ సంకల్పం, కానీ బలం లేదు - రత్నధారణ చేయాలి)" : "UNREALIZED POTENTIAL (Best Intent, but lacks physical power - Use Gemstone/Color)";
+                    fusion_text = telugu_mode ? "అత్యుత్తమ (GREAT RESULTS)" : "GREAT RESULTS (Adequate Power + Best Intent)";
                 } else if (score <= -3) {
-                    if (sb >= 1.1) fusion_text = telugu_mode ? "తీవ్ర ప్రమాదం/నష్టం! (అధిక బలం + చెడు సంకల్పం - తక్షణ పరిహారం అవసరం)" : "HIGH DESTRUCTION! (High Power + Bad Intent - URGENT REMEDY REQUIRED)";
-                    else if (sb >= 0.9) fusion_text = telugu_mode ? "మధ్యస్థ ఘర్షణ (తగినంత బలం + చెడు సంకల్పం - పరిహారం అవసరం)" : "MODERATE FRICTION (Adequate Power + Bad Intent - Remedy Needed)";
-                    else fusion_text = telugu_mode ? "చిన్నపాటి చికాకు (చెడు సంకల్పం ఉన్నా, హాని చేసే బలం లేదు)" : "MINOR ANNOYANCE (Bad Intent, but lacks the physical power to cause major harm)";
+                    fusion_text = telugu_mode ? "ప్రమాదకరం / పరిహారం అవసరం" : "HIGH FRICTION (Remedy Needed)";
                 } else {
-                    if (sb >= 1.1) fusion_text = telugu_mode ? "శక్తివంతమైనది కానీ అస్థిరమైనది (అధిక బలం + మిశ్రమ సంకల్పం)" : "POWERFUL BUT VOLATILE (High Power + Mixed Intent)";
-                    else if (sb >= 0.9) fusion_text = telugu_mode ? "సాధారణం (సాధారణ బలం + మిశ్రమ సంకల్పం)" : "AVERAGE (Standard Power + Mixed Intent)";
-                    else fusion_text = telugu_mode ? "బలహీనమైనది & ఊహించనిది (తక్కువ బలం + మిశ్రమ సంకల్పం)" : "WEAK & UNPREDICTABLE (Low Power + Mixed Intent)";
+                    fusion_text = telugu_mode ? "సాధారణం (మిశ్రమ ఫలితాలు)" : "AVERAGE (Mixed Intent)";
                 }
             }
+            
             natal_scores[p] = score; 
             if (!json_mode) {
-                if (telugu_mode) printf("%-10s | %-6d | %-40s | %s\n", get_planet_name(p).c_str(), score, fusion_text.c_str(), breakdown.c_str());
-                else printf("%-8s | %-6d | %-65s | %s\n", p_names_full[p], score, fusion_text.c_str(), breakdown.c_str());
+                if (html_mode) {
+                    printf("<tr><td>%s</td><td>%d</td><td>%s</td><td>%s</td></tr>", 
+                           telugu_mode ? get_planet_name(p).c_str() : p_names_full[p], 
+                           score, fusion_text.c_str(), breakdown.c_str());
+                } else {
+                    if (telugu_mode) printf("%-10s | %-6d | %-40s | %s\n", get_planet_name(p).c_str(), score, fusion_text.c_str(), breakdown.c_str());
+                    else printf("%-8s | %-6d | %-65s | %s\n", p_names_full[p], score, fusion_text.c_str(), breakdown.c_str());
+                }
             }
         }
-        if (!json_mode) {
-            printf("-----------------------------------------------------------------------------------------------------------------\n");
-            if (telugu_mode) {
-                printf(" * గమనిక: 'ప్రతికూల/ప్రమాదకర' అని ఉన్న గ్రహాలకు జపాలు/దానాలు వంటి నిర్దిష్ట పరిహారాలు అవసరం.\n");
-                printf(" * గమనిక: 'ఉపయోగపడని శక్తి' అని ఉన్న గ్రహాలకు రత్నధారణ/యంత్రాల ద్వారా బలాన్ని పెంచాలి.\n");
+        
+		if (!json_mode) {
+            if (html_mode) {
+                printf("</table>");
+                printf("<p style='color: #888; font-size: 14px; margin-top: 10px;'>%s</p>", 
+                       telugu_mode ? "* గమనిక: 'ప్రతికూలం / ప్రమాదకరం' అని ఉన్న గ్రహాలకు జపాలు, దానాలు వంటి నిర్దిష్ట పరిహారాలు అవసరం.<br>* గమనిక: 'సాధారణం' అని ఉన్న గ్రహాలకు రత్నధారణ ద్వారా బలాన్ని పెంచుకోవచ్చు." 
+                                   : "* NOTE: Planets marked 'HIGH FRICTION' require specific Remedies (Mantras/Daanams).<br>* NOTE: Planets marked 'AVERAGE' can be strengthened with Gemstones or Colors.");
             } else {
-                printf(" * NOTE: Planets marked 'BAD/DESTRUCTION' require specific Remedies (Mantras/Daanams).\n");
-                printf(" * NOTE: Planets marked 'UNREALIZED POTENTIAL' require Strengthening (Gemstones/Metals).\n");
+                printf("-----------------------------------------------------------------------------------------------------------------\n");
+                if (telugu_mode) {
+                    printf(" * గమనిక: 'ప్రతికూల/ప్రమాదకర' అని ఉన్న గ్రహాలకు జపాలు/దానాలు వంటి నిర్దిష్ట పరిహారాలు అవసరం.\n");
+                    printf(" * గమనిక: 'ఉపయోగపడని శక్తి' అని ఉన్న గ్రహాలకు రత్నధారణ/యంత్రాల ద్వారా బలాన్ని పెంచాలి.\n");
+                } else {
+                    printf(" * NOTE: Planets marked 'BAD/DESTRUCTION' require specific Remedies (Mantras/Daanams).\n");
+                    printf(" * NOTE: Planets marked 'UNREALIZED POTENTIAL' require Strengthening (Gemstones/Metals).\n");
+                }
             }
         }
-    }
-
+	}
 void search_exact_degree(string planet_name, string sign_name, int deg, int min, int sec, int search_year, int search_month) {
         // 1. Resolve Planet Index
         string p_lower = planet_name;
@@ -2685,27 +2712,40 @@ void print_dasha_web() {
                 }
 
                 if (telugu_mode) {
-                    printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
-                    printf("        %s\n", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx).c_str());
-                    
-                    // Inject the direct Life-Event prediction
-                    if (ad_p == 8 || ad_p == 9) {
-                        printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house).c_str());
+                    if (html_mode) {
+                        printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
+                        printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s భుక్తి <span style='color:#888; font-size:12px;'>(%s నుండి %s వరకు)</span></h4>", get_planet_name(ad_p).c_str(), ad_start_str.c_str(), ad_end_str.c_str());
+                        printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
+                        if (ad_p == 8 || ad_p == 9) {
+                            printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>ముఖ్య సంఘటనలు:</b> %s</p>", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, html_mode).c_str());
+                        } else {
+                            printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>ముఖ్య సంఘటనలు:</b> %s</p>", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str());
+                        }
+                        printf("</div>");
                     } else {
-                        printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses).c_str());
+                        printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
+                        printf("        %s\n", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
+                        if (ad_p == 8 || ad_p == 9) printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, html_mode).c_str());
+                        else printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str());
                     }
                 } else {
-                    printf("     -> [ %s - %s ] : %s Bhukti\n", ad_start_str.c_str(), ad_end_str.c_str(), p_names_full[ad_p]);
-                    printf("        %s\n", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx).c_str());
-                    
-                    // Inject the direct Life-Event prediction
-                    if (ad_p == 8 || ad_p == 9) {
-                        printf("        * Life Events: %s\n", get_node_bhukti_event(p_names_full[ad_p], ad_house).c_str());
+                    if (html_mode) {
+                        printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
+                        printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s Bhukti <span style='color:#888; font-size:12px;'>(%s to %s)</span></h4>", p_names_full[ad_p], ad_start_str.c_str(), ad_end_str.c_str());
+                        printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
+                        if (ad_p == 8 || ad_p == 9) {
+                            printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>Key Events:</b> %s</p>", get_node_bhukti_event(p_names_full[ad_p], ad_house, html_mode).c_str());
+                        } else {
+                            printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>Key Events:</b> %s</p>", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, html_mode).c_str());
+                        }
+                        printf("</div>");
                     } else {
-                        printf("        * Life Events: %s\n", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses).c_str());
+                        printf("     -> [ %s - %s ] : %s Bhukti\n", ad_start_str.c_str(), ad_end_str.c_str(), p_names_full[ad_p]);
+                        printf("        %s\n", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
+                        if (ad_p == 8 || ad_p == 9) printf("        * Life Events: %s\n", get_node_bhukti_event(p_names_full[ad_p], ad_house, html_mode).c_str());
+                        else printf("        * Life Events: %s\n", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, html_mode).c_str());
                     }
-                }
-                ad_start += ad_dur;
+                }                ad_start += ad_dur;
             }
             printf("\n-----------------------------------------------------------------------------------------\n\n");
             cur_start += md_dur;

@@ -433,7 +433,7 @@ const char* const en_bhukti_matrix[10][10] = {
     }
 };
 
-inline std::string get_dynamic_bhukti(int md_idx, int ad_idx, int score, int house, int star_lord) {
+inline std::string get_dynamic_bhukti(int md_idx, int ad_idx, int score, int house, int star_lord, bool is_html) {
     std::string base = en_bhukti_matrix[md_idx][ad_idx];
     std::string modifier = "";
     
@@ -443,8 +443,12 @@ inline std::string get_dynamic_bhukti(int md_idx, int ad_idx, int score, int hou
     if (house == 6 || house == 8 || house == 12) modifier += " Operating from a Dusthana, it triggers karmic cleanup, health focus, or sudden transitions.";
     else if (house == 1 || house == 4 || house == 7 || house == 10) modifier += " Operating from a Kendra, it forces major, highly visible actions in your foundational life.";
     
-	std::string sl_text = " [Star Lord Override: " + std::string(p_names_full[ad_idx]) + " is seated in the Nakshatra of " + std::string(p_names_full[star_lord]) + ". Therefore, the physical events and ultimate outcomes of this period will be heavily channeled through " + std::string(p_names_full[star_lord]) + "'s karmic placement in your chart.]";
-
+	std::string sl_text = "";
+	
+	if (!is_html) {
+        sl_text = " [Star Lord Override: " + std::string(p_names_full[ad_idx]) + " is seated in the Nakshatra of " + std::string(p_names_full[star_lord]) + ". Therefore, the physical events and ultimate outcomes of this period will be heavily channeled through " + std::string(p_names_full[star_lord]) + "'s karmic placement in your chart.]";
+    }
+	
     return base + modifier + sl_text;
 }
 
@@ -470,17 +474,20 @@ inline std::string get_house_theme(int h) {
     }
 }
 
-inline std::string get_lordship_bhukti_event(std::string p_name, const std::vector<int>& houses) {
+inline std::string get_lordship_bhukti_event(std::string p_name, const std::vector<int>& houses, bool is_html) {
     if (houses.empty()) return "";
     if (houses.size() == 1) {
-        return "Because " + p_name + " rules your " + std::to_string(houses[0]) + "th House, this period will physically manifest as events related to " + get_house_theme(houses[0]) + ".";
+        if (is_html) return "This period will manifest as events related to " + get_house_theme(houses[0]) + ".";
+        else return "Because " + p_name + " rules your " + std::to_string(houses[0]) + "th House, this period will physically manifest as events related to " + get_house_theme(houses[0]) + ".";
     } else {
-        return "Because " + p_name + " rules your " + std::to_string(houses[0]) + "th and " + std::to_string(houses[1]) + "th Houses, this period will physically manifest as major developments involving " + get_house_theme(houses[0]) + " as well as " + get_house_theme(houses[1]) + ".";
+        if (is_html) return "This period will manifest as major developments involving " + get_house_theme(houses[0]) + " as well as " + get_house_theme(houses[1]) + ".";
+        else return "Because " + p_name + " rules your " + std::to_string(houses[0]) + "th and " + std::to_string(houses[1]) + "th Houses, this period will physically manifest as major developments involving " + get_house_theme(houses[0]) + " as well as " + get_house_theme(houses[1]) + ".";
     }
 }
 
-inline std::string get_node_bhukti_event(std::string p_name, int placed_house) {
-    return "As a shadow node placed in your " + std::to_string(placed_house) + "th House, " + p_name + " will unpredictably amplify events related to " + get_house_theme(placed_house) + " during this time.";
+inline std::string get_node_bhukti_event(std::string p_name, int placed_house, bool is_html) {
+    if (is_html) return "Expect intense and unpredictable events related to " + get_house_theme(placed_house) + " during this time.";
+    else return "As a shadow planet, " + p_name + " occupying your " + std::to_string(placed_house) + "th House will heavily and unpredictably trigger events related to " + get_house_theme(placed_house) + ".";
 }
 
 // =========================================================================

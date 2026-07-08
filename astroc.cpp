@@ -2728,8 +2728,8 @@ void print_dasha_web() {
                     }
                 }
 
-if (telugu_mode) {
-                    if (html_mode) {
+			if (telugu_mode) {
+                if (html_mode) {
                         printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
                         printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s భుక్తి <span style='color:#888; font-size:12px;'>(%s నుండి %s వరకు)</span></h4>", get_planet_name(ad_p).c_str(), ad_start_str.c_str(), ad_end_str.c_str());
                         printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
@@ -2769,7 +2769,103 @@ if (telugu_mode) {
             cur_start += md_dur;
         }
     }
+	void print_dasha_tables_html(double target_jd) {
+        if (!html_mode) return;
 
+        double nak_size = 360.0 / 27.0; 
+        int nak_index = (int)(moon_lon / nak_size); 
+        int lord_index = nak_index % 9;
+        double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
+        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
+
+        double cur_start = life_start_jd; 
+        double cur_dur = 120.0 * 365.2425; 
+        int cur_lord = lord_index;
+        
+        int active_md_idx = -1;
+        double md_start = 0, md_dur = 0;
+
+        printf("<h2 style='margin-top: 40px; color: var(--accent); border-top: 1px solid var(--border); padding-top: 20px;'>%s</h2>", telugu_mode ? "ప్రస్తుత దశా పట్టికలు (Current Dasha Timelines)" : "Current Dasha Timelines");
+
+        // --- 1. Maha Dasha Table ---
+        printf("<h3 style='color: #e0e0e0; margin-top:20px;'>--- %s ---</h3>", telugu_mode ? "మహా దశ" : "Maha Dasha Options");
+        printf("<table class='data-table' style='margin-top: 0;'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", 
+               telugu_mode ? "ఎంపిక" : "Opt", telugu_mode ? "అధిపతి" : "Lord", 
+               telugu_mode ? "ప్రారంభం" : "Starts", telugu_mode ? "ముగింపు" : "Ends");
+        
+        for (int i = 0; i < 9; i++) {
+            int p_idx = (cur_lord + i) % 9;
+            double sub_dur = cur_dur * (dasha_years[p_idx] / 120.0);
+            if (target_jd >= cur_start && target_jd < cur_start + sub_dur) {
+                active_md_idx = p_idx; md_start = cur_start; md_dur = sub_dur;
+                printf("<tr style='background:#3a3a45; font-weight:bold; color:var(--term-text);'><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+                       i+1, get_dasha_lord(p_idx).c_str(), jd_to_string(cur_start).c_str(), jd_to_string(cur_start + sub_dur).c_str());
+            } else {
+                printf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+                       i+1, get_dasha_lord(p_idx).c_str(), jd_to_string(cur_start).c_str(), jd_to_string(cur_start + sub_dur).c_str());
+            }
+            cur_start += sub_dur;
+        }
+        printf("</table>");
+
+        if (active_md_idx == -1) { fflush(stdout); return; }
+
+        // --- 2. Antar Dasha (Bhukti) Table ---
+        cur_start = md_start;
+        cur_dur = md_dur;
+        cur_lord = active_md_idx;
+        
+        int active_ad_idx = -1;
+        double ad_start = 0, ad_dur = 0;
+
+        printf("<h3 style='color: #e0e0e0; margin-top:20px;'>--- %s ---</h3>", telugu_mode ? "అంతర్ దశ (భుక్తి)" : "Antar Dasha (Bhukti) Options");
+        printf("<table class='data-table' style='margin-top: 0;'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", 
+               telugu_mode ? "ఎంపిక" : "Opt", telugu_mode ? "అధిపతి" : "Lord", 
+               telugu_mode ? "ప్రారంభం" : "Starts", telugu_mode ? "ముగింపు" : "Ends");
+        
+        for (int i = 0; i < 9; i++) {
+            int p_idx = (cur_lord + i) % 9;
+            double sub_dur = cur_dur * (dasha_years[p_idx] / 120.0);
+            if (target_jd >= cur_start && target_jd < cur_start + sub_dur) {
+                active_ad_idx = p_idx; ad_start = cur_start; ad_dur = sub_dur;
+                printf("<tr style='background:#3a3a45; font-weight:bold; color:var(--term-text);'><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+                       i+1, get_dasha_lord(p_idx).c_str(), jd_to_string(cur_start).c_str(), jd_to_string(cur_start + sub_dur).c_str());
+            } else {
+                printf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+                       i+1, get_dasha_lord(p_idx).c_str(), jd_to_string(cur_start).c_str(), jd_to_string(cur_start + sub_dur).c_str());
+            }
+            cur_start += sub_dur;
+        }
+        printf("</table>");
+
+        if (active_ad_idx == -1) { fflush(stdout); return; }
+
+        // --- 3. Pratyantar Dasha Table ---
+        cur_start = ad_start;
+        cur_dur = ad_dur;
+        cur_lord = active_ad_idx;
+
+        printf("<h3 style='color: #e0e0e0; margin-top:20px;'>--- %s ---</h3>", telugu_mode ? "ప్రత్యంతర్ దశ" : "Pratyantar Dasha Options");
+        printf("<table class='data-table' style='margin-top: 0;'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", 
+               telugu_mode ? "ఎంపిక" : "Opt", telugu_mode ? "అధిపతి" : "Lord", 
+               telugu_mode ? "ప్రారంభం" : "Starts", telugu_mode ? "ముగింపు" : "Ends");
+        
+        for (int i = 0; i < 9; i++) {
+            int p_idx = (cur_lord + i) % 9;
+            double sub_dur = cur_dur * (dasha_years[p_idx] / 120.0);
+            if (target_jd >= cur_start && target_jd < cur_start + sub_dur) {
+                printf("<tr style='background:#3a3a45; font-weight:bold; color:var(--term-text);'><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+                       i+1, get_dasha_lord(p_idx).c_str(), jd_to_string(cur_start).c_str(), jd_to_string(cur_start + sub_dur).c_str());
+            } else {
+                printf("<tr><td>%d</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+                       i+1, get_dasha_lord(p_idx).c_str(), jd_to_string(cur_start).c_str(), jd_to_string(cur_start + sub_dur).c_str());
+            }
+            cur_start += sub_dur;
+        }
+        printf("</table><br>");
+        
+        fflush(stdout); // <--- CRITICAL FIX: Forces WASM to send the HTML to the browser!
+    }
     void dfs_find_dehas(int level, int current_lord, double start_jd, double duration, double target_start, double target_end, vector<int> path) {
         if (start_jd >= target_end || start_jd + duration <= target_start) return;
         if (level == 6) {
@@ -4842,11 +4938,22 @@ int main(int argc, char *argv[]) {
             engine.analyze_chart("D1"); 
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "web_dasha") == 0) {
+		else if (strcasecmp(cmd.c_str(), "web_dasha") == 0) {
             engine.calculate_ashtakavarga(true); 
             engine.analyze_auspiciousness(engine.planet_rashis[0], engine.planet_rashis);
+            
             engine.calculate_dasha_balance();
             engine.print_dasha_web(); 
+
+            // --- NEW: Print Dasha Tables for the Current Date in HTML Mode ---
+            if (engine.html_mode) {
+                time_t t = time(nullptr); tm* now_utc = gmtime(&t);
+                double ut_dec = now_utc->tm_hour + (now_utc->tm_min / 60.0) + (now_utc->tm_sec / 3600.0);
+                double current_jd = swe_julday(now_utc->tm_year + 1900, now_utc->tm_mon + 1, now_utc->tm_mday, ut_dec, SE_GREG_CAL);
+                
+                engine.print_dasha_tables_html(current_jd);
+            }
+            
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_dosha") == 0) {

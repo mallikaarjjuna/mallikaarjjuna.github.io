@@ -3018,7 +3018,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                 }
             }
             
-            // ==========================================
+			// ==========================================
             // NEW: GOCHARA TIMELINE SWEEPER & TEXT INJECTION
             // ==========================================
             if (i == 1 || i == 3 || i == 5 || i == 7 || i == 8 || i == 9) {
@@ -3036,11 +3036,16 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                 
                 string date_range = "[ " + jd_to_string(jd_in).substr(0,10) + "  >>  " + jd_to_string(jd_out).substr(0,10) + " ]";
                 
-                string gochar_payload = (telugu_mode ? "కాల వ్యవధి: " : "Timeline: ") + date_range + "\n        " + (telugu_mode ? te_get_gochar_text(i, from_mo) : get_gochar_text(i, from_mo));
+                // Fetch the SAV score for this planet's transit sign
+                int r_sav = sav_scores[trans_rashi];
+                
+                // Pass the multi-dimensional parameters (Planet, House from Moon, SAV Score, Tara Index)
+                string gochar_payload = (telugu_mode ? "కాల వ్యవధి: " : "Timeline: ") + date_range + "\n        " + 
+                                        (telugu_mode ? te_get_gochar_text(i, from_mo, r_sav, tara_idx) : get_gochar_text(i, from_mo, r_sav, tara_idx));
                 
                 transit_triggers[i].push_back({"GOCHAR_RESULT", gochar_payload});
             }
-        }
+		}
         printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
 
 		printf("\n[PHASE 3: TRANSIT SYNTHESIS (Dasha, AV Filtering & Gochara Phala)]\n");

@@ -197,65 +197,87 @@ const int natural_enemies[10][10] = {
 };
 
 // =========================================================================
-// GOCHARA PHALA MATRIX (ENGLISH TRANSIT PREDICTIONS FROM MOON SIGN)
+// GOCHARA PHALA MATRIX (ENGLISH TRANSIT PREDICTIONS)
 // =========================================================================
 
-inline std::string get_gochar_text(int p_idx, int from_mo) {
-    if (p_idx == 1) { // SURYA (Sun)
+inline std::string get_gochar_text(int p_idx, int from_mo, int sav, int tara) {
+    std::string base = "";
+    if (p_idx == 1) { // SURYA
         switch(from_mo) {
             case 3: case 6: case 10: case 11:
-                return "Highly Auspicious Transit. The bad times have passed. You will experience success in exams, interviews, and career. Great financial gains, government favors, and overall happiness for your family.";
+                base = "Highly Auspicious Transit. The bad times have passed. You will experience success in exams, interviews, and career. Great financial gains, government favors, and overall happiness for your family."; break;
             case 1: case 2: case 4: case 5: case 7: case 8: case 9: case 12:
-                return "Challenging Transit. The Sun's position is currently unfavorable. You may experience unnecessary travel, physical fatigue, minor health issues (heat/eyes), or friction with authorities. Reduce your workload and stay vigilant.";
+                base = "Challenging Transit. The Sun's position is currently unfavorable. You may experience unnecessary travel, physical fatigue, minor health issues (heat/eyes), or friction with authorities. Reduce your workload and stay vigilant."; break;
         }
     }
-    else if (p_idx == 3) { // MANGAL (Mars)
+    else if (p_idx == 3) { // MANGAL
         switch(from_mo) {
             case 3: case 6: case 11:
-                return "Highly Auspicious Transit. You will exhibit immense courage and effortlessly defeat enemies or competitors. Excellent time for real estate gains, resolving debts, and experiencing robust health.";
+                base = "Highly Auspicious Transit. You will exhibit immense courage and effortlessly defeat enemies or competitors. Excellent time for real estate gains, resolving debts, and experiencing robust health."; break;
             case 1: case 2: case 4: case 5: case 7: case 8: case 9: case 10: case 12:
-                return "Volatile Transit. You may feel aggressive or easily irritated. Beware of heated arguments with family or your spouse. High caution is required regarding sudden accidents, cuts, or blood-pressure fluctuations.";
+                base = "Volatile Transit. You may feel aggressive or easily irritated. Beware of heated arguments with family or your spouse. High caution is required regarding sudden accidents, cuts, or blood-pressure fluctuations."; break;
         }
     }
-    else if (p_idx == 5) { // GURU (Jupiter)
+    else if (p_idx == 5) { // GURU
         switch(from_mo) {
-            case 1: return "Transit in Janma Rasi: Indicates relocation, mental distress, friction with superiors, and increased expenses.";
-            case 2: return "Transit in 2nd House: Highly Auspicious. Brings family happiness, financial gains, great recognition, and wealth accumulation.";
-            case 3: return "Transit in 3rd House: Indicates career obstacles, location changes, and minor disagreements with siblings.";
-            case 4: return "Transit in 4th House: Brings domestic unrest, potential health issues for the mother, or worries regarding property.";
-            case 5: return "Transit in 5th House: Highly Auspicious. Excellent time for marriage, childbirth, buying property, and massive business profits.";
-            case 6: return "Transit in 6th House: Indicates health issues, debt pressures, or sudden fear/litigation from enemies.";
-            case 7: return "Transit in 7th House: Highly Auspicious. Marriage for singles. Excellent business/career gains, health improvement, and marital bliss.";
-            case 8: return "Transit in 8th House: Warns of illness, unexpected financial loss, fatigue during travel, and severe delays.";
-            case 9: return "Transit in 9th House: Highly Auspicious. Immense fortune, pilgrimages, foreign travels, and overall wealth expansion.";
-            case 10: return "Transit in 10th House: Indicates sudden career changes, fear of job loss, and potential business struggles.";
-            case 11: return "Transit in 11th House: Highly Auspicious. Fulfillment of desires. Massive financial gains, promotions, and auspicious events.";
-            case 12: return "Transit in 12th House: Indicates heavy expenses for auspicious events and long-distance travels.";
+            case 1: base = "Transit in Janma Rasi: Indicates relocation, mental distress, friction with superiors, and increased expenses."; break;
+            case 2: base = "Transit in 2nd House: Highly Auspicious. Brings family happiness, financial gains, great recognition, and wealth accumulation."; break;
+            case 3: base = "Transit in 3rd House: Indicates career obstacles, location changes, and minor disagreements with siblings."; break;
+            case 4: base = "Transit in 4th House: Brings domestic unrest, potential health issues for the mother, or worries regarding property."; break;
+            case 5: base = "Transit in 5th House: Highly Auspicious. Excellent time for marriage, childbirth, buying property, and massive business profits."; break;
+            case 6: base = "Transit in 6th House: Indicates health issues, debt pressures, or sudden fear/litigation from enemies."; break;
+            case 7: base = "Transit in 7th House: Highly Auspicious. Marriage for singles. Excellent business/career gains, health improvement, and marital bliss."; break;
+            case 8: base = "Transit in 8th House: Warns of illness, unexpected financial loss, fatigue during travel, and severe delays."; break;
+            case 9: base = "Transit in 9th House: Highly Auspicious. Immense fortune, pilgrimages, foreign travels, and overall wealth expansion."; break;
+            case 10: base = "Transit in 10th House: Indicates sudden career changes, fear of job loss, and potential business struggles."; break;
+            case 11: base = "Transit in 11th House: Highly Auspicious. Fulfillment of desires. Massive financial gains, promotions, and auspicious events."; break;
+            case 12: base = "Transit in 12th House: Indicates heavy expenses for auspicious events and long-distance travels."; break;
         }
     }
-    else if (p_idx == 7) { // SHANI (Saturn)
+    else if (p_idx == 7) { // SHANI
         switch(from_mo) {
-            case 1: return "Janma Shani (Middle of Sade Sati): Severe mental anxiety, physical fatigue, heavy workload, and potential illness.";
-            case 2: return "2nd House Shani (End of Sade Sati): Financial constraints, family disputes, and unexpected financial losses.";
-            case 3: return "3rd House Shani: Highly Auspicious. Increased courage, destruction of enemies, new job, and massive success.";
-            case 4: return "4th House Shani (Ardhashtama): Domestic unrest, professional frustrations, and friction with relatives.";
-            case 5: return "5th House Shani: Worries about children, investment delays, and misunderstandings in romance.";
-            case 6: return "6th House Shani: Highly Auspicious. Absolute victory over court cases and enemies. Debts clear up, financial recovery.";
-            case 7: return "7th House Shani: Severe misunderstandings with spouse, business partner disputes, and heavy travels.";
-            case 8: return "8th House Shani (Ashtama): Sudden career obstacles, severe health issues, and unexpected hardships. Caution required.";
-            case 9: return "9th House Shani: Father's health issues, detachment from religion/luck, and delays in higher studies.";
-            case 10: return "10th House Shani: Immense workload in career. Friction with authorities, and a lack of recognition for hard work.";
-            case 11: return "11th House Shani: Highly Auspicious. Permanent financial gains in all areas, and great social respect.";
-            case 12: return "12th House Shani (Start of Sade Sati): Wasteful expenses, hidden fears, and unexpected travels.";
+            case 1: base = "Janma Shani (Middle of Sade Sati): Severe mental anxiety, physical fatigue, heavy workload, and potential illness."; break;
+            case 2: base = "2nd House Shani (End of Sade Sati): Financial constraints, family disputes, and unexpected financial losses."; break;
+            case 3: base = "3rd House Shani: Highly Auspicious. Increased courage, destruction of enemies, new job, and massive success."; break;
+            case 4: base = "4th House Shani (Ardhashtama): Domestic unrest, professional frustrations, and friction with relatives."; break;
+            case 5: base = "5th House Shani: Worries about children, investment delays, and misunderstandings in romance."; break;
+            case 6: base = "6th House Shani: Highly Auspicious. Absolute victory over court cases and enemies. Debts clear up, financial recovery."; break;
+            case 7: base = "7th House Shani: Severe misunderstandings with spouse, business partner disputes, and heavy travels."; break;
+            case 8: base = "8th House Shani (Ashtama): Sudden career obstacles, severe health issues, and unexpected hardships. Caution required."; break;
+            case 9: base = "9th House Shani: Father's health issues, detachment from religion/luck, and delays in higher studies."; break;
+            case 10: base = "10th House Shani: Immense workload in career. Friction with authorities, and a lack of recognition for hard work."; break;
+            case 11: base = "11th House Shani: Highly Auspicious. Permanent financial gains in all areas, and great social respect."; break;
+            case 12: base = "12th House Shani (Start of Sade Sati): Wasteful expenses, hidden fears, and unexpected travels."; break;
         }
     }
     else if (p_idx == 8 || p_idx == 9) { // RAHU & KETU
-        if (from_mo == 3 || from_mo == 6 || from_mo == 11) return "Shadow Planet in Upachaya House: Highly favorable transit. Indicates sudden massive gains, foreign travels, and destruction of enemies.";
-        else return "This shadow planet transit creates mental confusion, sudden changes, and karmic instability regarding the themes of this house.";
+        if (from_mo == 3 || from_mo == 6 || from_mo == 11) base = "Shadow Planet in Upachaya House: Highly favorable transit. Indicates sudden massive gains, foreign travels, and destruction of enemies.";
+        else base = "This shadow planet transit creates mental confusion, sudden changes, and karmic instability regarding the themes of this house.";
     }
-    return "Standard transit results. May require routine effort or cause minor, short-term delays.";
-}
+    else {
+        base = "Standard transit results. May require routine effort or cause minor, short-term delays.";
+    }
 
+    // DIMENSION 2: ASHTAKAVARGA (SAV) INTEGRATION
+    std::string sav_text = "";
+    if (p_idx < 8) { // Nodes do not have independent SAV scores
+        if (sav >= 28) sav_text = " Furthermore, a strong Ashtakavarga score (" + std::to_string(sav) + " SAV) creates a highly supportive environment, ensuring obstacles are easily overcome.";
+        else if (sav <= 24) sav_text = " However, a weak Ashtakavarga score (" + std::to_string(sav) + " SAV) indicates a lack of environmental support; you must rely entirely on your own willpower.";
+        else sav_text = " An average Ashtakavarga score (" + std::to_string(sav) + " SAV) provides standard environmental support.";
+    }
+
+    // DIMENSION 3: TARA BALA (NAVATARA) INTEGRATION
+    std::string tara_text = "";
+    if (tara == 1 || tara == 3 || tara == 5 || tara == 7 || tara == 8) {
+        tara_text = " This transit is further empowered as it moves through your " + std::string(tara_names[tara]) + " star, bringing favorable alignment and ease of manifestation.";
+    } else if (tara == 2 || tara == 4 || tara == 6) {
+        tara_text = " Caution is advised, as it transits your " + std::string(tara_names[tara]) + " star, indicating potential karmic friction or delays.";
+    } else {
+        tara_text = " It transits your " + std::string(tara_names[tara]) + " star, bringing focus to your physical and mental core.";
+    }
+
+    return base + sav_text + tara_text;
+}
 // =========================================================================
 // NEW: DYNAMIC VIMSHOTTARI DASHA PREDICTIONS (ENGLISH)
 // =========================================================================

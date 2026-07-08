@@ -1236,9 +1236,13 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
     }
 
-    void analyze_doshas(int* p_rasi, int lagna) {
-        if (telugu_mode) printf("\n[ప్రధాన దోషాలు (గమనించాల్సినవి)]\n");
-        else printf("\n[MAJOR DOSHAS DETECTED]\n");
+void analyze_doshas(int* p_rasi, int lagna) {
+        if (!html_mode) {
+            if (telugu_mode) printf("\n[ప్రధాన దోషాలు (గమనించాల్సినవి)]\n");
+            else printf("\n[MAJOR DOSHAS DETECTED]\n");
+        } else {
+            printf("<h2 style='margin-top: 30px; margin-bottom: 15px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", telugu_mode ? "ప్రధాన దోషాలు (గమనించాల్సినవి)" : "Major Doshas Detected");
+        }
         
         bool dosha_found = false;
         int ma_h_lagna = (p_rasi[3] - lagna + 12) % 12 + 1;
@@ -1247,14 +1251,44 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         bool moon_kuja = (ma_h_moon==1 || ma_h_moon==2 || ma_h_moon==4 || ma_h_moon==7 || ma_h_moon==8 || ma_h_moon==12);
 
         if (lagna_kuja || moon_kuja) {
-            if (telugu_mode) printf("  - %s\n", te_get_dosha_text("Kuja", ma_h_lagna, ma_h_moon).c_str());
+            // --- NEW: KUJA DOSHA CANCELLATION (BHANGA) LOGIC ---
+            int cancel_code = 0;
+            int ma_rashi = p_rasi[3];
+            int ju_rashi = p_rasi[5];
+            
+            if (ma_rashi == 0 || ma_rashi == 7) cancel_code = 1; // Own Sign (Aries/Scorpio)
+            else if (ma_rashi == 9) cancel_code = 2; // Exalted (Capricorn)
             else {
-                printf("  - Mangal (Kuja) Dosha: Mars occupies House %d from the Lagna and House %d from the Moon.\n", ma_h_lagna, ma_h_moon);
-                printf("    * Effect: This aggressive energy creates intense friction within partnerships. Mitigated if partner has it, or after age 28.\n");
+                int ju_dist = (ma_rashi - ju_rashi + 12) % 12 + 1;
+                if (ju_dist == 1 || ju_dist == 5 || ju_dist == 7 || ju_dist == 9) cancel_code = 3; // Jupiter Aspect/Conj
+            }
+
+            string severity = "Medium";
+            if (cancel_code == 0 && (ma_h_lagna == 7 || ma_h_lagna == 8 || ma_h_moon == 7 || ma_h_moon == 8)) severity = "High";
+            else if (cancel_code > 0) severity = "Cancelled";
+
+            // --- UI PRINTING ---
+            if (html_mode) {
+                string border_color = (severity == "High") ? "#e74c3c" : ((severity == "Cancelled") ? "#2ecc71" : "#f39c12");
+                string translated_severity = telugu_mode ? ((severity == "High") ? "తీవ్రం (High)" : (severity == "Cancelled" ? "రద్దు అయింది (Cancelled)" : "మధ్యస్థం (Medium)")) : severity;
+                
+                printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid %s; border-radius:4px;'>", border_color.c_str());
+                printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s <span style='color:%s; font-size:12px;'>(%s: %s)</span></h4>", 
+                       telugu_mode ? "మంగళ (కుజ) దోషం" : "Mangal (Kuja) Dosha", border_color.c_str(), 
+                       telugu_mode ? "తీవ్రత" : "Severity", translated_severity.c_str());
+                       
+                printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", 
+                       telugu_mode ? te_get_mangal_dosha_text(ma_h_lagna, ma_h_moon, cancel_code, severity, html_mode).c_str() 
+                                   : get_mangal_dosha_text(ma_h_lagna, ma_h_moon, cancel_code, severity, html_mode).c_str());
+                printf("</div>");
+            } else {
+                if (telugu_mode) printf("  - కుజ దోషం (%s): %s\n", severity.c_str(), te_get_mangal_dosha_text(ma_h_lagna, ma_h_moon, cancel_code, severity, html_mode).c_str());
+                else printf("  - Mangal Dosha (%s): %s\n", severity.c_str(), get_mangal_dosha_text(ma_h_lagna, ma_h_moon, cancel_code, severity, html_mode).c_str());
             }
             dosha_found = true;
         }
 
+        // --- KALA SARPA DOSHA ---
         int r_rahu = p_rasi[8], r_ketu = p_rasi[9];
         bool all_one_side = true, all_other_side = true;
         for (int i=1; i<=7; i++) {
@@ -1264,20 +1298,36 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
             if (d1 < d2 && d1 != 0) all_other_side = false; 
         }
         if (all_one_side || all_other_side) {
-            if (telugu_mode) printf("  - %s\n", te_get_dosha_text("KalaSarpa", 0, 0).c_str());
-            else {
-                printf("  - Kala Sarpa Matrix: All major physical planets are physically hemmed within the Rahu/Ketu karmic axis.\n");
-                printf("    * Effect: Enforces delays in the first half of life, building immense pressure that releases into success later.\n");
+            if (html_mode) {
+                printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid #e74c3c; border-radius:4px;'>");
+                printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s</h4>", telugu_mode ? "కాల సర్ప దోషం" : "Kala Sarpa Matrix");
+                printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", 
+                       telugu_mode ? "అన్ని ప్రధాన గ్రహాలు రాహు/కేతువుల అక్షంలో బంధించబడ్డాయి. ఇది జీవితం మొదటి భాగంలో తీవ్రమైన జాప్యాన్ని సృష్టిస్తుంది, కానీ వయసు పెరిగేకొద్దీ అపారమైన ఒత్తిడి ద్వారా భారీ విజయాన్ని ఇస్తుంది." 
+                                   : "All major physical planets are hemmed within the Rahu/Ketu axis. This enforces delays in the first half of life, building immense pressure that releases into success later.");
+                printf("</div>");
+            } else {
+                if (telugu_mode) printf("  - కాల సర్ప దోషం: అన్ని గ్రహాలు రాహు/కేతువుల అక్షంలో బంధించబడ్డాయి.\n");
+                else {
+                    printf("  - Kala Sarpa Matrix: All major physical planets are physically hemmed within the Rahu/Ketu karmic axis.\n");
+                    printf("    * Effect: Enforces delays in the first half of life, building immense pressure that releases into success later.\n");
+                }
             }
             dosha_found = true;
         }
         
         if(!dosha_found) {
-            if (telugu_mode) printf("  - ఈ జాతకంలో ఎటువంటి ప్రధాన నిర్మాణ దోషాలు లేవు.\n");
-            else printf("  - No major structural doshas detected.\n");
+            if (html_mode) {
+                printf("<div style='padding:15px; background:#2a2a35; border-left:4px solid #2ecc71; border-radius:4px;'>");
+                printf("<p style='margin:0; font-size:14px; color:#e0e0e0;'>%s</p>", telugu_mode ? "ఈ జాతకంలో ఎటువంటి ప్రధాన నిర్మాణ దోషాలు లేవు. జాతకం చాలా పరిశుభ్రంగా ఉంది." : "No major structural doshas (Mangal/Kala Sarpa) detected. The chart is clear.");
+                printf("</div>");
+            } else {
+                if (telugu_mode) printf("  - ఈ జాతకంలో ఎటువంటి ప్రధాన నిర్మాణ దోషాలు లేవు.\n");
+                else printf("  - No major structural doshas detected.\n");
+            }
         }
+        
+        fflush(stdout); // CRITICAL FIX: Flush the UI immediately!
     }
-
 // ---------------------------------------------------------
     // CRITICAL MATH FIX: Force floating-point division with 30.0
     // ---------------------------------------------------------

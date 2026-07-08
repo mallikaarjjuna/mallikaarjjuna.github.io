@@ -662,3 +662,19 @@ inline std::string get_nakshatra_pada_text(int nak, int pada) {
     }
     return "[Personality interpretation for this specific Nakshatra/Pada will be added in upcoming modules].";
 }
+
+inline std::string get_mangal_dosha_text(int h_lagna, int h_moon, int cancel_code, std::string severity, bool is_html) {
+    std::string text = "Mars occupies House " + std::to_string(h_lagna) + " from the Ascendant and House " + std::to_string(h_moon) + " from the Moon. ";
+    
+    if (cancel_code > 0) {
+        std::string reason = (cancel_code == 1) ? "Mars is in its own sign (Aries/Scorpio)." :
+                             (cancel_code == 2) ? "Mars is Exalted in Capricorn." : 
+                                                  "Mars is heavily blessed by Jupiter's aspect or conjunction.";
+        text += "However, this Dosha is CANCELLED (Dosha Bhanga) because " + reason + " This neutralizes the aggressive marital friction, turning Mars into a protective rather than destructive force. No special Mangalik matching is strictly required.";
+    } else if (severity == "High") {
+        text += "Because Mars is in the highly sensitive 7th (Marriage) or 8th (Longevity/Intimacy) house, this is a HIGH severity dosha. It generates explosive, sudden friction in partnerships. It is highly recommended to match with another Mangalik profile to balance this intense fiery energy.";
+    } else {
+        text += "This creates a MEDIUM severity dosha. It brings stubbornness, ego clashes, and aggressive energy into domestic life or partnerships. It generally mellows down after the age of 28. Standard chart matching is sufficient.";
+    }
+    return text;
+}

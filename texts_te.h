@@ -690,7 +690,7 @@ const char* const te_bhukti_matrix[10][10] = {
     }
 };
 
-inline std::string te_get_dynamic_bhukti(int md_idx, int ad_idx, int score, int house) {
+inline std::string te_get_dynamic_bhukti(int md_idx, int ad_idx, int score, int house, int star_lord) {
     std::string base = te_bhukti_matrix[md_idx][ad_idx];
     std::string modifier = "";
     
@@ -699,8 +699,9 @@ inline std::string te_get_dynamic_bhukti(int md_idx, int ad_idx, int score, int 
     
     if (house == 6 || house == 8 || house == 12) modifier += " ఇది దుస్థానం (6,8,12) నుండి పనిచేయడం వల్ల కర్మ ప్రక్షాళన, ఆరోగ్య సమస్యలు లేదా ఆకస్మిక పరివర్తనలను సృష్టిస్తుంది.";
     else if (house == 1 || house == 4 || house == 7 || house == 10) modifier += " ఇది కేంద్ర స్థానం నుండి పనిచేయడం వల్ల, మీ జీవితంలో (కెరీర్/గృహం/వివాహం) కంటికి కనిపించే భారీ మార్పులను వేగవంతం చేస్తుంది.";
+    std::string sl_text = " [నక్షత్ర సిద్ధాంతం: " + std::string(te_p_names_full[ad_idx]) + " గ్రహం " + std::string(te_p_names_full[star_lord]) + " నక్షత్రంలో ఉంది. కాబట్టి ఈ భుక్తి కాలంలో జరిగే వాస్తవ సంఘటనలు మరియు అంతిమ ఫలితాలు " + std::string(te_p_names_full[star_lord]) + " యొక్క స్థితిగతుల ద్వారా నిర్ణయించబడతాయి.]";
     
-    return base + modifier;
+	return base + modifier + sl_text;
 }
 
 // =========================================================================

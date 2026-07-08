@@ -433,7 +433,7 @@ const char* const en_bhukti_matrix[10][10] = {
     }
 };
 
-inline std::string get_dynamic_bhukti(int md_idx, int ad_idx, int score, int house) {
+inline std::string get_dynamic_bhukti(int md_idx, int ad_idx, int score, int house, int star_lord) {
     std::string base = en_bhukti_matrix[md_idx][ad_idx];
     std::string modifier = "";
     
@@ -443,7 +443,9 @@ inline std::string get_dynamic_bhukti(int md_idx, int ad_idx, int score, int hou
     if (house == 6 || house == 8 || house == 12) modifier += " Operating from a Dusthana, it triggers karmic cleanup, health focus, or sudden transitions.";
     else if (house == 1 || house == 4 || house == 7 || house == 10) modifier += " Operating from a Kendra, it forces major, highly visible actions in your foundational life.";
     
-    return base + modifier;
+	std::string sl_text = " [Star Lord Override: " + std::string(p_names_full[ad_idx]) + " is seated in the Nakshatra of " + std::string(p_names_full[star_lord]) + ". Therefore, the physical events and ultimate outcomes of this period will be heavily channeled through " + std::string(p_names_full[star_lord]) + "'s karmic placement in your chart.]";
+
+    return base + modifier + sl_text;
 }
 
 // =========================================================================

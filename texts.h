@@ -569,11 +569,64 @@ const char* const en_nak_pada_matrix[27][4] = {
     {"The righteous authority (Sagittarius Navamsa). You naturally assume the role of the elder or leader. You are fiercely independent, highly philosophical, and protect your domain with a strict sense of justice.",
      "The status-driven elder (Capricorn Navamsa). You are deeply focused on maintaining control, hierarchy, and public respect. You are highly disciplined, practical, and possess immense staying power in corporate environments.",
      "The unconventional leader (Aquarius Navamsa). You use your authority to challenge orthodox structures. You are a visionary, highly intellectual, and often act as a protective elder to vast social networks or movements.",
-     "The spiritual protector (Pisces Navamsa). You possess the authority of a mystic. You are deeply intuitive, often carrying the emotional burdens of others, and possess profound, transformative spiritual wisdom."}
+     "The spiritual protector (Pisces Navamsa). You possess the authority of a mystic. You are deeply intuitive, often carrying the emotional burdens of others, and possess profound, transformative spiritual wisdom."},
+	// 18: Mula (Root, Destruction, Deep Investigation)
+    {"The aggressive investigator (Aries Navamsa). You are deeply driven to uncover hidden truths. You possess immense spiritual or investigative courage and will forcefully uproot anything that feels fake or superficial.",
+     "The material alchemist (Taurus Navamsa). You channel Mula’s destructive energy into building secure foundations. You are excellent at taking broken or discarded things and turning them into stable, valuable assets.",
+     "The philosophical communicator (Gemini Navamsa). You use logic and intellect to dissect deep mysteries. You are an excellent speaker, researcher, or writer who loves to debate the ultimate meaning of life.",
+     "The emotional mystic (Cancer Navamsa). You are deeply tied to your ancestral roots. You experience profound emotional transformations and possess intense, almost magical healing abilities to soothe others' hidden traumas."},
+
+    // 19: Purva Ashadha (Invincibility, Water, Early Victory)
+    {"The proud conqueror (Leo Navamsa). You possess immense self-belief and natural leadership. You fight for your goals with dramatic flair and absolute confidence, refusing to accept defeat in any arena.",
+     "The meticulous strategist (Virgo Navamsa). Your invincibility comes from flawless planning. You are highly intellectual, analytical, and win your battles by out-thinking and out-working your opponents.",
+     "The diplomatic victor (Libra Navamsa). You achieve your desires through charm, negotiation, and partnerships. You love luxury, harmony, and effortlessly align with people who elevate your social status.",
+     "The intense survivor (Scorpio Navamsa). You fight your battles in the hidden realms. You possess an unbreakable, secretive willpower and undergo extreme psychological transformations to achieve your ultimate victory."},
+
+    // 20: Uttara Ashadha (Universal Victory, Dharma, Patience)
+    {"The righteous warrior (Sagittarius Navamsa). You are deeply committed to truth, philosophy, and ethical victory. You are a natural teacher or leader who fights for justice with absolute optimism.",
+     "The ultimate executive (Capricorn Navamsa). Your victory is built on pure, unshakeable discipline. You are highly organized, patient, and capable of reaching the absolute pinnacle of corporate or societal authority.",
+     "The visionary humanitarian (Aquarius Navamsa). You define victory as uplifting the masses. You are highly intellectual, unconventional, and use your authority to build progressive, futuristic systems.",
+     "The spiritual champion (Pisces Navamsa). You seek victory over the ego. You are deeply compassionate, intuitive, and often sacrifice your own worldly ambitions to guide or protect others emotionally."},
+
+    // 21: Shravana (Listening, Learning, Wisdom)
+    {"The active listener (Aries Navamsa). You possess a rapid, pioneering intellect. You learn extremely fast and immediately apply your knowledge with aggressive, independent, and entrepreneurial energy.",
+     "The practical scholar (Taurus Navamsa). You absorb knowledge to create material stability. You have an excellent memory, a love for traditional arts/music, and use your wisdom to build permanent wealth.",
+     "The master communicator (Gemini Navamsa). You are a brilliant networker and intellectual sponge. You excel in media, writing, or technology, absorbing and distributing information with effortless charm.",
+     "The empathetic counselor (Cancer Navamsa). You listen not just to words, but to emotions. You are deeply connected to the public, possessing a soothing, maternal energy that makes others naturally trust you."},
+
+    // 22: Dhanishtha (Wealth, Symphony, Rhythm)
+    {"The regal performer (Leo Navamsa). You have a natural sense of rhythm, timing, and dramatic flair. You seek wealth and fame, naturally taking center stage and leading others with immense pride.",
+     "The meticulous wealth-builder (Virgo Navamsa). You organize your ambitions with flawless logic. You are highly practical, skilled in financial management, and build your empire through precise, calculating effort.",
+     "The social harmonizer (Libra Navamsa). You excel at networking and building musical or business partnerships. You attract wealth through diplomacy, charm, and your impeccable sense of aesthetics.",
+     "The intense powerhouse (Scorpio Navamsa). You possess immense, hidden drive. You pursue wealth and influence with fierce, secretive passion, often experiencing profound, sudden transformations in your career."},
+
+    // 23: Shatabhisha (100 Healers, Secrecy, Circles)
+    {"The philosophical healer (Sagittarius Navamsa). You are a highly independent thinker who heals or leads through higher knowledge. You are blunt, optimistic, and deeply interested in unconventional philosophies.",
+     "The structured scientist (Capricorn Navamsa). Your approach to healing, technology, or mysteries is highly systematic. You are deeply disciplined and can quietly build massive, complex organizations.",
+     "The visionary rebel (Aquarius Navamsa). You are entirely unconventional, living years ahead of your time. You excel in deep technology, astrology, or progressive sciences, maintaining a vast but detached social network.",
+     "The mystical empath (Pisces Navamsa). You possess boundaryless imagination and psychic healing abilities. You are deeply connected to the hidden emotional currents of the universe, often requiring complete isolation to recharge."},
+
+    // 24: Purva Bhadrapada (Two-faced, Fire, Penance)
+    {"The aggressive ascetic (Aries Navamsa). You are fiercely independent and possess explosive intellectual energy. You are unafraid to burn down old structures to pursue your intense, pioneering spiritual or material goals.",
+     "The practical mystic (Taurus Navamsa). You balance an intense inner fire with a desire for material security. You possess immense stamina, capable of enduring deep austerities to achieve wealth and stability.",
+     "The brilliant dual-mind (Gemini Navamsa). You can effortlessly see both sides of the veil. You are a phenomenal communicator, capable of speaking profound spiritual truths while simultaneously mastering complex business logic.",
+     "The protective occultist (Cancer Navamsa). Your intense, fiery energy is directed toward protecting your inner circle. You possess deep, psychic intuition and experience extreme emotional and spiritual transformations."},
+
+    // 25: Uttara Bhadrapada (Deep Wisdom, Cosmic Balance, Water Snake)
+    {"The proud philosopher (Leo Navamsa). You possess ancient wisdom and express it with regal authority. You naturally command respect and act as a generous, illuminating guide to those around you.",
+     "The analytical sage (Virgo Navamsa). You process deep spiritual and cosmic truths through pure logic. You are highly detail-oriented, grounded, and excel at providing practical, healing service to the world.",
+     "The cosmic diplomat (Libra Navamsa). You seek ultimate balance and harmony in all things. You are highly empathetic, socially graceful, and excel in counseling, partnerships, and creating peaceful environments.",
+     "The deep-sea mystic (Scorpio Navamsa). You are deeply connected to the darkest, most hidden aspects of existence. You possess immense psychic resilience and undergo profound, regenerative spiritual transformations."},
+
+    // 26: Revati (Wealth, Journey's End, Flock)
+    {"The optimistic guide (Sagittarius Navamsa). You are a highly independent and joyful traveler. You love exploring foreign concepts, teaching others, and bringing a sense of ultimate hope and closure to journeys.",
+     "The structured benefactor (Capricorn Navamsa). You provide for others by building secure, long-term foundations. You are highly disciplined, responsible, and use your accumulated wealth to support the collective.",
+     "The humanitarian visionary (Aquarius Navamsa). You care deeply for the entire human flock. You are highly intelligent, scientifically or astrologically inclined, and use your wealth and knowledge to uplift the masses.",
+     "The ultimate empath (Pisces Navamsa). You have reached the end of the karmic cycle. You possess boundaryless compassion, deep psychic sensitivity, and a profound, imaginative connection to the divine."}	 
 };
 
 inline std::string get_nakshatra_pada_text(int nak, int pada) {
-    if (nak >= 0 && nak <= 17 && pada >= 1 && pada <= 4) {
+    if (nak >= 0 && nak <= 26 && pada >= 1 && pada <= 4) {
         return en_nak_pada_matrix[nak][pada - 1];
     }
     return "[Personality interpretation for this specific Nakshatra/Pada will be added in upcoming modules].";

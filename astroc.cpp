@@ -326,15 +326,20 @@ void calculate_chart() {
         }
 	}
 	
-void process_planet(int p_idx, double decimal_degrees) {
+// 1. This function ONLY populates the Rasi Chart Grid during calculation
+    void process_planet(int p_idx, double decimal_degrees) {
+        int rashi_index = (int)(decimal_degrees / 30.0);
+        rashi_grid[rashi_index] += get_short_planet(p_idx) + " ";
+    }
+
+    // 2. This function ONLY prints the Planet Positions Table (No Rasi Grid modification)
+    void process_planet_print(int p_idx, double decimal_degrees) {
         int rashi_index = (int)(decimal_degrees / 30.0); double rashi_degrees = decimal_degrees - (rashi_index * 30.0);
         int degrees = (int)rashi_degrees; int minutes = (int)((rashi_degrees - degrees) * 60.0);
         int seconds = (int)round((((rashi_degrees - degrees) * 60.0) - minutes) * 60.0);
         if (seconds >= 60) { seconds -= 60; minutes += 1; } if (minutes >= 60) { minutes -= 60; degrees += 1; }
         if (degrees >= 30) { degrees -= 30; rashi_index = (rashi_index + 1) % 12; }
 
-        rashi_grid[rashi_index] += get_short_planet(p_idx) + " ";
-        
         int d9_rashi_index = ((int)(decimal_degrees / (10.0 / 3.0))) % 12;
         double nak_size = 360.0 / 27.0; int nak_index = (int)(decimal_degrees / nak_size);
         int pada = (int)((decimal_degrees - (nak_index * nak_size)) / (nak_size / 4.0)) + 1;
@@ -373,8 +378,7 @@ void process_planet(int p_idx, double decimal_degrees) {
                 }
             }
         }
-    }
-	
+    }	
 void draw_south_indian_chart() {
         if (html_mode) {
             auto c = [&](int idx) { return rashi_grid[idx]; };
@@ -580,6 +584,80 @@ void draw_south_indian_chart() {
         }
     }
 	
+void print_birth_chart_ui() {
+        if (json_mode) return;
+        
+        if (html_mode) {
+            print_birth_details_html(); 
+            printf("<table class='data-table'><tr>");
+            if (telugu_mode) printf("<th>గ్రహం</th><th>రేఖాంశం</th><th>D9 రాశి</th><th>నక్షత్రం (పాదం)</th><th>తార (నవతార)</th><th>న. అధిపతి</th><th>రా. అధిపతి</th>");
+            else printf("<th>Graha</th><th>Longitude</th><th>D9 Rasi</th><th>Nakshatra (Pada)</th><th>Tara (Navatara)</th><th>N. Lord</th><th>R. Lord</th>");
+            printf("</tr>");
+        } else {
+            printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+            if (telugu_mode) printf("%-20s | %-26s | %-18s | %-35s | %-45s | %-18s | %-18s\n", "గ్రహం", "రేఖాంశం", "D9 రాశి", "నక్షత్రం (పాదం)", "తార (నవతార)", "న. అధిపతి", "రా. అధిపతి");
+            else printf("%-15s | %-19s | %-10s | %-25s | %-30s | %-10s | %-10s\n", "Graha", "Longitude", "D9 Rasi", "Nakshatra (Pada)", "Tara (Navatara)", "N. Lord", "R. Lord");
+            printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+        }
+
+        for (int i = 0; i < 10; i++) {
+            process_planet_print(i, planet_lons[i]);
+        }
+        if (html_mode) printf("</table><br>");
+
+        if (!html_mode) printf("--------------------------------------------------------------------------------------------------------------------------\n");
+        draw_south_indian_chart();
+
+        // --- JAIMINI KARAKAS (Soul Significators) ---
+        struct Karaka { int p_idx; double deg; };
+        std::vector<Karaka> karakas;
+        for (int i = 1; i <= 7; i++) karakas.push_back({i, fmod(planet_lons[i], 30.0)});
+        std::sort(karakas.begin(), karakas.end(), [](const Karaka& a, const Karaka& b) { return a.deg > b.deg; });
+
+        int h12_rashi = (planet_rashis[0] + 11) % 12; 
+        int l12_idx = 1; 
+        for(int x = 1; x <= 7; x++) { if(string(rashi_lords[h12_rashi]) == p_names_full[x]) l12_idx = x; }
+        int lord_rashi = planet_rashis[l12_idx];
+        int distance = (lord_rashi - h12_rashi + 12) % 12;
+        int ul_rashi = (lord_rashi + distance) % 12;
+        if (ul_rashi == h12_rashi || ul_rashi == (h12_rashi + 6) % 12) ul_rashi = (ul_rashi + 9) % 12; 
+
+        if (html_mode) {
+            printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_mode ? "జైమిని కారకత్వాలు & ఆరూఢ లగ్నాలు" : "Jaimini Karakas & Arudhas");
+            printf("<table class='data-table' style='margin-top: 0;'><tr>");
+            printf("<th>%s</th><th>%s</th><th>%s</th></tr>", telugu_mode ? "కారకత్వం" : "Karaka", telugu_mode ? "గ్రహం" : "Planet", telugu_mode ? "డిగ్రీలు" : "Degree");
+        } else {
+            if (telugu_mode) printf("\n[జైమిని కారకత్వాలు & ఆరూఢ లగ్నాలు]\n");
+            else printf("\n[JAIMINI KARAKAS & ARUDHAS]\n");
+        }
+        
+        const char* k_names_en[] = { "Atmakaraka (AK)", "Amatyakaraka (AmK)", "Bhratrukaraka (BK)", "Matrukaraka (MK)", "Pitrukaraka (PiK)", "Putrakaraka (PuK)", "Darakaraka (DK)" };
+        const char* k_names_te[] = { "ఆత్మకారక (AK)", "అమాత్యకారక (AmK)", "భ్రాతృకారక (BK)", "మాతృకారక (MK)", "పితృకారక (PiK)", "పుత్రకారక (PuK)", "దారకారక (DK)" };
+    
+        for (int i = 0; i < 7; i++) {
+            int deg = (int)karakas[i].deg;
+            int min = (int)((karakas[i].deg - deg) * 60.0);
+            if (html_mode) {
+                printf("<tr><td>%s</td><td>%s</td><td>%02d° %02d'</td></tr>", 
+                       telugu_mode ? k_names_te[i] : k_names_en[i], 
+                       telugu_mode ? get_planet_name(karakas[i].p_idx).c_str() : p_names_full[karakas[i].p_idx], 
+                       deg, min);
+            } else {
+                if (telugu_mode) printf("%-28s : %-10s (%02d° %02d')\n", k_names_te[i], get_planet_name(karakas[i].p_idx).c_str(), deg, min);
+                else printf("%-26s : %-10s (%02d° %02d')\n", k_names_en[i], p_names_full[karakas[i].p_idx], deg, min);
+            }
+        }
+        
+        if (html_mode) {
+            printf("<tr><td>%s</td><td>%s</td><td>-</td></tr></table>", 
+                   telugu_mode ? "ఉపపద లగ్నం (UL)" : "Upa Pada Lagna (UL)", 
+                   telugu_mode ? get_rashi_name(ul_rashi).c_str() : rashi_names[ul_rashi]);
+        } else {
+            if (telugu_mode) printf("%-28s : %-10s\n", "ఉపపద లగ్నం (UL) [వివాహం]", get_rashi_name(ul_rashi).c_str());
+            else printf("%-26s : %-10s\n", "Upa Pada Lagna (UL)", rashi_names[ul_rashi]);
+            printf("-----------------------------------------------------------------\n");
+        }
+    }	
 	// =========================================================================
     // PHASE 1: INTERPRETATION ENGINE (D1 OUTCOMES + VARGA FATE)
     // =========================================================================
@@ -592,11 +670,15 @@ void draw_south_indian_chart() {
         int v_planets[10];
         for(int i=0; i<10; i++) v_planets[i] = get_varga(v_num, planet_lons[i]);
 
-        printf("\n================================================================================\n");
-        printf("=== %s CHART ANALYSIS (Lagna: %s) ===\n", varga_str.c_str(), rashi_names[v_lagn_rasi]);
-        printf("================================================================================\n");
-
-        if (v_num == 1) {
+		if (html_mode) {
+            printf("<h2 style='margin-top: 20px; margin-bottom: 15px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s CHART ANALYSIS (Lagna: %s)</h2>", varga_str.c_str(), rashi_names[v_lagn_rasi]);
+        } else {
+            printf("\n================================================================================\n");
+            printf("=== %s CHART ANALYSIS (Lagna: %s) ===\n", varga_str.c_str(), rashi_names[v_lagn_rasi]);
+            printf("================================================================================\n");
+        }
+        
+		if (v_num == 1) {
 			analyze_general_personality();
             analyze_functional_nature(v_lagn_rasi);
             analyze_yogas(v_planets, v_lagn_rasi);
@@ -4750,6 +4832,7 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 		if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
+			engine.print_birth_chart_ui(); // <-- NOW PRINTS THE FULL BIRTH TAB
             return 0; // Already printed perfectly during calculate_chart()
         }
         else if (strcasecmp(cmd.c_str(), "web_general") == 0) {
@@ -4952,6 +5035,7 @@ int main(int argc, char *argv[]) {
             int target_year = (t_year > 0) ? t_year : year; 
             engine.calculate_dasha_balance();
             engine.calculate_6_level_dasha_target(0, 0, 0, 12, 0, 0, true);
+			engine.print_birth_chart_ui();
             engine.analyze_chart("D1");
             engine.scan_planetary_collisions(target_planet_all, target_year, t_month, t_day);
             return 0;

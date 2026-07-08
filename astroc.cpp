@@ -2769,7 +2769,7 @@ void print_dasha_web() {
             cur_start += md_dur;
         }
     }
-	void print_dasha_tables_html(double target_jd) {
+void print_dasha_tables_html(double target_jd) {
         if (!html_mode) return;
 
         double nak_size = 360.0 / 27.0; 
@@ -2808,7 +2808,7 @@ void print_dasha_web() {
         }
         printf("</table>");
 
-        if (active_md_idx == -1) { fflush(stdout); return; }
+        if (active_md_idx == -1) { printf("\n"); fflush(stdout); return; }
 
         // --- 2. Antar Dasha (Bhukti) Table ---
         cur_start = md_start;
@@ -2838,7 +2838,7 @@ void print_dasha_web() {
         }
         printf("</table>");
 
-        if (active_ad_idx == -1) { fflush(stdout); return; }
+        if (active_ad_idx == -1) { printf("\n"); fflush(stdout); return; }
 
         // --- 3. Pratyantar Dasha Table ---
         cur_start = ad_start;
@@ -2862,9 +2862,10 @@ void print_dasha_web() {
             }
             cur_start += sub_dur;
         }
-        printf("</table><br>");
         
-        fflush(stdout); // <--- CRITICAL FIX: Forces WASM to send the HTML to the browser!
+        // CRITICAL FIX: The \n at the end tells Emscripten to flush the HTML to JavaScript!
+        printf("</table><br>\n"); 
+        fflush(stdout); 
     }
     void dfs_find_dehas(int level, int current_lord, double start_jd, double duration, double target_start, double target_end, vector<int> path) {
         if (start_jd >= target_end || start_jd + duration <= target_start) return;
@@ -4911,19 +4912,16 @@ int main(int argc, char *argv[]) {
             }
         };
 
-        if (strcasecmp(cmd.c_str(), "json") == 0) {
+		if (strcasecmp(cmd.c_str(), "json") == 0) {
             engine.calculate_ashtakavarga(true);
             engine.analyze_auspiciousness(engine.planet_rashis[0], engine.planet_rashis);
             engine.export_web_json(year, month, day); 
-            fflush(stdout); // <--- FLUSH ADDED
+            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
-            engine.user_name = (clean_argc > 9) ? clean_argv[9] : "Guest";
-            engine.user_gender = (clean_argc > 10) ? clean_argv[10] : "Not Specified";
-            engine.html_mode = html_ui; 
             engine.print_birth_chart_ui(); 
-            fflush(stdout); // <--- FLUSH ADDED (This fixes the empty Birth Chart!)
+            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
             return 0; 
         }
         else if (strcasecmp(cmd.c_str(), "web_general") == 0) {
@@ -4934,7 +4932,7 @@ int main(int argc, char *argv[]) {
                                       engine.current_weekday, v_lord, m_lord, false, engine.json_output);
             engine.calculate_ashtakavarga(true); 
             engine.analyze_chart("D1"); 
-            fflush(stdout); // <--- FLUSH ADDED
+            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_dasha") == 0) {
@@ -4949,12 +4947,12 @@ int main(int argc, char *argv[]) {
                 double current_jd = swe_julday(now_utc->tm_year + 1900, now_utc->tm_mon + 1, now_utc->tm_mday, ut_dec, SE_GREG_CAL);
                 engine.print_dasha_tables_html(current_jd);
             }
-            fflush(stdout); // <--- FLUSH ADDED (This fixes the ghosting tables!)
+            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_dosha") == 0) {
             engine.analyze_doshas(engine.planet_rashis, engine.planet_rashis[0]);
-            fflush(stdout); // <--- FLUSH ADDED
+            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_transit") == 0) {
@@ -4962,7 +4960,7 @@ int main(int argc, char *argv[]) {
                 t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
                 engine.calculate_transits(t_year, t_month, t_day, t_hour, t_min, t_sec, false, true); 
             }
-            fflush(stdout); // <--- FLUSH ADDED
+            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "web_progeny") == 0 || strcasecmp(cmd.c_str(), "progeny") == 0) {
@@ -4976,9 +4974,10 @@ int main(int argc, char *argv[]) {
                 }
             }
             engine.analyze_progeny(is_female, gender_provided);
-            fflush(stdout); // <--- FLUSH ADDED
+            printf("\n"); fflush(stdout); // <--- FORCE FLUSH
             return 0;
         }
+		
         else { print_help_menu(); return 1; }
     }
 

@@ -5050,15 +5050,7 @@ int main(int argc, char *argv[]) {
             return 0; 
         }
         else if (strcasecmp(cmd.c_str(), "web_general") == 0) {
-            int v_lord = -1, m_lord = -1;
-            engine.calculate_varsha_masa(v_lord, m_lord);
-            
-            // FIX: Added html_ui and telugu_ui arguments
-            ShadbalaEngine::calculate(engine.lagna_lon, engine.planet_lons, engine.moon_lon, engine.tjd_ut, 
-                                      engine.local_hour_decimal, engine.sunrise_hour_decimal, engine.sunset_hour_decimal, 
-                                      engine.current_weekday, v_lord, m_lord, false, html_ui, telugu_ui, engine.json_output);
-                                      
-            engine.calculate_ashtakavarga(true); 
+            // General Tab is strictly for Predictive Text! No tables here.
             engine.analyze_chart("D1"); 
             printf("\n"); fflush(stdout); 
             return 0;

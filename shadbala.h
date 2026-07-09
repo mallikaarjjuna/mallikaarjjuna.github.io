@@ -11,8 +11,10 @@ using namespace std;
 
 class ShadbalaEngine {
 public:
-	static inline double final_ratios[10] = {0};
-    static void calculate(double lagna_lon, double* planet_lons, double moon_lon, double jd_ut, double local_hour_decimal, double sunrise_hour, double sunset_hour, int weekday, int varsha_lord, int masa_lord, bool json_mode, string& json_output) {
+    static inline double final_ratios[10] = {0};
+    
+    // NEW SIGNATURE: Added html_mode and telugu_mode
+    static void calculate(double lagna_lon, double* planet_lons, double moon_lon, double jd_ut, double local_hour_decimal, double sunrise_hour, double sunset_hour, int weekday, int varsha_lord, int masa_lord, bool json_mode, bool html_mode, bool telugu_mode, string& json_output) {
         const char* p_names[] = {"Surya", "Chandra", "Mangal", "Budha", "Guru", "Shukra", "Shani"};
         double exaltation_deg[] = {10.0, 33.0, 298.0, 165.0, 95.0, 357.0, 200.0};
         double naisargika[] = {60.0, 51.43, 17.14, 25.70, 34.28, 42.85, 8.57};
@@ -50,7 +52,6 @@ public:
             else if (h_from_asc % 3 == 2) kendradi[i] = 30.0;
             else kendradi[i] = 15.0;
 
-            // RESTORED DREKKANA BALA (1st = Male, 2nd = Eunuchs, 3rd = Females)
             int drek = int(fmod(planet_lons[i+1], 30.0) / 10.0);
             if ((i == 0 || i == 2 || i == 4) && drek == 0) drekkana[i] = 15.0; 
             else if ((i == 3 || i == 6) && drek == 1) drekkana[i] = 15.0; 
@@ -138,8 +139,7 @@ public:
             total[i] = sthaana[i] + dig[i] + kaala[i] + cheshta[i] + naisargika[i] + drik[i];
             rupas[i] = total[i] / 60.0;
             ratio[i] = rupas[i] / min_req[i];
-			
-			final_ratios[i+1] = ratio[i];
+            final_ratios[i+1] = ratio[i];
         }
 
         for (int i = 0; i < 7; i++) {
@@ -148,43 +148,96 @@ public:
         }
 
         if (!json_mode) {
-            printf("\n=== COMPREHENSIVE SHADBALA TABLE ===\n");
-            printf("--------------------------------------------------------------------------------------------------\n");
-            printf("%-25s | %-8s | %-8s | %-8s | %-8s | %-8s | %-8s | %-8s\n", "Balas", "Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn");
-            printf("--------------------------------------------------------------------------------------------------\n");
-            
-            auto p_row = [](const char* name, double* v) { printf("%-25s | %-8.2f | %-8.2f | %-8.2f | %-8.2f | %-8.2f | %-8.2f | %-8.2f\n", name, v[1], v[0], v[3], v[5], v[2], v[4], v[6]); };
-            auto p_int = [](const char* name, int* v) { printf("%-25s | %-8d | %-8d | %-8d | %-8d | %-8d | %-8d | %-8d\n", name, v[1], v[0], v[3], v[5], v[2], v[4], v[6]); };
+            if (html_mode) {
+                printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>\n", telugu_mode ? "షడ్బల విశ్లేషణ (Shadbala)" : "Comprehensive Shadbala");
+                printf("<table class='data-table'>\n");
+                printf("<tr><th>%s</th><th>Moon</th><th>Sun</th><th>Mercury</th><th>Venus</th><th>Mars</th><th>Jupiter</th><th>Saturn</th></tr>\n", telugu_mode ? "బలాలు (Balas)" : "Balas");
+                
+                auto p_row_html = [](const char* name, double* v) { 
+                    printf("<tr><td><b>%s</b></td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td><td>%.2f</td></tr>\n", name, v[1], v[0], v[3], v[5], v[2], v[4], v[6]); 
+                };
+                auto p_int_html = [](const char* name, int* v) { 
+                    printf("<tr><td><b>%s</b></td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td></tr>\n", name, v[1], v[0], v[3], v[5], v[2], v[4], v[6]); 
+                };
 
-            p_row("Uchcha Bala", uchcha);
-            p_row("Saptavargaja Bala", saptavargaja);
-            p_row("Ojhayugmarasiamsa Bala", ojha);
-            p_row("Kendradi Bala", kendradi);
-            p_row("Drekkana Bala", drekkana);
-            p_row("Sthaana Bala", sthaana);
-            p_row("Dig Bala", dig);
-            p_row("Nathonnatha Bala", nathonnatha);
-            p_row("Paksha Bala", paksha);
-            p_row("Tribhaga Bala", tribhaga);
-            p_row("Varsha Bala", varsha);
-            p_row("Masa Bala", masa);
-            p_row("Dina Bala", dina);
-            p_row("Hora Bala", hora);
-            p_row("Ayana Bala", ayana);
-            p_row("Yudhdha Bala", yudhdha);
-            p_row("Kaala Bala", kaala);
-            p_row("Cheshta Bala", cheshta);
-            p_row("Naisargika Bala", naisargika);
-            p_row("Drik Bala", drik);
-            printf("--------------------------------------------------------------------------------------------------\n");
-            p_row("Total shadbala Bala", total);
-            p_row("Shadbala in rupas", rupas);
-            p_row("minimum requirement", min_req);
-            p_row("Ratio", ratio);
-            p_int("Relative rank", rank);
-            p_row("Ishta Phala", ishta);
-            p_row("Kashta Phala", kashta);
-            printf("--------------------------------------------------------------------------------------------------\n");
+                p_row_html("Uchcha Bala", uchcha);
+                p_row_html("Saptavargaja Bala", saptavargaja);
+                p_row_html("Ojhayugmarasiamsa Bala", ojha);
+                p_row_html("Kendradi Bala", kendradi);
+                p_row_html("Drekkana Bala", drekkana);
+                p_row_html("Sthaana Bala", sthaana);
+                p_row_html("Dig Bala", dig);
+                p_row_html("Nathonnatha Bala", nathonnatha);
+                p_row_html("Paksha Bala", paksha);
+                p_row_html("Tribhaga Bala", tribhaga);
+                p_row_html("Varsha Bala", varsha);
+                p_row_html("Masa Bala", masa);
+                p_row_html("Dina Bala", dina);
+                p_row_html("Hora Bala", hora);
+                p_row_html("Ayana Bala", ayana);
+                p_row_html("Yudhdha Bala", yudhdha);
+                p_row_html("Kaala Bala", kaala);
+                p_row_html("Cheshta Bala", cheshta);
+                p_row_html("Naisargika Bala", naisargika);
+                p_row_html("Drik Bala", drik);
+                
+                printf("<tr style='background:#3a3a45; color:var(--term-text); border-top:2px solid var(--border);'><td colspan='8'><b>Final Aggregates</b></td></tr>\n");
+                p_row_html("Total Shadbala", total);
+                p_row_html("Shadbala in Rupas", rupas);
+                p_row_html("Minimum Requirement", min_req);
+                
+                // Color-coded Ratio row
+                printf("<tr style='background:#2a2a35;'><td><b>Ratio</b></td>");
+                for(int k=0; k<7; k++) {
+                    int p = (k==0)?1 : (k==1)?0 : (k==2)?3 : (k==3)?5 : (k==4)?2 : (k==5)?4 : 6;
+                    const char* color = (ratio[p] >= 1.0) ? "#2ecc71" : "#e74c3c";
+                    printf("<td><b style='color:%s;'>%.2f</b></td>", color, ratio[p]);
+                }
+                printf("</tr>\n");
+                
+                p_int_html("Relative Rank", rank);
+                p_row_html("Ishta Phala", ishta);
+                p_row_html("Kashta Phala", kashta);
+                printf("</table>\n");
+            } else {
+                printf("\n=== COMPREHENSIVE SHADBALA TABLE ===\n");
+                printf("--------------------------------------------------------------------------------------------------\n");
+                printf("%-25s | %-8s | %-8s | %-8s | %-8s | %-8s | %-8s | %-8s\n", "Balas", "Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn");
+                printf("--------------------------------------------------------------------------------------------------\n");
+                
+                auto p_row = [](const char* name, double* v) { printf("%-25s | %-8.2f | %-8.2f | %-8.2f | %-8.2f | %-8.2f | %-8.2f | %-8.2f\n", name, v[1], v[0], v[3], v[5], v[2], v[4], v[6]); };
+                auto p_int = [](const char* name, int* v) { printf("%-25s | %-8d | %-8d | %-8d | %-8d | %-8d | %-8d | %-8d\n", name, v[1], v[0], v[3], v[5], v[2], v[4], v[6]); };
+
+                p_row("Uchcha Bala", uchcha);
+                p_row("Saptavargaja Bala", saptavargaja);
+                p_row("Ojhayugmarasiamsa Bala", ojha);
+                p_row("Kendradi Bala", kendradi);
+                p_row("Drekkana Bala", drekkana);
+                p_row("Sthaana Bala", sthaana);
+                p_row("Dig Bala", dig);
+                p_row("Nathonnatha Bala", nathonnatha);
+                p_row("Paksha Bala", paksha);
+                p_row("Tribhaga Bala", tribhaga);
+                p_row("Varsha Bala", varsha);
+                p_row("Masa Bala", masa);
+                p_row("Dina Bala", dina);
+                p_row("Hora Bala", hora);
+                p_row("Ayana Bala", ayana);
+                p_row("Yudhdha Bala", yudhdha);
+                p_row("Kaala Bala", kaala);
+                p_row("Cheshta Bala", cheshta);
+                p_row("Naisargika Bala", naisargika);
+                p_row("Drik Bala", drik);
+                printf("--------------------------------------------------------------------------------------------------\n");
+                p_row("Total shadbala Bala", total);
+                p_row("Shadbala in rupas", rupas);
+                p_row("minimum requirement", min_req);
+                p_row("Ratio", ratio);
+                p_int("Relative rank", rank);
+                p_row("Ishta Phala", ishta);
+                p_row("Kashta Phala", kashta);
+                printf("--------------------------------------------------------------------------------------------------\n");
+            }
         }
     }
 };

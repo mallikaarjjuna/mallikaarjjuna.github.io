@@ -47,7 +47,8 @@ const vector<City> city_db = {
 	{"Allahabad",  25.435800, 81.846300, 5.5}, // Amitabh Bachchan (Newly Prayagraj)
 	{"Mangalore",  12.914100, 74.856000, 5.5}, // Aishwarya Rai Bachchan
 	{"Indore",     22.719600, 75.857700, 5.5}, // Lata Mangeshkar
-	{"Rameswaram",  9.287600, 79.312900, 5.5}  // A. P. J. Abdul Kalam
+	{"Rameswaram",  9.287600, 79.312900, 5.5},  // A. P. J. Abdul Kalam
+	{"Mogalthur", 16.409321, 81.595438, 5.5}  // High-precision center
 	
 };
 
@@ -1366,7 +1367,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         
         fflush(stdout); // CRITICAL FIX: Flush the UI immediately!
     }
-	// ---------------------------------------------------------
+// ---------------------------------------------------------
     // CRITICAL MATH FIX: Force floating-point division with 30.0
     // ---------------------------------------------------------
     int get_varga(int varga, double lon) {
@@ -1637,11 +1638,11 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
             else printf("\n[ESTIMATED PROGENY COUNT & CORE PROMISE]\n");
             
             if (telugu_mode) {
-                if (break_point != -1) printf("  * కర్మ నియంత్రణ: నవాంశ (D9) రాహువు %dవ సంతాన స్థానంలో ఉన్నాడు. సంతాన సంఖ్య ఇక్కడితో ఆగిపోతుంది.\n", break_point);
+                if (break_point != -1) printf("  * కర్మ నియంత్రణ (వంశ ఛేద హెచ్చరిక): నవాంశ (D9) రాహువు %dవ సంతాన స్థానంలో ఉన్నాడు. సంతాన ప్రాప్తికి ఆలస్యం లేదా పరిహారాలు అవసరం కావచ్చు.\n", break_point);
                 if (base_children == 0) printf("  * అంచనా: తీవ్రమైన కర్మ అడ్డంకి. జ్యోతిష్య/వైద్య పరిహారాలు లేకుండా సంతాన ప్రాప్తి కష్టం.\n");
                 else printf("  * అంచనా: ప్రాచీన పరాశర/జైమిని గణితం ప్రకారం %d సంతానం కలిగే అవకాశం ఉంది.\n", base_children);
             } else {
-                if (break_point != -1) printf("  * Karmic Cap (Vamsha Cheda): Navamsa Rahu occupies the traverse house for Child %d. Lineage stops here.\n", break_point);
+                if (break_point != -1) printf("  * Karmic Cap Warning (Vamsha Cheda): Navamsa Rahu occupies the traverse house for Child %d. Inherent lineage block or delays; remedies may be required.\n", break_point);
                 if (base_children == 0) printf("  * Estimate: Severe Karmic block detected. High probability of childlessness without intervention.\n");
                 else printf("  * Estimate: Pure Classical algorithmic capacity for %d child(ren).\n", base_children);
             }
@@ -1899,11 +1900,11 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
                 if (male_points > female_points) { gender_en = "Male (Boy)"; gender_te = "మగ బిడ్డ"; }
                 else if (female_points > male_points) { gender_en = "Female (Girl)"; gender_te = "ఆడ బిడ్డ"; }
                 else { 
-                    // General mathematical odd/even check for Chandra's rashi in D1 (0=odd, 1=even)
-                    if (planet_rashis[2] % 2 == 0) { 
-                        gender_en = "Male (Boy - Moon Tiebreaker)"; gender_te = "మగ బిడ్డ (చంద్రుని ఆధారంగా)"; male_points++; 
+                    // General mathematical odd/even check for Lagna's rashi in D1 (representing the native's physical body output)
+                    if (is_male_rashi(planet_rashis[0])) { 
+                        gender_en = "Male (Boy - Lagna Tiebreaker)"; gender_te = "మగ బిడ్డ (లగ్నం ఆధారంగా)"; male_points++; 
                     } else { 
-                        gender_en = "Female (Girl - Moon Tiebreaker)"; gender_te = "ఆడ బిడ్డ (చంద్రుని ఆధారంగా)"; female_points++; 
+                        gender_en = "Female (Girl - Lagna Tiebreaker)"; gender_te = "ఆడ బిడ్డ (లగ్నం ఆధారంగా)"; female_points++; 
                     }
                 } 
 
@@ -5031,33 +5032,33 @@ int main(int argc, char *argv[]) {
             engine.user_gender = (clean_argc > 10) ? clean_argv[10] : "Not Specified";
             engine.html_mode = html_ui; 
             
-            // 1. Print Standard Birth Chart UI (Planets, Jaimini, etc)
+            // 1. Print Standard Birth Chart UI
             engine.print_birth_chart_ui(); 
             
             // 2. Print Ashtakavarga Table
-            engine.calculate_ashtakavarga(false); // Passing false tells it to print
+            engine.calculate_ashtakavarga(false); 
 
-            // 3. Calculate and Print Shadbala safely in a Preformatted Code Block
+            // 3. Print Shadbala (Now Natively HTML formatted!)
             int v_lord = -1, m_lord = -1;
             engine.calculate_varsha_masa(v_lord, m_lord);
             
-            if (html_ui) {
-                printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_ui ? "షడ్బల విశ్లేషణ (Shadbala)" : "Comprehensive Shadbala");
-                // The <pre> tag preserves the beautiful CLI spacing created by shadbala.h
-                printf("<pre style='background:#1e1e2e; color:#a6accd; padding:15px; border-radius:5px; overflow-x:auto; font-family:monospace; line-height:1.5;'>\n");
-            }
-            
             ShadbalaEngine::calculate(engine.lagna_lon, engine.planet_lons, engine.moon_lon, engine.tjd_ut, 
                                       engine.local_hour_decimal, engine.sunrise_hour_decimal, engine.sunset_hour_decimal, 
-                                      engine.current_weekday, v_lord, m_lord, false, engine.json_output);
-                                      
-            if (html_ui) printf("</pre>\n");
+                                      engine.current_weekday, v_lord, m_lord, false, html_ui, telugu_ui, engine.json_output);
 
             printf("\n"); fflush(stdout); 
             return 0; 
         }
         else if (strcasecmp(cmd.c_str(), "web_general") == 0) {
-            // General Tab is now strictly for Predictive Text!
+            int v_lord = -1, m_lord = -1;
+            engine.calculate_varsha_masa(v_lord, m_lord);
+            
+            // FIX: Added html_ui and telugu_ui arguments
+            ShadbalaEngine::calculate(engine.lagna_lon, engine.planet_lons, engine.moon_lon, engine.tjd_ut, 
+                                      engine.local_hour_decimal, engine.sunrise_hour_decimal, engine.sunset_hour_decimal, 
+                                      engine.current_weekday, v_lord, m_lord, false, html_ui, telugu_ui, engine.json_output);
+                                      
+            engine.calculate_ashtakavarga(true); 
             engine.analyze_chart("D1"); 
             printf("\n"); fflush(stdout); 
             return 0;
@@ -5246,7 +5247,12 @@ int main(int argc, char *argv[]) {
                     
                     JyotishaEngine annual_engine(ty, tm, td, th, tmin, tsec, *it, json_mode, telugu_ui, html_ui);
                     annual_engine.calculate_chart();
-                    annual_engine.analyze_chart("D1");
+                    
+                    // Varshaphala is a 1-year chart. We DO NOT print lifetime Doshas, Yogas, or Personality here.
+                    annual_engine.analyze_functional_nature(annual_engine.planet_rashis[0]);
+                    annual_engine.analyze_placements(annual_engine.planet_rashis, annual_engine.planet_rashis[0]);
+                    annual_engine.analyze_lordships(annual_engine.planet_rashis[0], annual_engine.planet_rashis);
+                    annual_engine.analyze_conjunctions(annual_engine.planet_rashis, annual_engine.planet_rashis[0]);
                 }
             } else printf("Error: 'annual' requires a target year.\n");
             
@@ -5293,9 +5299,11 @@ int main(int argc, char *argv[]) {
             
             int varsha_lord_idx = -1, masa_lord_idx = -1;
             engine.calculate_varsha_masa(varsha_lord_idx, masa_lord_idx);
+            
+            // FIX: Added html_ui and telugu_ui arguments
             ShadbalaEngine::calculate(engine.lagna_lon, engine.planet_lons, engine.moon_lon, engine.tjd_ut, 
                                       engine.local_hour_decimal, engine.sunrise_hour_decimal, engine.sunset_hour_decimal, 
-                                      engine.current_weekday, varsha_lord_idx, masa_lord_idx, false, engine.json_output);
+                                      engine.current_weekday, varsha_lord_idx, masa_lord_idx, false, html_ui, telugu_ui, engine.json_output);
             
             engine.calculate_aspects();
             engine.calculate_shodashvarga(); 

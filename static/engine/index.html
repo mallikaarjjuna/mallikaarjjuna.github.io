@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jyotisha WebAssembly Engine</title>
-	<link rel="icon" type="image/png" href="favicon.png?v=2">
+    <link rel="icon" type="image/png" href="favicon.png?v=2">
     <style>
         :root {
             --bg-dark: #121212;
@@ -43,7 +43,7 @@
         button:hover { background: #e67e22; }
         
         /* Tabs */
-        .tabs { margin-top: 30px; border-bottom: 2px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; transition: opacity 0.3s;}
+        .tabs { border-bottom: 2px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; padding-bottom: 10px;}
         .tab-btn {
             background: transparent; color: var(--text-main); border: none; padding: 10px 15px;
             cursor: pointer; font-size: 1em; opacity: 0.7; width: auto; font-weight: normal;
@@ -51,6 +51,12 @@
         .tab-btn.active { opacity: 1; border-bottom: 3px solid var(--accent); font-weight: bold; color: var(--accent); }
         .tab-content { display: none; padding: 20px 0; }
         .tab-content.active { display: block; }
+        
+        /* Dynamic Panels */
+        .dynamic-panel {
+            display: none; background: #2a2a35; padding: 20px; border-radius: 6px; 
+            margin-bottom: 20px; border-left: 4px solid var(--accent); box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+        }
         
         /* Terminal */
         .terminal-view {
@@ -65,15 +71,14 @@
             line-height: 1.5;            
             font-size: 14px;
         }
+        
         /* Native HTML Tables from C++ */
         .data-table {
             width: 100%; border-collapse: collapse; margin: 20px 0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px;
             background: #1e1e24; color: #e0e0e0;
         }
-        .data-table th, .data-table td {
-            border: 1px solid var(--border); padding: 8px 12px; text-align: left;
-        }
+        .data-table th, .data-table td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
         .data-table th { background: #2a2a35; color: var(--accent); font-weight: bold; }
         
         .rasi-table {
@@ -89,12 +94,7 @@
             text-align: center; vertical-align: middle !important;
             font-size: 1.5em; letter-spacing: 2px; color: #888;
         }
-        .p-text {
-            color: var(--term-text); font-weight: normal; display: block; margin-top: 8px; line-height: 1.6;
-        }
-        #loading-spinner {
-            text-align: center; color: var(--accent); font-weight: bold; margin: 20px 0;
-        }
+        .p-text { color: var(--term-text); font-weight: normal; display: block; margin-top: 8px; line-height: 1.6; }
     </style>
 
     <script>
@@ -103,12 +103,8 @@
         let isWasmReady = false;
 
         var Module = {
-            print: function(text) {
-                terminalBuffer += text + "\n";
-            },
-            printErr: function(text) {
-                console.error(text);
-            },
+            print: function(text) { terminalBuffer += text + "\n"; },
+            printErr: function(text) { console.error(text); },
             onRuntimeInitialized: async function() {
                 try {
                     console.log("Fetching split ephemeris data chunks locally from Cloudflare...");
@@ -134,36 +130,33 @@
                     console.log("Engine initialized. Ready to calculate.");
                     
                     const loadingEl = document.getElementById('loading-msg');
-                    if (loadingEl) {
-                        loadingEl.style.display = 'none';
-                    }
+                    if (loadingEl) loadingEl.style.display = 'none';
                     isWasmReady = true; 
                 } catch (err) {
                     console.error("Data loading error:", err);
                     const loadingEl = document.getElementById('loading-msg');
-                    if (loadingEl) {
-                        loadingEl.innerText = "Error loading Ephemeris Data.";
-                    }
+                    if (loadingEl) loadingEl.innerText = "Error loading Ephemeris Data.";
                 }
             }
         };
     </script>
-
     <script src="astroc.js"></script>
 </head>
 <body>
-	<header style="display: flex; align-items: center; padding: 15px 20px; background-color: #1e1e2e; border-bottom: 2px solid var(--accent); margin-bottom: 25px;">
+    <header style="display: flex; align-items: center; padding: 15px 20px; background-color: #1e1e2e; border-bottom: 2px solid var(--accent); margin-bottom: 25px;">
         <img src="logo-header.png" alt="Astro Coder Logo" style="height: 45px; margin-right: 15px; border-radius: 4px;">
         <h1 style="color: #e0e0e0; margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 1px;">
             Jyotisha <span style="color: var(--accent);">Engine</span>
         </h1>
     </header>
+
 <div class="container">
     <h1>Vedic Astrology Computation Matrix</h1>
     <p style="color: #888; font-size: 0.9em; margin-top: -10px; margin-bottom: 30px;">Powered by WebAssembly Orbital Engine</p>
 
     <form id="calc-form">
-        <h2>1. Natal Birth Parameters</h2>
+        <!-- 1. PERMANENT NATAL PARAMETERS -->
+        <h2 style="font-size: 1.3em;">Natal Birth Parameters & Global Settings</h2>
         <div class="form-grid">
             <div class="form-group"><label>Name</label><input type="text" name="user_name" value="Mallikarjuna" required></div>
             <div class="form-group">
@@ -193,46 +186,79 @@
                     <option value="kolkata">Kolkata</option>
                 </select>
             </div>
-        </div>
-
-        <h2>2. Target Transit Horizon</h2>
-        <div class="form-grid">
-            <div class="form-group"><label>Transit Day</label><input type="number" name="transit_day" value="26"></div>
-            <div class="form-group"><label>Transit Month</label><input type="number" name="transit_month" value="3"></div>
-            <div class="form-group"><label>Transit Year</label><input type="number" name="transit_year" value="2010"></div>
-            <div class="form-group"><label>Hour</label><input type="number" name="transit_hour" value="12"></div>
-            <div class="form-group"><label>Minute</label><input type="number" name="transit_minute" value="0"></div>
-            <div class="form-group"><label>Second</label><input type="number" name="transit_second" value="0"></div>
-        </div>
-        
-        <h2>3. Partner Birth Parameters (For Synastry)</h2>
-        <div class="form-grid">
-            <div class="form-group"><label>Partner Day</label><input type="number" name="p2_day" value="1"></div>
-            <div class="form-group"><label>Partner Month</label><input type="number" name="p2_month" value="1"></div>
-            <div class="form-group"><label>Partner Year</label><input type="number" name="p2_year" value="1985"></div>
-            <div class="form-group"><label>Hour</label><input type="number" name="p2_hour" value="12"></div>
-            <div class="form-group"><label>Minute</label><input type="number" name="p2_minute" value="0"></div>
-            <div class="form-group"><label>Second</label><input type="number" name="p2_second" value="0"></div>
             <div class="form-group">
-                <label>Partner City</label>
-                <select name="p2_place">
-                    <option value="hyderabad" selected>Hyderabad</option>
-                    <option value="nellore">Nellore</option>
-                    <option value="kovur">Kovur</option>
-                    <option value="bitragunta">Bitragunta</option>
-                    <option value="bangalore">Bangalore</option>
-                    <option value="chennai">Chennai</option>
-                    <option value="mumbai">Mumbai</option>
-                    <option value="delhi">New Delhi</option>
-                    <option value="kolkata">Kolkata</option>
+                <label>Language Output</label>
+                <select name="ui_language">
+                    <option value="english" selected>English</option>
+                    <option value="telugu">Telugu (తెలుగు)</option>
                 </select>
             </div>
         </div>
-        
 
-        <h2>4. Interface Settings & Events</h2>
-        <div class="form-grid">
-            <div class="form-group">
+        <!-- 2. NAVIGATION TABS (Moved Above Dynamic Panels) -->
+        <div class="tabs">
+            <!-- IMPORTANT: type="button" prevents accidental form submission when clicking tabs -->
+            <button type="button" class="tab-btn active" onclick="openTab(event, 'tab-birth')">Birth Chart</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-general')">General Prediction</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-dasha')">Dasha Analysis</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-gochar')">Gochar (Transit)</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-dosha')">Mangal Dosha</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-varsh')">Year (Varshaphal)</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-progeny')">Children (Progeny)</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-soulmate')">Soul Mate (Synastry)</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-muhurat')">Event Muhurat</button> 
+            
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-about')">About</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-contact')">Contact Us</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-legal')">Terms & Privacy</button>
+        </div>
+
+        <!-- 3. DYNAMIC INPUT PANELS (Revealed by JavaScript) -->
+        
+        <!-- Transit Panel -->
+        <div id="panel-transit" class="dynamic-panel">
+            <h3 style="font-size: 1.1em; color: #fff; margin-bottom: 15px;">Transit / Target Horizon Parameters</h3>
+            <div class="form-grid" style="margin-bottom: 0;">
+                <div class="form-group"><label>Transit Day</label><input type="number" name="transit_day" value="26"></div>
+                <div class="form-group"><label>Transit Month</label><input type="number" name="transit_month" value="3"></div>
+                <div class="form-group"><label>Transit Year</label><input type="number" name="transit_year" value="2010"></div>
+                <div class="form-group"><label>Hour</label><input type="number" name="transit_hour" value="12"></div>
+                <div class="form-group"><label>Minute</label><input type="number" name="transit_minute" value="0"></div>
+                <div class="form-group"><label>Second</label><input type="number" name="transit_second" value="0"></div>
+            </div>
+        </div>
+        
+        <!-- Synastry Panel -->
+        <div id="panel-partner" class="dynamic-panel">
+            <h3 style="font-size: 1.1em; color: #fff; margin-bottom: 15px;">Partner Birth Parameters (For Synastry)</h3>
+            <div class="form-grid" style="margin-bottom: 0;">
+                <div class="form-group"><label>Partner Day</label><input type="number" name="p2_day" value="1"></div>
+                <div class="form-group"><label>Partner Month</label><input type="number" name="p2_month" value="1"></div>
+                <div class="form-group"><label>Partner Year</label><input type="number" name="p2_year" value="1985"></div>
+                <div class="form-group"><label>Hour</label><input type="number" name="p2_hour" value="12"></div>
+                <div class="form-group"><label>Minute</label><input type="number" name="p2_minute" value="0"></div>
+                <div class="form-group"><label>Second</label><input type="number" name="p2_second" value="0"></div>
+                <div class="form-group">
+                    <label>Partner City</label>
+                    <select name="p2_place">
+                        <option value="hyderabad" selected>Hyderabad</option>
+                        <option value="nellore">Nellore</option>
+                        <option value="kovur">Kovur</option>
+                        <option value="bitragunta">Bitragunta</option>
+                        <option value="bangalore">Bangalore</option>
+                        <option value="chennai">Chennai</option>
+                        <option value="mumbai">Mumbai</option>
+                        <option value="delhi">New Delhi</option>
+                        <option value="kolkata">Kolkata</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Muhurat Panel -->
+        <div id="panel-muhurat" class="dynamic-panel">
+            <h3 style="font-size: 1.1em; color: #fff; margin-bottom: 15px;">Event Muhurat Selection</h3>
+            <div class="form-group" style="max-width: 350px;">
                 <label>Muhurat Event Type</label>
                 <select name="muhurat_event">
                     <option value="marriage" selected>Marriage / Vivaha</option>
@@ -242,15 +268,9 @@
                     <option value="gold">Gold / Jewelry Purchase</option>
                 </select>
             </div>
-            <div class="form-group">
-                <label>Language Output</label>
-                <select name="ui_language">
-                    <option value="english" selected>English</option>
-                    <option value="telugu">Telugu (తెలుగు)</option>
-                </select>
-            </div>
-        </div>        
-        <button type="submit">Initialize C++ Engine & AI Core</button>
+        </div>
+
+        <button type="submit" id="main-calc-btn">Calculate Birth Chart</button>
     </form>
 
     <h4 id="loading-msg" style="color: orange; text-align: center; margin-top: 20px;">
@@ -261,23 +281,8 @@
         Computing High-Precision Orbital Mechanics...
     </div>
 
-<div id="results-container" style="display:none;">
-        <div class="tabs">
-            <button class="tab-btn active" onclick="openTab(event, 'tab-birth')">Birth Chart</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-general')">General Prediction</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-dasha')">Dasha Analysis</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-gochar')">Gochar (Transit)</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-dosha')">Mangal Dosha</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-varsh')">Year (Varshaphal)</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-progeny')">Children (Progeny)</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-soulmate')">Soul Mate (Synastry)</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-muhurat')">Event Muhurat</button> 
-            
-            <button class="tab-btn" onclick="openTab(event, 'tab-about')">About</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-contact')">Contact Us</button>
-            <button class="tab-btn" onclick="openTab(event, 'tab-legal')">Terms & Privacy</button>
-        </div>
-        
+    <!-- 4. RESULTS CONTAINER (Now visible by default so static tabs can be read immediately) -->
+    <div id="results-container">
         <div id="tab-birth" class="tab-content active"></div>
         <div id="tab-general" class="tab-content"></div>
         <div id="tab-dasha" class="tab-content"></div>
@@ -337,8 +342,9 @@
                 <a href="LICENSE.txt" target="_blank" style="color: #f39c12; text-decoration: underline;">View Full Software License & Disclaimer (LICENSE.txt)</a></p>
             </div>
         </div>
-        
     </div>
+</div>
+
 <script>
     const getVal = (name, def) => document.querySelector(`input[name="${name}"]`).value || def;
 
@@ -383,14 +389,10 @@
             
             let args = [];
             
-            if (lang === "telugu") {
-                args.push("telugu");
-            }
+            if (lang === "telugu") args.push("telugu");
             args.push("html"); 
-            
             args.push(y, m, d, h, min, sec, city, cmdType);
             
-            // NEW: Inject Name and Gender for the Birth Chart display
             if (tabId === 'tab-birth') {
                 args.push(getVal('user_name', 'Guest'), document.querySelector('select[name="user_gender"]').value);
             } else if (tabId === 'tab-gochar') {
@@ -447,6 +449,7 @@
             return;
         }
 
+        // 1. Highlight Correct Tab & Reveal Tab Content
         let tabContents = document.getElementsByClassName("tab-content");
         for (let i = 0; i < tabContents.length; i++) tabContents[i].classList.remove("active");
         
@@ -456,6 +459,32 @@
         document.getElementById(tabId).classList.add("active");
         evt.currentTarget.classList.add("active");
 
+        // 2. Hide all Dynamic Input Panels by default
+        document.getElementById('panel-transit').style.display = 'none';
+        document.getElementById('panel-partner').style.display = 'none';
+        document.getElementById('panel-muhurat').style.display = 'none';
+
+        const btn = document.getElementById('main-calc-btn');
+        btn.style.display = 'block'; // Make sure the button is visible
+
+        // 3. Reveal Dynamic Input Panels based on the selected Tab
+        if (tabId === 'tab-gochar' || tabId === 'tab-varsh') {
+            document.getElementById('panel-transit').style.display = 'block';
+            btn.innerText = `Calculate ${evt.currentTarget.innerText}`;
+        } else if (tabId === 'tab-soulmate') {
+            document.getElementById('panel-partner').style.display = 'block';
+            btn.innerText = "Calculate Soul Mate (Synastry)";
+        } else if (tabId === 'tab-muhurat') {
+            document.getElementById('panel-transit').style.display = 'block';
+            document.getElementById('panel-muhurat').style.display = 'block';
+            btn.innerText = "Scan Event Muhurat";
+        } else if (tabId === 'tab-about' || tabId === 'tab-contact' || tabId === 'tab-legal') {
+            btn.style.display = 'none'; // Hide the calculate button for static information tabs
+        } else {
+            btn.innerText = `Calculate ${evt.currentTarget.innerText}`;
+        }
+
+        // 4. Auto-Fetch Data if the tab hasn't been computed yet
         const targetDiv = document.getElementById(tabId);
         if (targetDiv && targetDiv.innerHTML.trim() === "") {
             fetchTabData(tabId);
@@ -466,14 +495,14 @@
         e.preventDefault();
         if (isEngineComputing) return;
         
+        // Clear all computed tabs so they pull the fresh data next time they are clicked
         const tabsToClear = ['tab-birth', 'tab-general', 'tab-dasha', 'tab-gochar', 'tab-dosha', 'tab-varsh', 'tab-progeny', 'tab-soulmate', 'tab-muhurat'];
         tabsToClear.forEach(id => {
             const el = document.getElementById(id);
             if(el) el.innerHTML = ""; 
         });
 
-        document.getElementById('results-container').style.display = 'block';
-
+        // Immediately fetch data for the currently active tab
         const activeTabBtn = document.querySelector('.tab-btn.active');
         const activeTabId = activeTabBtn.getAttribute('onclick').match(/'([^']+)'/)[1];
         

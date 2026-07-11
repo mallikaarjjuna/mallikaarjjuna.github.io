@@ -2567,17 +2567,21 @@ void print_dasha_web() {
         double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
         double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
 
-        if (telugu_mode) {
-            printf("\n=========================================================================================\n");
-            printf("=== జీవిత కాల దశలు (DYNAMIC VIMSHOTTARI DASHA PREDICTIONS) ===\n");
-            printf("=========================================================================================\n\n");
+        if (html_mode) {
+            printf("<h2 style='margin-top: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", telugu_mode ? "జీవిత కాల దశలు (DYNAMIC VIMSHOTTARI DASHA)" : "LIFE CHAPTERS (DYNAMIC VIMSHOTTARI DASHA)");
         } else {
-            printf("\n=========================================================================================\n");
-            printf("=== LIFE CHAPTERS (DYNAMIC VIMSHOTTARI DASHA PREDICTIONS) ===\n");
-            printf("=========================================================================================\n\n");
+            if (telugu_mode) {
+                printf("\n=========================================================================================\n");
+                printf("=== జీవిత కాల దశలు (DYNAMIC VIMSHOTTARI DASHA PREDICTIONS) ===\n");
+                printf("=========================================================================================\n\n");
+            } else {
+                printf("\n=========================================================================================\n");
+                printf("=== LIFE CHAPTERS (DYNAMIC VIMSHOTTARI DASHA PREDICTIONS) ===\n");
+                printf("=========================================================================================\n\n");
+            }
         }
 
-        int d_map[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; // Maps dasha lord index to standard planet index
+        int d_map[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
 
         double cur_start = life_start_jd;
         for (int i = 0; i < 9; i++) {
@@ -2591,12 +2595,28 @@ void print_dasha_web() {
             int score = natal_scores[md_p];
             int house = (planet_rashis[md_p] - planet_rashis[0] + 12) % 12 + 1;
 
-            if (telugu_mode) {
-                printf("⭐ [ %s  నుండి  %s ] : %s మహాదశ (ఆధిపత్యం: %dవ భావం | బలం: %d)\n", start_date.c_str(), end_date.c_str(), get_planet_name(md_p).c_str(), house, score);
-                printf("   %s\n\n", te_get_dynamic_mahadasha(md_p, score, house).c_str());
+            if (html_mode) {
+                printf("<div style='margin-top: 30px;'>");
+                printf("<div style='background: #1e1e24; padding: 15px; border-radius: 6px 6px 0 0; border: 1px solid var(--border); border-bottom: 2px solid var(--accent);'>");
+                printf("<h3 style='margin: 0; color: var(--accent); font-size: 1.2em;'>⭐ %s <span style='color: #888; font-size: 0.85em; font-weight: normal; margin-left: 10px;'>[ %s &rarr; %s ]</span></h3>", 
+                    telugu_mode ? (get_planet_name(md_p) + " మహాదశ").c_str() : (string(p_names_full[md_p]) + " MAHADASHA").c_str(), 
+                    start_date.c_str(), end_date.c_str());
+                printf("<p style='margin: 8px 0 0 0; color: #aaa; font-size: 14px;'>%s: <b style='color:#fff;'>%d</b> | %s: <b style='color:%s;'>%d</b></p>", 
+                    telugu_mode ? "స్థానం (భావం)" : "Placement (House)", house, 
+                    telugu_mode ? "బలం (Dignity)" : "Dignity Score", (score >= 3 ? "#2ecc71" : (score < 0 ? "#e74c3c" : "#f1c40f")), score);
+                printf("</div>");
+                
+                printf("<div style='background: #23232e; padding: 15px; border-radius: 0 0 6px 6px; border: 1px solid var(--border); border-top: none; margin-bottom: 20px;'>");
+                printf("<p style='margin: 0; font-size: 15px; line-height: 1.6; color: #fff;'>%s</p>", telugu_mode ? te_get_dynamic_mahadasha(md_p, score, house).c_str() : get_dynamic_mahadasha(md_p, score, house).c_str());
+                printf("</div>\n");
             } else {
-                printf("⭐ [ %s  to  %s ] : %s MAHADASHA (Placement: House %d | Dignity Score: %d)\n", start_date.c_str(), end_date.c_str(), p_names_full[md_p], house, score);
-                printf("   %s\n\n", get_dynamic_mahadasha(md_p, score, house).c_str());
+                if (telugu_mode) {
+                    printf("⭐ [ %s  నుండి  %s ] : %s మహాదశ (ఆధిపత్యం: %dవ భావం | బలం: %d)\n", start_date.c_str(), end_date.c_str(), get_planet_name(md_p).c_str(), house, score);
+                    printf("   %s\n\n", te_get_dynamic_mahadasha(md_p, score, house).c_str());
+                } else {
+                    printf("⭐ [ %s  to  %s ] : %s MAHADASHA (Placement: House %d | Dignity Score: %d)\n", start_date.c_str(), end_date.c_str(), p_names_full[md_p], house, score);
+                    printf("   %s\n\n", get_dynamic_mahadasha(md_p, score, house).c_str());
+                }
             }
 
             double ad_start = cur_start;
@@ -2608,19 +2628,15 @@ void print_dasha_web() {
                 string ad_start_str = jd_to_string(ad_start).substr(0, 10);
                 string ad_end_str = jd_to_string(ad_start + ad_dur).substr(0, 10);
                 
-				// --- NEW: Calculate Dignity and House for the Bhukti Planet ---
                 int ad_score = natal_scores[ad_p];
                 int ad_house = (planet_rashis[ad_p] - planet_rashis[0] + 12) % 12 + 1;
 
-                // --- NEW: Calculate Star Lord (Nakshatra Lord) of the Bhukti Planet ---
                 double ad_lon = planet_lons[ad_p];
                 int ad_nak_idx = (int)(ad_lon / (360.0 / 27.0));
                 int ad_star_lord_idx = d_map[ad_nak_idx % 9]; 
-                // -----------------------------------------------------------------------
 
-                // --- NEW: Calculate House Ownerships for Life-Event Injection ---
                 vector<int> owned_houses;
-                if (ad_p >= 1 && ad_p <= 7) { // Only standard physical planets rule houses
+                if (ad_p >= 1 && ad_p <= 7) { 
                     for (int h = 1; h <= 12; h++) {
                         int rashi_of_house = (planet_rashis[0] + h - 1) % 12;
                         if (rashi_lords[rashi_of_house] == string(p_names_full[ad_p])) {
@@ -2629,47 +2645,49 @@ void print_dasha_web() {
                     }
                 }
 
-			if (telugu_mode) {
                 if (html_mode) {
-                        printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
-                        printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s భుక్తి <span style='color:#888; font-size:12px;'>(%s నుండి %s వరకు)</span></h4>", get_planet_name(ad_p).c_str(), ad_start_str.c_str(), ad_end_str.c_str());
-                        printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
-                        if (ad_p == 8 || ad_p == 9) {
-                            printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>ముఖ్య సంఘటనలు:</b> %s</p>", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, html_mode).c_str());
-                        } else {
-                            printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>ముఖ్య సంఘటనలు:</b> %s</p>", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str());
-                        }
-                        printf("</div>\n"); // <-- ADDED \n
+                    printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
+                    printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s %s <span style='color:#888; font-size:12px; font-weight:normal; margin-left:10px;'>[ %s &rarr; %s ]</span></h4>", 
+                           telugu_mode ? get_planet_name(ad_p).c_str() : p_names_full[ad_p],
+                           telugu_mode ? "భుక్తి" : "Bhukti", ad_start_str.c_str(), ad_end_str.c_str());
+                    
+                    printf("<p style='margin:5px 0; font-size:14px; line-height:1.6; color:#ccc;'>%s</p>", 
+                           telugu_mode ? te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str() 
+                                       : get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
+                    
+                    if (ad_p == 8 || ad_p == 9) {
+                        printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>%s</b> %s</p>", 
+                               telugu_mode ? "ముఖ్య సంఘటనలు:" : "Key Events:",
+                               telugu_mode ? te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, html_mode).c_str() : get_node_bhukti_event(p_names_full[ad_p], ad_house, html_mode).c_str());
                     } else {
+                        printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>%s</b> %s</p>", 
+                               telugu_mode ? "ముఖ్య సంఘటనలు:" : "Key Events:",
+                               telugu_mode ? te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str() : get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, html_mode).c_str());
+                    }
+                    printf("</div>\n");
+                    fflush(stdout); 
+                } else {
+                    if (telugu_mode) {
                         printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
                         printf("        %s\n", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
                         if (ad_p == 8 || ad_p == 9) printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, html_mode).c_str());
                         else printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str());
-                    }
-				} else {
-                    if (html_mode) {
-                        printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
-                        printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s Bhukti <span style='color:#888; font-size:12px;'>(%s to %s)</span></h4>", p_names_full[ad_p], ad_start_str.c_str(), ad_end_str.c_str());
-                        printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
-                        if (ad_p == 8 || ad_p == 9) {
-                            printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>Key Events:</b> %s</p>", get_node_bhukti_event(p_names_full[ad_p], ad_house, html_mode).c_str());
-                        } else {
-                            printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>Key Events:</b> %s</p>", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, html_mode).c_str());
-                        }
-                        printf("</div>\n"); // <-- ADDED \n
-                        fflush(stdout); // <-- FLUSH
                     } else {
                         printf("     -> [ %s - %s ] : %s Bhukti\n", ad_start_str.c_str(), ad_end_str.c_str(), p_names_full[ad_p]);
                         printf("        %s\n", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
                         if (ad_p == 8 || ad_p == 9) printf("        * Life Events: %s\n", get_node_bhukti_event(p_names_full[ad_p], ad_house, html_mode).c_str());
                         else printf("        * Life Events: %s\n", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, html_mode).c_str());
                     }
-                }                ad_start += ad_dur;
+                }
+                ad_start += ad_dur;
             }
-            printf("\n-----------------------------------------------------------------------------------------\n\n");
+            if (html_mode) printf("</div>\n"); // Close the Mahadasha wrapper div
+            else printf("\n-----------------------------------------------------------------------------------------\n\n");
+            
             cur_start += md_dur;
         }
     }
+	
 void print_dasha_tables_html(double target_jd) {
         if (!html_mode) return;
 
@@ -2882,20 +2900,30 @@ void print_dasha_tables_html(double target_jd) {
         }
     }
 
-	double calculate_tithi_return(int target_year) {
-        printf("\n=== TITHI PRAVESHA (VEDIC BIRTHDAY ENGINE) ===\n");
-        
+double calculate_tithi_return(int target_year) {
         // 1. Calculate Natal Baseline
         double natal_angle = fmod(moon_lon - sun_lon + 360.0, 360.0);
         int natal_sun_sign = (int)(sun_lon / 30.0);
         int tithi_idx = (int)(natal_angle / 12.0);
-        string paksha = (tithi_idx < 15) ? "Shukla" : "Krishna";
+        string paksha = (tithi_idx < 15) ? (telugu_mode ? "శుక్ల పక్షం" : "Shukla") : (telugu_mode ? "కృష్ణ పక్షం" : "Krishna");
         
-        printf("Natal Sun Sign       : %s\n", rashi_names[natal_sun_sign]);
-        printf("Natal Sun-Moon Angle : %02d° %02d'\n", (int)natal_angle, (int)((natal_angle - (int)natal_angle) * 60.0));
-        printf("Natal Tithi          : %s (%s)\n", tithi_names[tithi_idx], paksha.c_str());
-        printf("Target Year          : %d\n", target_year);
-        printf("-----------------------------------------------------------------\n");
+        if (html_mode) {
+            printf("<h2 style='margin-top: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", telugu_mode ? "తిథి ప్రవేశం (వార్షిక జాతక చక్రం)" : "TITHI PRAVESHA (VEDIC BIRTHDAY ENGINE)");
+            printf("<div style='background: #1e1e24; padding: 15px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 20px;'>");
+            printf("<table style='width:100%%; text-align:left; border-collapse:collapse; font-size: 14px;'>");
+            printf("<tr><td style='padding:8px 0; color:#888; border-bottom: 1px solid #333; width: 40%%;'>%s</td><td style='padding:8px 0; color:#fff; border-bottom: 1px solid #333;'>%s</td></tr>", telugu_mode ? "జన్మ సూర్య రాశి:" : "Natal Sun Sign:", telugu_mode ? get_rashi_name(natal_sun_sign).c_str() : rashi_names[natal_sun_sign]);
+            printf("<tr><td style='padding:8px 0; color:#888; border-bottom: 1px solid #333;'>%s</td><td style='padding:8px 0; color:#fff; border-bottom: 1px solid #333;'>%02d° %02d'</td></tr>", telugu_mode ? "సూర్య-చంద్రుల కోణం:" : "Natal Sun-Moon Angle:", (int)natal_angle, (int)((natal_angle - (int)natal_angle) * 60.0));
+            printf("<tr><td style='padding:8px 0; color:#888; border-bottom: 1px solid #333;'>%s</td><td style='padding:8px 0; color:#fff; border-bottom: 1px solid #333;'>%s (%s)</td></tr>", telugu_mode ? "జన్మ తిథి:" : "Natal Tithi:", telugu_mode ? te_tithi_names[tithi_idx] : tithi_names[tithi_idx], paksha.c_str());
+            printf("<tr><td style='padding:8px 0; color:#888;'>%s</td><td style='padding:8px 0; color:#f1c40f; font-weight:bold;'>%d</td></tr>", telugu_mode ? "లక్ష్య సంవత్సరం:" : "Target Year:", target_year);
+            printf("</table></div>");
+        } else {
+            printf("\n=== TITHI PRAVESHA (VEDIC BIRTHDAY ENGINE) ===\n");
+            printf("Natal Sun Sign       : %s\n", rashi_names[natal_sun_sign]);
+            printf("Natal Sun-Moon Angle : %02d° %02d'\n", (int)natal_angle, (int)((natal_angle - (int)natal_angle) * 60.0));
+            printf("Natal Tithi          : %s (%s)\n", tithi_names[tithi_idx], paksha.c_str());
+            printf("Target Year          : %d\n", target_year);
+            printf("-----------------------------------------------------------------\n");
+        }
 
         // 2. Find the ~30 day window where the Sun is in the Natal Sign (Cancer) for the target year
         double search_start = swe_julday(target_year, 1, 1, 0.0, SE_GREG_CAL);
@@ -2957,26 +2985,44 @@ void print_dasha_tables_html(double target_jd) {
             }
         }
         
-		// Replace the bottom of calculate_tithi_return with this:
         if (found) {
-            printf("Exact Tithi Return Time : %s (Local Time)\n", jd_to_string(exact_jd).c_str());
-            printf("Status                  : HIGH IMPORTANCE - Annual Cycle Reset Point\n");
-            
-            double s_pos[6], m_pos[6]; char serr[256];
-            swe_calc_ut(exact_jd, SE_SUN, iflag, s_pos, serr);
-            swe_calc_ut(exact_jd, SE_MOON, iflag, m_pos, serr);
-            printf("\n[Planetary Posture at Reset]\n");
-            printf("Transit Surya   : %s\n", format_dms(s_pos[0]).c_str());
-            printf("Transit Chandra : %s\n", format_dms(m_pos[0]).c_str());
-            printf("-----------------------------------------------------------------\n");
-            
+            if (html_mode) {
+                printf("<div style='background: #2a2a35; padding: 20px; border-radius: 6px; border-left: 5px solid #2ecc71; margin-bottom: 25px;'>");
+                printf("<p style='margin: 0 0 5px 0; color: #888; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;'>%s</p>", telugu_mode ? "వార్షిక చక్రం ప్రారంభ సమయం" : "Exact Tithi Return Time");
+                printf("<h3 style='margin: 0 0 15px 0; color: #2ecc71; font-size: 1.4em;'>%s</h3>", jd_to_string(exact_jd).c_str());
+                printf("<p style='margin: 0 0 15px 0; color: #ccc; font-size: 14px;'>%s</p>", telugu_mode ? "<b>ప్రాముఖ్యత:</b> అత్యంత ముఖ్యం - వార్షిక కర్మ చక్రం ఇక్కడే రీసెట్ అవుతుంది." : "<b>Status:</b> HIGH IMPORTANCE - Annual Karmic Cycle Reset Point");
+                
+                double s_pos[6], m_pos[6]; char serr[256];
+                swe_calc_ut(exact_jd, SE_SUN, iflag, s_pos, serr);
+                swe_calc_ut(exact_jd, SE_MOON, iflag, m_pos, serr);
+                
+                printf("<table class='data-table' style='margin:0;'><tr><th>%s</th><th>%s</th></tr>", telugu_mode ? "గ్రహం" : "Graha", telugu_mode ? "రీసెట్ సమయంలో స్థానం" : "Position at Reset");
+                printf("<tr><td><b>%s</b></td><td>%s</td></tr>", telugu_mode ? "సూర్యుడు (Surya)" : "Transit Surya", format_dms(s_pos[0]).c_str());
+                printf("<tr><td><b>%s</b></td><td>%s</td></tr>", telugu_mode ? "చంద్రుడు (Chandra)" : "Transit Chandra", format_dms(m_pos[0]).c_str());
+                printf("</table></div>\n");
+            } else {
+                printf("Exact Tithi Return Time : %s (Local Time)\n", jd_to_string(exact_jd).c_str());
+                printf("Status                  : HIGH IMPORTANCE - Annual Cycle Reset Point\n");
+                
+                double s_pos[6], m_pos[6]; char serr[256];
+                swe_calc_ut(exact_jd, SE_SUN, iflag, s_pos, serr);
+                swe_calc_ut(exact_jd, SE_MOON, iflag, m_pos, serr);
+                printf("\n[Planetary Posture at Reset]\n");
+                printf("Transit Surya   : %s\n", format_dms(s_pos[0]).c_str());
+                printf("Transit Chandra : %s\n", format_dms(m_pos[0]).c_str());
+                printf("-----------------------------------------------------------------\n");
+            }
             return exact_jd; 
         } else {
-            printf("Error: Could not calculate Tithi Return for this year.\n");
-            printf("-----------------------------------------------------------------\n");
+            if (html_mode) {
+                printf("<p style='color: #e74c3c;'>Error: Could not calculate Tithi Return for this year.</p>");
+            } else {
+                printf("Error: Could not calculate Tithi Return for this year.\n");
+                printf("-----------------------------------------------------------------\n");
+            }
             return 0.0;
         }
-    } // End of function
+    }
 	
 void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool use_current_date, bool is_web_mode = false) {
         double trans_jd; int p_y = t_year, p_m = t_month, p_d = t_day, p_h = t_hour, p_min = t_min, p_s = t_sec;

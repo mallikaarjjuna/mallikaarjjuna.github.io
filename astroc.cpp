@@ -632,9 +632,14 @@ void print_birth_chart_ui() {
         }
     }
 
-	void analyze_lordships(int lagna_rasi, int* p_rasi) {
-        if (telugu_mode) printf("\n[భావ ఆధిపత్యాలు (పరాశర పద్ధతిలో ఫలితాలు)]\n");
-        else printf("\n[BHAVA LORDSHIPS (Specific BPHS House Interpretations)]\n");
+void analyze_lordships(int lagna_rasi, int* p_rasi) {
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "భావ ఆధిపత్యాలు (పరాశర పద్ధతిలో ఫలితాలు)" : "Bhava Lordships (Specific BPHS House Interpretations)");
+            printf("<div style='display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));'>");
+        } else {
+            if (telugu_mode) printf("\n[భావ ఆధిపత్యాలు (పరాశర పద్ధతిలో ఫలితాలు)]\n");
+            else printf("\n[BHAVA LORDSHIPS (Specific BPHS House Interpretations)]\n");
+        }
         
         for (int h = 1; h <= 12; h++) {
             int house_rashi = (lagna_rasi + h - 1) % 12;
@@ -648,15 +653,23 @@ void print_birth_chart_ui() {
             if (p_idx != -1) {
                 int placed_h = (p_rasi[p_idx] - lagna_rasi + 12) % 12 + 1;
                 
-                if (telugu_mode) {
-                    printf("  - %dవ భావ అధిపతి (%s) %dవ భావంలో ఉన్నాడు.\n", h, get_planet_name(p_idx).c_str(), placed_h);
-                    printf("    * విశ్లేషణ: %s\n", te_get_lord_in_house_text(h, placed_h).c_str());
+                if (html_mode) {
+                    printf("<div style='background: #1e1e24; padding: 15px; border-radius: 6px; border: 1px solid var(--border);'>");
+                    printf("<b style='color: #3498db;'>%s</b><br>", telugu_mode ? (to_string(h) + "వ భావ అధిపతి (" + get_planet_name(p_idx) + ") " + to_string(placed_h) + "వ భావంలో ఉన్నాడు.").c_str() : ("Lord of House " + to_string(h) + " (" + lord_name + ") is in House " + to_string(placed_h) + ".").c_str());
+                    printf("<span style='font-size: 14px; color:#aaa; display:block; margin-top:5px;'>%s</span>", telugu_mode ? te_get_lord_in_house_text(h, placed_h).c_str() : get_lord_in_house_text(h, placed_h).c_str());
+                    printf("</div>\n");
                 } else {
-                    printf("  - Lord of House %d (%s) is placed in House %d.\n", h, lord_name.c_str(), placed_h);
-                    printf("    * Synthesis: %s\n", get_lord_in_house_text(h, placed_h).c_str());
+                    if (telugu_mode) {
+                        printf("  - %dవ భావ అధిపతి (%s) %dవ భావంలో ఉన్నాడు.\n", h, get_planet_name(p_idx).c_str(), placed_h);
+                        printf("    * విశ్లేషణ: %s\n", te_get_lord_in_house_text(h, placed_h).c_str());
+                    } else {
+                        printf("  - Lord of House %d (%s) is placed in House %d.\n", h, lord_name.c_str(), placed_h);
+                        printf("    * Synthesis: %s\n", get_lord_in_house_text(h, placed_h).c_str());
+                    }
                 }
             }
         }
+        if (html_mode) printf("</div>\n");
     }
 	
 void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
@@ -1100,35 +1113,57 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
     }
 
-	void analyze_general_personality() {
+void analyze_general_personality() {
         int asc_nak = (int)(planet_lons[0] / (360.0 / 27.0));
         int asc_pada = (int)((planet_lons[0] - (asc_nak * (360.0 / 27.0))) / ((360.0 / 27.0) / 4.0)) + 1;
 
         int mo_nak = (int)(moon_lon / (360.0 / 27.0));
         int mo_pada = (int)((moon_lon - (mo_nak * (360.0 / 27.0))) / ((360.0 / 27.0) / 4.0)) + 1;
 
-        if (telugu_mode) {
-            printf("\n[లగ్న & చంద్ర నక్షత్ర ఆధారిత వ్యక్తిత్వ విశ్లేషణ (CORE PERSONALITY)]\n");
-            printf("-------------------------------------------------------------------------------------------------\n");
-            printf(" ✦ భౌతిక స్వభావం (లగ్న నక్షత్రం - %s %dవ పాదం):\n", te_nak_names[asc_nak], asc_pada);
-            printf("   %s\n\n", te_get_nakshatra_pada_text(asc_nak, asc_pada).c_str());
-            printf(" ✦ మానసిక స్వభావం (చంద్ర నక్షత్రం - %s %dవ పాదం):\n", te_nak_names[mo_nak], mo_pada);
-            printf("   %s\n", te_get_nakshatra_pada_text(mo_nak, mo_pada).c_str());
-            printf("-------------------------------------------------------------------------------------------------\n");
+        if (html_mode) {
+            printf("<div style='margin-bottom: 20px; padding: 15px; background: #2a2a35; border-radius: 6px; border-left: 4px solid #3498db;'>");
+            printf("<h3 style='margin-top: 0; color: #3498db;'>%s</h3>", telugu_mode ? "లగ్న & చంద్ర నక్షత్ర ఆధారిత వ్యక్తిత్వ విశ్లేషణ" : "Core Personality Matrix");
+            
+            printf("<p style='margin-top:10px;'><b>%s</b><br><span style='color:#ccc;'>%s</span></p>", 
+                   telugu_mode ? ("✦ భౌతిక స్వభావం (లగ్న నక్షత్రం - " + string(te_nak_names[asc_nak]) + " " + to_string(asc_pada) + "వ పాదం):").c_str() 
+                               : ("✦ Physical Persona (Lagna in " + string(nak_names[asc_nak]) + ", Pada " + to_string(asc_pada) + "):").c_str(),
+                   telugu_mode ? te_get_nakshatra_pada_text(asc_nak, asc_pada).c_str() : get_nakshatra_pada_text(asc_nak, asc_pada).c_str());
+            
+            printf("<p style='margin-top:15px; margin-bottom:0;'><b>%s</b><br><span style='color:#ccc;'>%s</span></p>", 
+                   telugu_mode ? ("✦ మానసిక స్వభావం (చంద్ర నక్షత్రం - " + string(te_nak_names[mo_nak]) + " " + to_string(mo_pada) + "వ పాదం):").c_str() 
+                               : ("✦ Mental & Emotional Core (Moon in " + string(nak_names[mo_nak]) + ", Pada " + to_string(mo_pada) + "):").c_str(),
+                   telugu_mode ? te_get_nakshatra_pada_text(mo_nak, mo_pada).c_str() : get_nakshatra_pada_text(mo_nak, mo_pada).c_str());
+            
+            printf("</div>\n");
         } else {
-            printf("\n[CORE PERSONALITY MATRIX (Based on Ascendant & Moon Padas)]\n");
-            printf("-------------------------------------------------------------------------------------------------\n");
-            printf(" ✦ Physical Persona (Lagna in %s, Pada %d):\n", nak_names[asc_nak], asc_pada);
-            printf("   %s\n\n", get_nakshatra_pada_text(asc_nak, asc_pada).c_str());
-            printf(" ✦ Mental & Emotional Core (Moon in %s, Pada %d):\n", nak_names[mo_nak], mo_pada);
-            printf("   %s\n", get_nakshatra_pada_text(mo_nak, mo_pada).c_str());
-            printf("-------------------------------------------------------------------------------------------------\n");
+            if (telugu_mode) {
+                printf("\n[లగ్న & చంద్ర నక్షత్ర ఆధారిత వ్యక్తిత్వ విశ్లేషణ (CORE PERSONALITY)]\n");
+                printf("-------------------------------------------------------------------------------------------------\n");
+                printf(" ✦ భౌతిక స్వభావం (లగ్న నక్షత్రం - %s %dవ పాదం):\n", te_nak_names[asc_nak], asc_pada);
+                printf("   %s\n\n", te_get_nakshatra_pada_text(asc_nak, asc_pada).c_str());
+                printf(" ✦ మానసిక స్వభావం (చంద్ర నక్షత్రం - %s %dవ పాదం):\n", te_nak_names[mo_nak], mo_pada);
+                printf("   %s\n", te_get_nakshatra_pada_text(mo_nak, mo_pada).c_str());
+                printf("-------------------------------------------------------------------------------------------------\n");
+            } else {
+                printf("\n[CORE PERSONALITY MATRIX (Based on Ascendant & Moon Padas)]\n");
+                printf("-------------------------------------------------------------------------------------------------\n");
+                printf(" ✦ Physical Persona (Lagna in %s, Pada %d):\n", nak_names[asc_nak], asc_pada);
+                printf("   %s\n\n", get_nakshatra_pada_text(asc_nak, asc_pada).c_str());
+                printf(" ✦ Mental & Emotional Core (Moon in %s, Pada %d):\n", nak_names[mo_nak], mo_pada);
+                printf("   %s\n", get_nakshatra_pada_text(mo_nak, mo_pada).c_str());
+                printf("-------------------------------------------------------------------------------------------------\n");
+            }
         }
-    }
-	
-	void analyze_functional_nature(int lagna_rasi) {
-        if (telugu_mode) printf("\n[నైసర్గిక స్వభావం (%s లగ్నం ఆధారంగా)]\n", get_rashi_name(lagna_rasi).c_str());
-        else printf("\n[FUNCTIONAL NATURE (Based on %s Lagna Lordship)]\n", rashi_names[lagna_rasi]);
+    }	
+
+void analyze_functional_nature(int lagna_rasi) {
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? ("నైసర్గిక స్వభావం (" + get_rashi_name(lagna_rasi) + " లగ్నం ఆధారంగా)").c_str() : ("Functional Nature (Based on " + string(rashi_names[lagna_rasi]) + " Lagna)").c_str());
+            printf("<table class='data-table'><tr><th>%s</th><th>%s</th></tr>", telugu_mode ? "గ్రహం" : "Graha", telugu_mode ? "స్వభావం (Functional Nature)" : "Functional Nature");
+        } else {
+            if (telugu_mode) printf("\n[నైసర్గిక స్వభావం (%s లగ్నం ఆధారంగా)]\n", get_rashi_name(lagna_rasi).c_str());
+            else printf("\n[FUNCTIONAL NATURE (Based on %s Lagna Lordship)]\n", rashi_names[lagna_rasi]);
+        }
         
         for (int p=1; p<=7; p++) {
             bool is_benefic = false, is_malefic = false, is_kendra = false;
@@ -1141,29 +1176,44 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
                 }
             }
             string status = telugu_mode ? "తటస్థ / మిశ్రమ" : "Neutral / Mixed";
-            if (is_benefic && !is_malefic) status = telugu_mode ? "నైసర్గిక శుభ గ్రహం (అత్యంత అనుకూలం)" : "Functional Benefic (Auspicious)";
-            if (!is_benefic && is_malefic) status = telugu_mode ? "నైసర్గిక పాప గ్రహం (ప్రతికూలం)" : "Functional Malefic (Challenging)";
-            if (is_benefic && is_kendra) status = telugu_mode ? "రాజయోగ కారకుడు (అత్యంత శుభకరం)" : "Yogakaraka (Highly Auspicious)";
+            if (is_benefic && !is_malefic) status = telugu_mode ? "నైసర్గిక <b style='color:#2ecc71;'>శుభ గ్రహం</b> (అత్యంత అనుకూలం)" : "<b style='color:#2ecc71;'>Functional Benefic</b> (Auspicious)";
+            if (!is_benefic && is_malefic) status = telugu_mode ? "నైసర్గిక <b style='color:#e74c3c;'>పాప గ్రహం</b> (ప్రతికూలం)" : "<b style='color:#e74c3c;'>Functional Malefic</b> (Challenging)";
+            if (is_benefic && is_kendra) status = telugu_mode ? "<b style='color:#f1c40f;'>రాజయోగ కారకుడు</b> (అత్యంత శుభకరం)" : "<b style='color:#f1c40f;'>Yogakaraka</b> (Highly Auspicious)";
             
-            if (telugu_mode) printf("  - %-10s: %s\n", get_planet_name(p).c_str(), status.c_str());
-            else printf("  - %-8s: %s\n", p_names_full[p], status.c_str());
+            if (html_mode) {
+                printf("<tr><td><b>%s</b></td><td>%s</td></tr>", telugu_mode ? get_planet_name(p).c_str() : p_names_full[p], status.c_str());
+            } else {
+                if (telugu_mode) printf("  - %-10s: %s\n", get_planet_name(p).c_str(), status.c_str());
+                else printf("  - %-8s: %s\n", p_names_full[p], status.c_str());
+            }
         }
         
         int r_rahu = planet_rashis[8]; int r_ketu = planet_rashis[9];
         auto get_lord_te = [&](string en_name) { for(int i=1; i<=7; i++) { if(en_name == p_names_full[i]) return string(te_p_names_full[i]); } return en_name; };
 
-        if (telugu_mode) {
-            printf("  - రాహువు    : ఛాయా గ్రహాలు తమ అధిపతుల ద్వారా పనిచేస్తాయి. రాహువు %s నియంత్రణలో ఉన్నాడు.\n", get_lord_te(rashi_lords[r_rahu]).c_str());
-            printf("  - కేతువు     : ఛాయా గ్రహాలు తమ అధిపతుల ద్వారా పనిచేస్తాయి. కేతువు %s నియంత్రణలో ఉన్నాడు.\n", get_lord_te(rashi_lords[r_ketu]).c_str());
+        if (html_mode) {
+            printf("<tr><td><b>%s</b></td><td>%s</td></tr>", telugu_mode?"రాహువు":"Rahu", telugu_mode ? ("ఛాయా గ్రహం (రాహువు <b>" + get_lord_te(rashi_lords[r_rahu]) + "</b> నియంత్రణలో ఉన్నాడు)").c_str() : ("Shadow Node (Governed by <b>" + string(rashi_lords[r_rahu]) + "</b>)").c_str());
+            printf("<tr><td><b>%s</b></td><td>%s</td></tr>", telugu_mode?"కేతువు":"Ketu", telugu_mode ? ("ఛాయా గ్రహం (కేతువు <b>" + get_lord_te(rashi_lords[r_ketu]) + "</b> నియంత్రణలో ఉన్నాడు)").c_str() : ("Shadow Node (Governed by <b>" + string(rashi_lords[r_ketu]) + "</b>)").c_str());
+            printf("</table>\n");
         } else {
-            printf("  - %-8s: Shadow Nodes operate via their dispositors. Rahu is governed by %s.\n", "Rahu", rashi_lords[r_rahu]);
-            printf("  - %-8s: Shadow Nodes operate via their dispositors. Ketu is governed by %s.\n", "Ketu", rashi_lords[r_ketu]);
+            if (telugu_mode) {
+                printf("  - రాహువు    : ఛాయా గ్రహాలు తమ అధిపతుల ద్వారా పనిచేస్తాయి. రాహువు %s నియంత్రణలో ఉన్నాడు.\n", get_lord_te(rashi_lords[r_rahu]).c_str());
+                printf("  - కేతువు     : ఛాయా గ్రహాలు తమ అధిపతుల ద్వారా పనిచేస్తాయి. కేతువు %s నియంత్రణలో ఉన్నాడు.\n", get_lord_te(rashi_lords[r_ketu]).c_str());
+            } else {
+                printf("  - %-8s: Shadow Nodes operate via their dispositors. Rahu is governed by %s.\n", "Rahu", rashi_lords[r_rahu]);
+                printf("  - %-8s: Shadow Nodes operate via their dispositors. Ketu is governed by %s.\n", "Ketu", rashi_lords[r_ketu]);
+            }
         }
-    }
+    }	
 	
-	void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
-        if (telugu_mode) printf("\n[గ్రహాల తుది ఫలితం (దశ/అంతర్దశలలో జరిగేవి)]\n");
-        else printf("\n[SYNTHESIZED FINAL OUTCOME OF PLANETS (D1 FATE)]\n");
+void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహాల తుది ఫలితం (దశ/అంతర్దశలలో జరిగేవి)" : "Synthesized Final Outcome of Planets (D1 Fate)");
+            printf("<table class='data-table'><tr><th>%s</th><th>%s</th></tr>", telugu_mode ? "గ్రహం" : "Graha", telugu_mode ? "తుది ఫలితం" : "Outcome");
+        } else {
+            if (telugu_mode) printf("\n[గ్రహాల తుది ఫలితం (దశ/అంతర్దశలలో జరిగేవి)]\n");
+            else printf("\n[SYNTHESIZED FINAL OUTCOME OF PLANETS (D1 FATE)]\n");
+        }
         
         for (int p=1; p<=9; p++) {
             int h = (p_rasi[p] - lagna_rasi + 12) % 12 + 1;
@@ -1185,17 +1235,25 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
             int disp_idx = 1;
             for(int d=1; d<=7; d++) { if (rashi_lords[p_rasi[p]] == string(p_names_full[d])) disp_idx = d; }
             
-            if (telugu_mode) {
-                string te_disp_name = get_planet_name(disp_idx);
-                string outcome = te_get_final_outcome(p, is_benefic, is_malefic, is_kendra_lord, is_dusthana, is_kendra_trikona, h, te_disp_name);
-                printf("  - %-12s: %s\n", get_planet_name(p).c_str(), outcome.c_str());
+            if (html_mode) {
+                string outcome = telugu_mode ? te_get_final_outcome(p, is_benefic, is_malefic, is_kendra_lord, is_dusthana, is_kendra_trikona, h, get_planet_name(disp_idx)) 
+                                             : get_final_outcome(p, is_benefic, is_malefic, is_kendra_lord, is_dusthana, is_kendra_trikona, h, string(p_names_full[disp_idx]));
+                printf("<tr><td><b>%s</b></td><td>%s</td></tr>", telugu_mode ? get_planet_name(p).c_str() : p_names_full[p], outcome.c_str());
             } else {
-                string disp_name = p_names_full[disp_idx];
-                string outcome = get_final_outcome(p, is_benefic, is_malefic, is_kendra_lord, is_dusthana, is_kendra_trikona, h, disp_name);
-                printf("  - %-8s: %s\n", p_names_full[p], outcome.c_str());
+                if (telugu_mode) {
+                    string te_disp_name = get_planet_name(disp_idx);
+                    string outcome = te_get_final_outcome(p, is_benefic, is_malefic, is_kendra_lord, is_dusthana, is_kendra_trikona, h, te_disp_name);
+                    printf("  - %-12s: %s\n", get_planet_name(p).c_str(), outcome.c_str());
+                } else {
+                    string disp_name = p_names_full[disp_idx];
+                    string outcome = get_final_outcome(p, is_benefic, is_malefic, is_kendra_lord, is_dusthana, is_kendra_trikona, h, disp_name);
+                    printf("  - %-8s: %s\n", p_names_full[p], outcome.c_str());
+                }
             }
         }
+        if (html_mode) printf("</table>\n");
     }
+	
     void analyze_varga_fate(int v_num, int v_lagna, int* p_rasi) {
         printf("\n[MICRO-CHART FATE & ENGAGEMENT]\n");
         printf("  - %s\n", get_varga_theme(v_num).c_str());
@@ -1208,33 +1266,47 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
     }
 
-    void analyze_yogas(int* p_rasi, int lagna) {
-        if (telugu_mode) printf("\n[ప్రధాన యోగాలు (రాజయోగాలు)]\n");
-        else printf("\n[MAJOR YOGAS DETECTED]\n");
+	void analyze_yogas(int* p_rasi, int lagna) {
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "ప్రధాన యోగాలు (రాజయోగాలు)" : "Major Yogas Detected");
+            printf("<ul style='background: #1e1e24; padding: 20px 20px 20px 40px; margin: 0; border-radius: 6px; border: 1px solid var(--border); line-height: 1.6;'>");
+        } else {
+            if (telugu_mode) printf("\n[ప్రధాన యోగాలు (రాజయోగాలు)]\n");
+            else printf("\n[MAJOR YOGAS DETECTED]\n");
+        }
         
         bool yoga_found = false;
         auto in_kendra = [&](int r, int l) { int h = (r - l + 12) % 12 + 1; return (h==1 || h==4 || h==7 || h==10); };
         auto is_own_exalt = [&](int r, int ex, int own1, int own2) { return (r==ex || r==own1 || r==own2); };
 
         auto print_yoga = [&](string y_name, string en_text) {
-            if (telugu_mode) printf("  - %s\n", te_get_yoga_text(y_name).c_str());
-            else printf("  - %s\n", en_text.c_str());
+            if (html_mode) {
+                printf("<li style='margin-bottom: 10px;'>%s</li>", telugu_mode ? te_get_yoga_text(y_name).c_str() : en_text.c_str());
+            } else {
+                if (telugu_mode) printf("  - %s\n", te_get_yoga_text(y_name).c_str());
+                else printf("  - %s\n", en_text.c_str());
+            }
             yoga_found = true;
         };
 
-        if (in_kendra(p_rasi[3], lagna) && is_own_exalt(p_rasi[3], 9, 0, 7)) print_yoga("Ruchaka", "Ruchaka Yoga: Mars is powerfully placed in a Kendra in its own or exalted sign. This grants profound courage, natural leadership, and heavy success in real estate or technical domains.");
-        if (in_kendra(p_rasi[4], lagna) && is_own_exalt(p_rasi[4], 5, 2, 5)) print_yoga("Bhadra", "Bhadra Yoga: Mercury is powerfully placed in a Kendra... grants sharp intellect, flawless communication, and business acumen.");
-        if (in_kendra(p_rasi[5], lagna) && is_own_exalt(p_rasi[5], 3, 8, 11)) print_yoga("Hamsa", "Hamsa Yoga: Jupiter is powerfully placed in a Kendra... surrounds the native with an aura of deep wisdom and spiritual respect.");
-        if (in_kendra(p_rasi[6], lagna) && is_own_exalt(p_rasi[6], 11, 1, 6)) print_yoga("Malavya", "Malavya Yoga: Venus is powerfully placed in a Kendra... guarantees a life immersed in luxury, fine arts, and magnetism.");
-        if (in_kendra(p_rasi[7], lagna) && is_own_exalt(p_rasi[7], 6, 9, 10)) print_yoga("Sasa", "Sasa Yoga: Saturn is powerfully placed in a Kendra... grants unbreakable persistence and the ability to hold vast authority.");
-        if (in_kendra(p_rasi[5], p_rasi[2])) print_yoga("Gajakesari", "Gajakesari Yoga: Jupiter forms a powerful angular relationship with the Moon... imparts lasting reputation and profound resilience.");
-        if (p_rasi[1] == p_rasi[4]) print_yoga("Budhaditya", "Budhaditya Yoga: The Sun and Mercury are conjunct... creates a highly analytical, brilliantly sharp mind.");
-        if (p_rasi[2] == p_rasi[3]) print_yoga("ChandraMangala", "Chandra-Mangala Yoga: The Moon and Mars are conjunct... generates restless emotional intensity geared towards financial drive.");
+        if (in_kendra(p_rasi[3], lagna) && is_own_exalt(p_rasi[3], 9, 0, 7)) print_yoga("Ruchaka", "<b>Ruchaka Yoga:</b> Mars is powerfully placed in a Kendra in its own or exalted sign. This grants profound courage, natural leadership, and heavy success in real estate or technical domains.");
+        if (in_kendra(p_rasi[4], lagna) && is_own_exalt(p_rasi[4], 5, 2, 5)) print_yoga("Bhadra", "<b>Bhadra Yoga:</b> Mercury is powerfully placed in a Kendra... grants sharp intellect, flawless communication, and business acumen.");
+        if (in_kendra(p_rasi[5], lagna) && is_own_exalt(p_rasi[5], 3, 8, 11)) print_yoga("Hamsa", "<b>Hamsa Yoga:</b> Jupiter is powerfully placed in a Kendra... surrounds the native with an aura of deep wisdom and spiritual respect.");
+        if (in_kendra(p_rasi[6], lagna) && is_own_exalt(p_rasi[6], 11, 1, 6)) print_yoga("Malavya", "<b>Malavya Yoga:</b> Venus is powerfully placed in a Kendra... guarantees a life immersed in luxury, fine arts, and magnetism.");
+        if (in_kendra(p_rasi[7], lagna) && is_own_exalt(p_rasi[7], 6, 9, 10)) print_yoga("Sasa", "<b>Sasa Yoga:</b> Saturn is powerfully placed in a Kendra... grants unbreakable persistence and the ability to hold vast authority.");
+        if (in_kendra(p_rasi[5], p_rasi[2])) print_yoga("Gajakesari", "<b>Gajakesari Yoga:</b> Jupiter forms a powerful angular relationship with the Moon... imparts lasting reputation and profound resilience.");
+        if (p_rasi[1] == p_rasi[4]) print_yoga("Budhaditya", "<b>Budhaditya Yoga:</b> The Sun and Mercury are conjunct... creates a highly analytical, brilliantly sharp mind.");
+        if (p_rasi[2] == p_rasi[3]) print_yoga("ChandraMangala", "<b>Chandra-Mangala Yoga:</b> The Moon and Mars are conjunct... generates restless emotional intensity geared towards financial drive.");
         
         if(!yoga_found) {
-            if (telugu_mode) printf("  - ఈ జాతక చక్రంలో ప్రధాన మహాపురుష యోగాలు ఏవీ గుర్తించబడలేదు.\n");
-            else printf("  - No major primary Mahapurusha yogas detected in this specific alignment.\n");
+            if (html_mode) {
+                printf("<li style='color: #888;'>%s</li>", telugu_mode ? "ఈ జాతక చక్రంలో ప్రధాన మహాపురుష యోగాలు ఏవీ గుర్తించబడలేదు." : "No major primary Mahapurusha yogas detected in this specific alignment.");
+            } else {
+                if (telugu_mode) printf("  - ఈ జాతక చక్రంలో ప్రధాన మహాపురుష యోగాలు ఏవీ గుర్తించబడలేదు.\n");
+                else printf("  - No major primary Mahapurusha yogas detected in this specific alignment.\n");
+            }
         }
+        if (html_mode) printf("</ul>\n");
     }
 
 	void analyze_doshas(int* p_rasi, int lagna) {
@@ -1950,30 +2022,50 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         }
         printf("=================================================================\n");
     }
-	void analyze_placements(int* p_rasi, int lagna) {
-        if (telugu_mode) printf("\n[గ్రహ స్థానాలు & ఫలితాలు]\n");
-        else printf("\n[PLANETARY PLACEMENTS & EFFECTS]\n");
+void analyze_placements(int* p_rasi, int lagna) {
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహ స్థానాలు & ఫలితాలు" : "Planetary Placements & Effects");
+            printf("<div style='display: grid; gap: 15px;'>");
+        } else {
+            if (telugu_mode) printf("\n[గ్రహ స్థానాలు & ఫలితాలు]\n");
+            else printf("\n[PLANETARY PLACEMENTS & EFFECTS]\n");
+        }
         
         for (int i=1; i<=9; i++) {
             int h = (p_rasi[i] - lagna + 12) % 12 + 1;
             
-            if (telugu_mode) {
-                printf("  - %s %dవ భావంలో (%s) ఉంది:\n", get_planet_name(i).c_str(), h, get_short_rashi(p_rasi[i]).c_str());
-                printf("    * విశ్లేషణ: %s\n", te_get_planet_in_house_text(i, h).c_str());
-                string digbala = te_get_digbala_text(i, h);
-                if (digbala != "") printf("   %s\n", digbala.c_str());
+            if (html_mode) {
+                printf("<div style='background: #2a2a35; padding: 15px; border-radius: 6px; border-left: 4px solid var(--accent);'>");
+                printf("<h4 style='margin: 0 0 8px 0; color: #fff;'>%s</h4>", telugu_mode ? (get_planet_name(i) + " " + to_string(h) + "వ భావంలో (" + get_short_rashi(p_rasi[i]) + ")") .c_str() : (string(p_names_full[i]) + " is in House " + to_string(h) + " (" + short_rashi[p_rasi[i]] + ")").c_str());
+                printf("<p style='margin: 0; font-size: 14px; color: #ccc; line-height: 1.5;'>%s</p>", telugu_mode ? te_get_planet_in_house_text(i, h).c_str() : get_planet_in_house_text(i, h).c_str());
+                string digbala = telugu_mode ? te_get_digbala_text(i, h) : get_digbala_text(i, h);
+                if (digbala != "") printf("<p style='margin: 8px 0 0 0; font-size: 13px; color: var(--term-text);'><i>%s</i></p>", digbala.c_str());
+                printf("</div>\n");
             } else {
-                printf("  - %s is located in House %d (%s):\n", p_names_full[i], h, short_rashi[p_rasi[i]]);
-                printf("    * Synthesis: %s\n", get_planet_in_house_text(i, h).c_str());
-                string digbala = get_digbala_text(i, h);
-                if (digbala != "") printf("   %s\n", digbala.c_str());
+                if (telugu_mode) {
+                    printf("  - %s %dవ భావంలో (%s) ఉంది:\n", get_planet_name(i).c_str(), h, get_short_rashi(p_rasi[i]).c_str());
+                    printf("    * విశ్లేషణ: %s\n", te_get_planet_in_house_text(i, h).c_str());
+                    string digbala = te_get_digbala_text(i, h);
+                    if (digbala != "") printf("   %s\n", digbala.c_str());
+                } else {
+                    printf("  - %s is located in House %d (%s):\n", p_names_full[i], h, short_rashi[p_rasi[i]]);
+                    printf("    * Synthesis: %s\n", get_planet_in_house_text(i, h).c_str());
+                    string digbala = get_digbala_text(i, h);
+                    if (digbala != "") printf("   %s\n", digbala.c_str());
+                }
             }
         }
+        if (html_mode) printf("</div>\n");
     }
     
-	void analyze_conjunctions(int* p_rasi, int lagna) {
-        if (telugu_mode) printf("\n[గ్రహ కలయికలు (యుతి)]\n");
-        else printf("\n[PLANETARY CONJUNCTIONS]\n");
+void analyze_conjunctions(int* p_rasi, int lagna) {
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహ కలయికలు (యుతి)" : "Planetary Conjunctions");
+            printf("<div style='display: grid; gap: 15px;'>");
+        } else {
+            if (telugu_mode) printf("\n[గ్రహ కలయికలు (యుతి)]\n");
+            else printf("\n[PLANETARY CONJUNCTIONS]\n");
+        }
         
         map<int, vector<int>> houses;
         for (int i=1; i<=9; i++) {
@@ -1985,34 +2077,47 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         for (auto const& [h, planets] : houses) {
             if (planets.size() > 1) {
                 found = true;
-                if (telugu_mode) printf("  - %dవ భావంలో ఈ కింది గ్రహాలు కలిసి ఉన్నాయి: ", h);
-                else printf("  - House %d is heavily populated by: ", h);
                 
+                string p_list = "";
                 for (size_t j=0; j<planets.size(); j++) {
-                    if (telugu_mode) printf("%s", get_planet_name(planets[j]).c_str());
-                    else printf("%s", p_names_full[planets[j]]);
-                    if (j < planets.size()-1) printf(" + ");
+                    p_list += telugu_mode ? get_planet_name(planets[j]) : string(p_names_full[planets[j]]);
+                    if (j < planets.size()-1) p_list += " + ";
                 }
-                printf("\n");
                 
                 bool has_rahu_ketu = false;
                 for(size_t j=0; j<planets.size(); j++) {
                     if(planets[j]==8 || planets[j]==9) has_rahu_ketu = true;
                 }
                 
-                if (telugu_mode) {
-                    if(has_rahu_ketu) printf("    * ప్రభావం: ఇక్కడ ఛాయా గ్రహం (రాహు/కేతు) ఉండటం వల్ల మిగతా గ్రహాల సహజ శక్తి దెబ్బతింటుంది లేదా విపరీతంగా అంచనాలకు మించి పనిచేస్తుంది.\n");
-                    else printf("    * ప్రభావం: ఈ గ్రహ శక్తులు శాశ్వతంగా కలిసిపోవడం వల్ల, జీవితంలోని ఈ రంగంలో జాతకుడు ఎప్పుడూ భిన్నమైన పరిస్థితులను బ్యాలెన్స్ చేసుకోవాల్సి వస్తుంది.\n");
+                if (html_mode) {
+                    printf("<div style='background: #2a2a35; padding: 15px; border-radius: 6px; border-left: 4px solid #e74c3c;'>");
+                    printf("<b style='color: #fff;'>%s:</b> <span style='color: #e74c3c; font-weight:bold;'>%s</span><br>", telugu_mode ? (to_string(h) + "వ భావంలో కలయిక").c_str() : ("House " + to_string(h) + " Conjunction").c_str(), p_list.c_str());
+                    
+                    string effect = telugu_mode ? (has_rahu_ketu ? "ప్రభావం: ఇక్కడ ఛాయా గ్రహం (రాహు/కేతు) ఉండటం వల్ల మిగతా గ్రహాల సహజ శక్తి దెబ్బతింటుంది లేదా విపరీతంగా అంచనాలకు మించి పనిచేస్తుంది." : "ప్రభావం: ఈ గ్రహ శక్తులు శాశ్వతంగా కలిసిపోవడం వల్ల, జీవితంలోని ఈ రంగంలో జాతకుడు ఎప్పుడూ భిన్నమైన పరిస్థితులను బ్యాలెన్స్ చేసుకోవాల్సి వస్తుంది.") : (has_rahu_ketu ? "Effect: The presence of a Shadow Node acts as a distorting amplifier. It will heavily eclipse, exaggerate, or destabilize the physical planets trapped here with it." : "Effect: These planetary energies are permanently fused together, forcing the native to constantly balance their competing significations within this area of life.");
+                    
+                    printf("<span style='font-size: 14px; color: #ccc; display:block; margin-top:8px;'>%s</span>", effect.c_str());
+                    printf("</div>\n");
                 } else {
-                    if(has_rahu_ketu) printf("    * Effect: The presence of a Shadow Node acts as a distorting amplifier. It will heavily eclipse, exaggerate, or destabilize the physical planets trapped here with it.\n");
-                    else printf("    * Effect: These planetary energies are permanently fused together, forcing the native to constantly balance their competing significations within this area of life.\n");
+                    if (telugu_mode) {
+                        printf("  - %dవ భావంలో ఈ కింది గ్రహాలు కలిసి ఉన్నాయి: %s\n", h, p_list.c_str());
+                        if(has_rahu_ketu) printf("    * ప్రభావం: ఇక్కడ ఛాయా గ్రహం (రాహు/కేతు) ఉండటం వల్ల మిగతా గ్రహాల సహజ శక్తి దెబ్బతింటుంది లేదా విపరీతంగా అంచనాలకు మించి పనిచేస్తుంది.\n");
+                        else printf("    * ప్రభావం: ఈ గ్రహ శక్తులు శాశ్వతంగా కలిసిపోవడం వల్ల, జీవితంలోని ఈ రంగంలో జాతకుడు ఎప్పుడూ భిన్నమైన పరిస్థితులను బ్యాలెన్స్ చేసుకోవాల్సి వస్తుంది.\n");
+                    } else {
+                        printf("  - House %d is heavily populated by: %s\n", h, p_list.c_str());
+                        if(has_rahu_ketu) printf("    * Effect: The presence of a Shadow Node acts as a distorting amplifier. It will heavily eclipse, exaggerate, or destabilize the physical planets trapped here with it.\n");
+                        else printf("    * Effect: These planetary energies are permanently fused together, forcing the native to constantly balance their competing significations within this area of life.\n");
+                    }
                 }
             }
         }
         if(!found) {
-            if (telugu_mode) printf("  - గ్రహ కలయికలు ఏవీ లేవు. అన్ని గ్రహాలు స్వత衡ంగా పనిచేస్తున్నాయి.\n");
-            else printf("  - No planetary conjunctions found. All planets operate independently.\n");
+            if (html_mode) printf("<p style='padding: 15px; background: #1e1e24; border-radius: 6px; color:#aaa; margin:0;'>%s</p>", telugu_mode ? "గ్రహ కలయికలు ఏవీ లేవు. అన్ని గ్రహాలు స్వతంత్రంగా పనిచేస్తున్నాయి." : "No planetary conjunctions found. All planets operate independently.");
+            else {
+                if (telugu_mode) printf("  - గ్రహ కలయికలు ఏవీ లేవు. అన్ని గ్రహాలు స్వతంత్రంగా పనిచేస్తున్నాయి.\n");
+                else printf("  - No planetary conjunctions found. All planets operate independently.\n");
+            }
         }
+        if (html_mode) printf("</div>\n");
     }
 	
     // =========================================================================

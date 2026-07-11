@@ -1446,17 +1446,21 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         return (int)(lon / (30.0 / varga)) % 12; 
     }
 
-    void analyze_progeny(bool is_female = false, bool gender_provided = false) {
+void analyze_progeny(bool is_female = false, bool gender_provided = false) {
         if (json_mode) return;
 
-        if (telugu_mode) {
-            printf("\n=================================================================\n");
-            printf("=== సంతాన విశ్లేషణ (PROGENY & D7 SAPTAMSHA ANALYSIS) ===\n");
-            printf("=================================================================\n");
+        if (html_mode) {
+            printf("<h2 style='margin-top: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", telugu_mode ? "సంతాన విశ్లేషణ (PROGENY & D7 SAPTAMSHA ANALYSIS)" : "SANTAN YOGA & DOSHA (PROGENY & D7 SAPTAMSHA ANALYSIS)");
         } else {
-            printf("\n=================================================================\n");
-            printf("=== SANTAN YOGA & DOSHA (PROGENY & D7 SAPTAMSHA ANALYSIS) ===\n");
-            printf("=================================================================\n");
+            if (telugu_mode) {
+                printf("\n=================================================================\n");
+                printf("=== సంతాన విశ్లేషణ (PROGENY & D7 SAPTAMSHA ANALYSIS) ===\n");
+                printf("=================================================================\n");
+            } else {
+                printf("\n=================================================================\n");
+                printf("=== SANTAN YOGA & DOSHA (PROGENY & D7 SAPTAMSHA ANALYSIS) ===\n");
+                printf("=================================================================\n");
+            }
         }
 
         int asc_rashi = planet_rashis[0];
@@ -1539,7 +1543,6 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
             else if (h == 6 || h == 8 || h == 12) local_scores[p] -= 3;
         }
 
-        // Restored classical dignity multipliers (highly critical for Praveena/Venkatesh balancing)
         auto get_dignity_weight = [&](int p, bool is_occupant) {
             int base = is_occupant ? 2 : 1;
             if (local_scores[p] >= 3) return base + 2; 
@@ -1555,26 +1558,21 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
 
         int h5_rashi = (asc_rashi + 4) % 12;
         int l5_idx = get_lord(h5_rashi);
-        
         int h7_rashi = (asc_rashi + 6) % 12;
         int l7_idx = get_lord(h7_rashi);
-
         int h9_rashi = (asc_rashi + 8) % 12;
         int l9_idx = get_lord(h9_rashi);
-
         int h11_rashi = (asc_rashi + 10) % 12;
         int l11_idx = get_lord(h11_rashi);
-
         int h1_rashi = asc_rashi;
         int l1_idx = get_lord(h1_rashi);
-
         int h3_rashi = (asc_rashi + 2) % 12;
         int l3_idx = get_lord(h3_rashi);
 
         int d9_asc = get_varga(9, planet_lons[0]);
         int d7_asc = get_varga(7, planet_lons[0]);
 
-        // --- CORE PROMISE & ESTIMATED NUMBER OF CHILDREN (Using original gender-based houses) ---
+        // --- CORE PROMISE & ESTIMATED NUMBER OF CHILDREN ---
         int lord_for_count = (gender_provided && is_female) ? l9_idx : l5_idx;
         int navamsas_gained = (int)(fmod(planet_lons[lord_for_count], 30.0) / (10.0 / 3.0)) + 1; 
         int base_children = navamsas_gained;
@@ -1620,7 +1618,6 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         string c1_n_te, c2_n_te, c3_n_te, c4_n_te, c5_n_te, c6_n_te;
 
         if (d7_asc % 2 == 0) {
-            // ODD SAPTAMSHA LAGNA: Direct Clockwise Sequence (5th -> 7th -> 9th -> 11th -> 1st -> 3rd)
             c1_rashi = h5_rashi;  c1_lord = l5_idx;  c1_n_en = "First Child (5th House)";  c1_n_te = "మొదటి సంతానం (5వ భావం)";
             c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
             c3_rashi = h9_rashi;  c3_lord = l9_idx;  c3_n_en = "Third Child (9th House)";  c3_n_te = "మూడవ సంతానం (9వ భావం)";
@@ -1628,7 +1625,6 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
             c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
             c6_rashi = h3_rashi;  c6_lord = l3_idx;  c6_n_en = "Sixth Child (3rd House)";   c6_n_te = "ఆరవ సంతానం (3వ భావం)";
         } else {
-            // EVEN SAPTAMSHA LAGNA: Reverse Counter-Clockwise Sequence (9th -> 7th -> 5th -> 3rd -> 1st -> 11th)
             c1_rashi = h9_rashi;  c1_lord = l9_idx;  c1_n_en = "First Child (9th House)";  c1_n_te = "మొదటి సంతానం (9వ భావం)";
             c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
             c3_rashi = h5_rashi;  c3_lord = l5_idx;  c3_n_en = "Third Child (5th House)";  c3_n_te = "మూడవ సంతానం (5వ భావం)";
@@ -1646,53 +1642,75 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         int beeja_d9 = get_varga(9, beeja_sphuta);
         int kshetra_d9 = get_varga(9, kshetra_sphuta);
 
-        if (!html_mode) {
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "సంతాన సాఫల్య బిందువులు (Biological Fertility Sphutas)" : "Fertility Sphutas (Biological Potency & Gender Tendency)");
+            printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", telugu_mode ? "స్ఫుట" : "Sphuta", telugu_mode ? "డిగ్రీ & రాశి" : "Degree & Sign", telugu_mode ? "నవాంశ" : "Navamsa", telugu_mode ? "విశ్లేషణ" : "Synthesis");
+            
+            if (!gender_provided || !is_female) {
+                string syn_en, syn_te;
+                if (is_male_rashi(beeja_rashi) && is_male_rashi(beeja_d9)) { syn_en = "Highly potent (Odd/Male Rasi & Navamsa). Promotes strong male lineage."; syn_te = "అత్యంత శక్తివంతమైనది (మగ రాశి/నవాంశ)."; }
+                else if (!is_male_rashi(beeja_rashi) && !is_male_rashi(beeja_d9)) { syn_en = "In Female signs. May require remedies for strong progeny."; syn_te = "ఆడ రాశులలో ఉంది. పరిహారాలు అవసరం."; }
+                else { syn_en = "Mixed gender signs. Standard fertility potential."; syn_te = "మిశ్రమ రాశులు. సాధారణ సామర్థ్యం."; }
+                printf("<tr><td><b>%s</b></td><td>%02d° %s</td><td>%s</td><td>%s</td></tr>", telugu_mode?"బీజ స్ఫుట (పురుష)":"Beeja Sphuta (Husband)", (int)fmod(beeja_sphuta, 30.0), telugu_mode?get_rashi_name(beeja_rashi).c_str():rashi_names[beeja_rashi], telugu_mode?get_rashi_name(beeja_d9).c_str():rashi_names[beeja_d9], telugu_mode?syn_te.c_str():syn_en.c_str());
+            }
+            if (!gender_provided || is_female) {
+                string syn_en, syn_te;
+                if (!is_male_rashi(kshetra_rashi) && !is_male_rashi(kshetra_d9)) { syn_en = "Highly receptive (Even/Female Rasi & Navamsa). Excellent fertility."; syn_te = "అద్భుతమైన సంతాన సాఫల్యం (ఆడ రాశి/నవాంశ)."; }
+                else if (is_male_rashi(kshetra_rashi) && is_male_rashi(kshetra_d9)) { syn_en = "In Male signs. May require medical/astrological support."; syn_te = "మగ రాశులలో ఉంది. వైద్య/జ్యోతిష్య సహాయం అవసరం."; }
+                else { syn_en = "Mixed gender signs. Standard fertility potential."; syn_te = "మిశ్రమ రాశులు. సాధారణ సామర్థ్యం."; }
+                printf("<tr><td><b>%s</b></td><td>%02d° %s</td><td>%s</td><td>%s</td></tr>", telugu_mode?"క్షేత్ర స్ఫుట (స్త్రీ)":"Kshetra Sphuta (Wife)", (int)fmod(kshetra_sphuta, 30.0), telugu_mode?get_rashi_name(kshetra_rashi).c_str():rashi_names[kshetra_rashi], telugu_mode?get_rashi_name(kshetra_d9).c_str():rashi_names[kshetra_d9], telugu_mode?syn_te.c_str():syn_en.c_str());
+            }
+            printf("</table>\n");
+        } else {
             if (telugu_mode) printf("[సంతాన సాఫల్య బిందువులు (Biological Fertility Sphutas)]\n");
             else printf("[FERTILITY SPHUTAS (Biological Potency & Gender Tendency)]\n");
 
             if (!gender_provided || !is_female) {
                 if (telugu_mode) printf("  - బీజ స్ఫుట (పురుష): %02d° %s | D9 రాశి: %s\n", (int)fmod(beeja_sphuta, 30.0), get_rashi_name(beeja_rashi).c_str(), get_rashi_name(beeja_d9).c_str());
                 else printf("  - Beeja Sphuta (Husband) : %02d° %s | Navamsa: %s\n", (int)fmod(beeja_sphuta, 30.0), rashi_names[beeja_rashi], rashi_names[beeja_d9]);
-                
                 if (!telugu_mode) {
-                    if (is_male_rashi(beeja_rashi) && is_male_rashi(beeja_d9)) 
-                        printf("    * Synthesis: Beeja Sphuta is highly potent (Odd/Male Rasi & Navamsa). Promotes strong male lineage.\n");
-                    else if (!is_male_rashi(beeja_rashi) && !is_male_rashi(beeja_d9))
-                        printf("    * Synthesis: Beeja Sphuta is in Female signs. May require remedies for strong progeny.\n");
-                    else 
-                        printf("    * Synthesis: Beeja Sphuta shows mixed gender signs. Standard fertility potential.\n");
+                    if (is_male_rashi(beeja_rashi) && is_male_rashi(beeja_d9)) printf("    * Synthesis: Beeja Sphuta is highly potent (Odd/Male Rasi & Navamsa). Promotes strong male lineage.\n");
+                    else if (!is_male_rashi(beeja_rashi) && !is_male_rashi(beeja_d9)) printf("    * Synthesis: Beeja Sphuta is in Female signs. May require remedies for strong progeny.\n");
+                    else printf("    * Synthesis: Beeja Sphuta shows mixed gender signs. Standard fertility potential.\n");
                 }
             }
-            
             if (!gender_provided || is_female) {
                 if (telugu_mode) printf("  - క్షేత్ర స్ఫుట (స్త్రీ): %02d° %s | D9 రాశి: %s\n", (int)fmod(kshetra_sphuta, 30.0), get_rashi_name(kshetra_rashi).c_str(), get_rashi_name(kshetra_d9).c_str());
                 else printf("  - Kshetra Sphuta (Wife)  : %02d° %s | Navamsa: %s\n", (int)fmod(kshetra_sphuta, 30.0), rashi_names[kshetra_rashi], rashi_names[kshetra_d9]);
-                
                 if (!telugu_mode) {
-                    if (!is_male_rashi(kshetra_rashi) && !is_male_rashi(kshetra_d9))
-                        printf("    * Synthesis: Kshetra Sphuta is highly receptive (Even/Female Rasi & Navamsa). Excellent fertility.\n");
-                    else if (is_male_rashi(kshetra_rashi) && is_male_rashi(kshetra_d9))
-                        printf("    * Synthesis: Kshetra Sphuta is in Male signs. May require medical/astrological support.\n");
-                    else 
-                        printf("    * Synthesis: Kshetra Sphuta shows mixed gender signs. Standard fertility potential.\n");
+                    if (!is_male_rashi(kshetra_rashi) && !is_male_rashi(kshetra_d9)) printf("    * Synthesis: Kshetra Sphuta is highly receptive (Even/Female Rasi & Navamsa). Excellent fertility.\n");
+                    else if (is_male_rashi(kshetra_rashi) && is_male_rashi(kshetra_d9)) printf("    * Synthesis: Kshetra Sphuta is in Male signs. May require medical/astrological support.\n");
+                    else printf("    * Synthesis: Kshetra Sphuta shows mixed gender signs. Standard fertility potential.\n");
                 }
             }
-            
-            bool sarpa_dosha = false, pitru_dosha = false, garbha_dosha = false;
-            
-            if (planet_rashis[8] == c1_rashi || planet_rashis[9] == c1_rashi || 
-                planet_rashis[8] == planet_rashis[c1_lord] || planet_rashis[9] == planet_rashis[c1_lord] ||
-                check_aspect(8, c1_rashi) || check_aspect(9, c1_rashi)) {
-                sarpa_dosha = true;
-            }
-            if ((check_aspect(1, h5_rashi) && check_aspect(7, h5_rashi)) || 
-                (check_aspect(1, h9_rashi) && check_aspect(7, h9_rashi))) {
-                pitru_dosha = true;
-            }
-            if (check_aspect(3, planet_rashis[2]) && check_aspect(9, planet_rashis[2])) {
-                garbha_dosha = true; 
-            }
+        }
+        
+        bool sarpa_dosha = false, pitru_dosha = false, garbha_dosha = false;
+        
+        if (planet_rashis[8] == c1_rashi || planet_rashis[9] == c1_rashi || 
+            planet_rashis[8] == planet_rashis[c1_lord] || planet_rashis[9] == planet_rashis[c1_lord] ||
+            check_aspect(8, c1_rashi) || check_aspect(9, c1_rashi)) {
+            sarpa_dosha = true;
+        }
+        if ((check_aspect(1, h5_rashi) && check_aspect(7, h5_rashi)) || 
+            (check_aspect(1, h9_rashi) && check_aspect(7, h9_rashi))) {
+            pitru_dosha = true;
+        }
+        if (check_aspect(3, planet_rashis[2]) && check_aspect(9, planet_rashis[2])) {
+            garbha_dosha = true; 
+        }
 
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "సంతాన దోషాలు & కర్మ అడ్డంకులు (Specific Doshas)" : "Specific Doshas (Karmic Blocks & Vulnerabilities)");
+            printf("<ul style='background: #1e1e24; padding: 20px 20px 20px 40px; margin: 0; border-radius: 6px; border: 1px solid var(--border); line-height: 1.6;'>");
+            if (sarpa_dosha) printf("<li style='color:#e74c3c; margin-bottom:10px;'><b>%s</b> %s</li>", telugu_mode?"సర్ప దోషం:":"SARPA DOSHA:", telugu_mode?"ప్రాథమిక సంతాన భావం లేదా అధిపతి రాహు/కేతువులతో పీడించబడ్డారు.":"Primary child house or Lord is afflicted by Nodes. Risk of delays.");
+            if (pitru_dosha) printf("<li style='color:#e74c3c; margin-bottom:10px;'><b>%s</b> %s</li>", telugu_mode?"పితృ దోషం:":"PITRU DOSHA:", telugu_mode?"సూర్య/శని గ్రహాలు 5వ లేదా 9వ భావాన్ని పీడిస్తున్నాయి.":"Sun/Saturn severely afflict the 5th/9th axis. Ancestral karma blockage.");
+            if (garbha_dosha) printf("<li style='color:#e74c3c; margin-bottom:10px;'><b>%s</b> %s</li>", telugu_mode?"గర్భ దోషం:":"GARBHA DOSHA:", telugu_mode?"చంద్రుడు కుజ/కేతువులతో పీడించబడ్డాడు (గర్భస్రావ ప్రమాదం).":"Moon is afflicted by Mars/Ketu. Risk of miscarriages or weak pregnancies.");
+            if (!sarpa_dosha && !pitru_dosha && !garbha_dosha) {
+                printf("<li style='color:#2ecc71;'><b>%s</b> %s</li>", telugu_mode?"దోషాలు లేవు:":"Clear Path:", telugu_mode?"ప్రధానమైన సర్ప, పితృ లేదా గర్భ దోషాలు ఏవీ లేవు.":"No major Sarpa, Pitru, or Garbha doshas detected.");
+            }
+            printf("</ul>\n");
+        } else {
             if (telugu_mode) printf("\n[సంతాన దోషాలు & కర్మ అడ్డంకులు (Specific Doshas)]\n");
             else printf("\n[SPECIFIC DOSHAS (Karmic Blocks & Vulnerabilities)]\n");
 
@@ -1705,7 +1723,22 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
             }
         }
 
-        if (!html_mode) { 
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "సంతాన సంఖ్య & ప్రాథమిక యోగం (Estimated Progeny Count)" : "Estimated Progeny Count & Core Promise");
+            printf("<ul style='background: #2a2a35; padding: 20px 20px 20px 40px; margin: 0; border-radius: 6px; border-left: 4px solid var(--accent); line-height: 1.6;'>");
+            if (break_point != -1) printf("<li style='color:#f1c40f;'><b>%s</b> %s</li>", telugu_mode?"కర్మ నియంత్రణ (వంశ ఛేద హెచ్చరిక):":"Karmic Cap Warning (Vamsha Cheda):", telugu_mode?("నవాంశ (D9) రాహువు " + to_string(break_point) + "వ సంతాన స్థానంలో ఉన్నాడు. సంతాన ప్రాప్తికి ఆలస్యం లేదా పరిహారాలు అవసరం కావచ్చు.").c_str() : ("Navamsa Rahu occupies the traverse house for Child " + to_string(break_point) + ". Inherent lineage block or delays; remedies may be required.").c_str());
+            
+            if (base_children == 0) printf("<li style='color:#e74c3c; margin-top:5px;'><b>%s</b> %s</li>", telugu_mode?"అంచనా:":"Estimate:", telugu_mode?"తీవ్రమైన కర్మ అడ్డంకి. జ్యోతిష్య/వైద్య పరిహారాలు లేకుండా సంతాన ప్రాప్తి కష్టం.":"Severe Karmic block detected. High probability of childlessness without intervention.");
+            else printf("<li style='color:#fff; margin-top:5px;'><b>%s</b> %s</li>", telugu_mode?"అంచనా:":"Estimate:", telugu_mode?("ప్రాచీన పరాశర/జైమిని గణితం ప్రకారం " + to_string(base_children) + " సంతానం కలిగే అవకాశం ఉంది.").c_str() : ("Pure Classical algorithmic capacity for " + to_string(base_children) + " child(ren).").c_str());
+
+            if (gender_provided && is_female) {
+                double lagna_deg = fmod(planet_lons[0], 30.0);
+                if (lagna_deg > 28.0 || lagna_deg < 2.0) {
+                    printf("<li style='color:#aaa; margin-top:5px;'><b>%s</b> %s</li>", telugu_mode?"గమనిక:":"Note:", telugu_mode?("లగ్నం " + to_string((int)lagna_deg) + "° వద్ద ఉంది (రాశి సంధి). జనన సమయం ±4 నిమిషాలు మారితే సంతాన ఫలితాలు మారవచ్చు.").c_str() : ("Lagna at " + to_string((int)lagna_deg) + "° - within 2° of sign cusp. Gender sequence sensitive to birth time ±4 min.").c_str());
+                }
+            }
+            printf("</ul>\n");
+        } else { 
             if (telugu_mode) printf("\n[సంతాన సంఖ్య & ప్రాథమిక యోగం (Estimated Progeny Count)]\n");
             else printf("\n[ESTIMATED PROGENY COUNT & CORE PROMISE]\n");
             
@@ -1719,23 +1752,24 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
                 else printf("  * Estimate: Pure Classical algorithmic capacity for %d child(ren).\n", base_children);
             }
 
-            // BIRTH TIME SENSITIVITY CHECK (Lagna near Cusp)
             if (gender_provided && is_female) {
                 double lagna_deg = fmod(planet_lons[0], 30.0);
                 if (lagna_deg > 28.0 || lagna_deg < 2.0) {
-                    if (telugu_mode) {
-                        printf("  * గమనిక: లగ్నం %02d° వద్ద ఉంది (రాశి సంధి). జనన సమయం ±4 నిమిషాలు మారితే సంతాన ఫలితాలు మారవచ్చు.\n", (int)lagna_deg);
-                    } else {
-                        printf("  * Note: Lagna at %02d° - within 2° of sign cusp. Gender sequence sensitive to birth time ±4 min.\n", (int)lagna_deg);
-                    }
+                    if (telugu_mode) printf("  * గమనిక: లగ్నం %02d° వద్ద ఉంది (రాశి సంధి). జనన సమయం ±4 నిమిషాలు మారితే సంతాన ఫలితాలు మారవచ్చు.\n", (int)lagna_deg);
+                    else printf("  * Note: Lagna at %02d° - within 2° of sign cusp. Gender sequence sensitive to birth time ±4 min.\n", (int)lagna_deg);
                 }
             }
         }
 
         // --- GENDER PREDICTION W/ FULL MICRO-VARGA INTEGRATION ---
-        if (!html_mode && base_children > 0) {
-            if (telugu_mode) printf("\n[సంతాన లింగ నిర్ధారణ (Gender Sequence Prediction)]\n");
-            else printf("\n[GENDER SEQUENCE PREDICTION (D1 + D2 + D3 + D9 + D7 Weighted)]\n");
+        if (base_children > 0) {
+            if (html_mode) {
+                printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "సంతాన లింగ నిర్ధారణ (Gender Sequence Prediction)" : "Gender Sequence Prediction (D1 + D2 + D3 + D9 + D7 Weighted)");
+                printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th></tr>", telugu_mode ? "సంతానం" : "Child", telugu_mode ? "అంచనా (లింగం)" : "Predicted Gender", telugu_mode ? "పాయింట్లు (మగ - ఆడ)" : "Points (Male - Female)");
+            } else {
+                if (telugu_mode) printf("\n[సంతాన లింగ నిర్ధారణ (Gender Sequence Prediction)]\n");
+                else printf("\n[GENDER SEQUENCE PREDICTION (D1 + D2 + D3 + D9 + D7 Weighted)]\n");
+            }
 
             // GRAHA YUDDHA (Planetary War Defeat Mask)
             bool is_loser[10] = {false};
@@ -1780,14 +1814,10 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
                 int male_points = 0; int female_points = 0;
                 
                 if (is_male_rashi(h_rashi)) male_points += 2; else female_points += 2;
-                
                 if (is_male_planet(l_idx)) male_points += 2;
                 else if (is_female_planet(l_idx)) female_points += 2;
 
-                // Check if Jupiter, Mars, or Sun occupy or aspect the Child's House in D1
-                bool has_jup_d1 = false;
-                bool has_mars_d1 = false;
-                bool has_sun_d1 = false;
+                bool has_jup_d1 = false; bool has_mars_d1 = false; bool has_sun_d1 = false;
 
                 for (int p=1; p<=9; p++) {
                     if (is_loser[p]) continue; 
@@ -1818,17 +1848,13 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
                     }
                 }
 
-                // Classical Progeny Overrides: Jupiter (Putrakaraka) and Mars (Vital Seed) 
-                // carry supreme son-giving energy when occupying or aspecting the Child's House in D1.
                 if (has_jup_d1) male_points += 4;
                 if (has_mars_d1) male_points += 6;
 
-                // YOGA OVERRIDE: Strong Venus
                 if ((planet_rashis[6] == h_rashi || check_aspect(6, h_rashi)) && local_scores[6] >= 2 && !is_loser[6] && !is_combust(6)) {
                     female_points += 4; 
                 }
 
-                // D2 / D3 
                 double cusp_lon = (h_rashi * 30.0) + fmod(planet_lons[0], 30.0);
                 int d2_rashi = get_varga(2, cusp_lon);
                 if (is_male_rashi(d2_rashi)) male_points += 1; else female_points += 1;
@@ -1836,14 +1862,12 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
                 int d3_rashi = get_varga(3, cusp_lon);
                 if (is_male_rashi(d3_rashi)) male_points += 1; else female_points += 1;
 
-                // D9 House and D9 Lord 
                 int d9_house_rashi = get_varga(9, cusp_lon);
                 if (is_male_rashi(d9_house_rashi)) male_points += 2; else female_points += 2;
 
                 int d9_lord = get_lord(d9_house_rashi);
                 if (is_male_planet_in_varga(d9_lord, 9)) male_points += 2; else female_points += 2;
 
-                // Check aspects on D9 house rashi inside D9
                 for (int p=1; p<=9; p++) {
                     if (is_loser[p]) continue;
                     if (check_aspect_varga(p, d9_house_rashi, 9)) {
@@ -1852,21 +1876,19 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
                     }
                 }
 
-                // D7 House rashi based on Saptamsha Lagna Manduka Gati
                 int house_num = 5;
-                if (d7_asc % 2 == 0) { // Odd Saptamsha Lagna
+                if (d7_asc % 2 == 0) { 
                     const int odd_seq[] = {5, 7, 9, 11, 1, 3};
                     house_num = odd_seq[(child_num - 1) % 6];
-                } else { // Even Saptamsha Lagna
+                } else { 
                     const int even_seq[] = {9, 7, 5, 3, 1, 11};
                     house_num = even_seq[(child_num - 1) % 6];
                 }
 
-                // D7 House rashi based on Saptamsha Lagna Manduka Gati
                 int d7_house_rashi = 0;
-                if (d7_asc % 2 == 0) { // Odd Saptamsha Lagna -> Clockwise
+                if (d7_asc % 2 == 0) { 
                     d7_house_rashi = (d7_asc + (house_num - 1)) % 12;
-                } else { // Even Saptamsha Lagna -> Counter-clockwise
+                } else { 
                     d7_house_rashi = (d7_asc - (house_num - 1) + 12) % 12;
                 }
 
@@ -1876,31 +1898,28 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
                 if (is_male_planet_in_varga(d7_lord, 7)) male_points += 2; else female_points += 2;
 
                 for (int p=1; p<=9; p++) {
-                    if (is_loser[p]) continue; // Skip defeated planets in D7 as well
+                    if (is_loser[p]) continue; 
                     if (get_varga(7, planet_lons[p]) == d7_house_rashi) {
                         if (is_male_planet_in_varga(p, 7)) male_points += 2;
                         else female_points += 2;
                     }
-                    // Aspect check in D7
                     else if (check_aspect_varga(p, d7_house_rashi, 7)) {
                         if (is_male_planet_in_varga(p, 7)) male_points += 1;
                         else female_points += 1;
                     }
                 }
 
-                // Jaimini Putrakaraka (PK)
                 int pk_dignity = get_dignity_weight(pk_idx, false); 
                 if (is_male_planet(pk_idx)) male_points += pk_dignity;
                 else if (is_female_planet(pk_idx)) female_points += pk_dignity;
 
-                if (pk_idx == 6) { // PK is Venus
+                if (pk_idx == 6) { 
                     int pk_house = (planet_rashis[6] - asc_rashi + 12) % 12 + 1;
                     if (pk_house == 1 || pk_house == 4 || pk_house == 7 || pk_house == 10) {
-                        female_points += 3; // Kendra PK Venus = strong female
+                        female_points += 3; 
                     }
                 }
 
-                // Score D7 PK Sign and Dignity
                 int d7_pk = get_varga(7, planet_lons[pk_idx]);
                 if (is_male_rashi(d7_pk)) male_points += 3; else female_points += 3;
                 
@@ -1910,11 +1929,9 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
                     if (male_points >= female_points) male_points -= 2; else female_points -= 2;
                 }
 
-                // Moon Phase (Paksha) Global Modifier
                 double tithi_angle = fmod((planet_lons[2] - planet_lons[1] + 360.0), 360.0);
                 if (tithi_angle < 180.0) female_points += 1; else male_points += 1; 
 
-                // Sphuta Points 
                 if (child_num == 1) {
                     if (gender_provided && is_female) {
                         if (!is_male_rashi(kshetra_rashi)) female_points += 1; 
@@ -1925,18 +1942,12 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
                     }
                 }
 
-                // CLASSICAL OVERRIDE: Venus in/asp 9th for female = Female (Saravali 11.18)
                 if (gender_provided && is_female && child_num == 1) {
                     if (planet_rashis[6] == h_rashi || check_aspect(6, h_rashi)) {
-                        female_points = male_points + 10; // Guarantees female
+                        female_points = male_points + 10; 
                     }
                 }
 
-                // ---------------------------------------------------------
-                // OVER-ARCHING CLASSICAL AND BIOLOGICAL RECTIFICATION CORES
-                // ---------------------------------------------------------
-                
-                // 1. DYNAMIC BIOLOGICAL FERTILITY BIAS (BEEJA / KSHETRA SPHUTA CORES)
                 int sphuta_rashi = 0;
                 int sphuta_d9 = 0;
                 if (gender_provided && is_female) {
@@ -1952,36 +1963,41 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
                 if (is_male_rashi(sphuta_d9)) sphuta_points++;
 
                 if (sphuta_points == 2) {
-                    male_points += 2; // pb = 2
+                    male_points += 2; 
                 } else if (sphuta_points == 0) {
-                    female_points += 2; // pb = 2
+                    female_points += 2; 
                 } else {
-                    // Mixed: fallback to parent's native gender bias
                     if (gender_provided) {
                         if (is_female) female_points += 1;
                         else male_points += 1;
                     }
                 }
 
-                // 2. Jaimini Putrakaraka (PK) overarching bias (keeps a gentle, supportive Jaimini touch)
                 if (is_male_planet(pk_idx)) male_points += 2;
                 else female_points += 2;
 
-                // CLASSICAL TIEBREAKER
                 string gender_en, gender_te;
                 if (male_points > female_points) { gender_en = "Male (Boy)"; gender_te = "మగ బిడ్డ"; }
                 else if (female_points > male_points) { gender_en = "Female (Girl)"; gender_te = "ఆడ బిడ్డ"; }
                 else { 
-                    // General mathematical odd/even check for Lagna's rashi in D1 (representing the native's physical body output)
                     if (is_male_rashi(planet_rashis[0])) { 
-                        gender_en = "Male (Boy - Lagna Tiebreaker)"; gender_te = "మగ బిడ్డ (లగ్నం ఆధారంగా)"; male_points++; 
+                        gender_en = "Male (Lagna Tiebreaker)"; gender_te = "మగ బిడ్డ (లగ్నం ఆధారంగా)"; male_points++; 
                     } else { 
-                        gender_en = "Female (Girl - Lagna Tiebreaker)"; gender_te = "ఆడ బిడ్డ (లగ్నం ఆధారంగా)"; female_points++; 
+                        gender_en = "Female (Lagna Tiebreaker)"; gender_te = "ఆడ బిడ్డ (లగ్నం ఆధారంగా)"; female_points++; 
                     }
                 } 
 
-                if (telugu_mode) printf("  - %s: %s (మగ: %d pts | ఆడ: %d pts)\n", title_te.c_str(), gender_te.c_str(), male_points, female_points);
-                else printf("  - %s: %s (Male: %d pts | Female: %d pts)\n", title_en.c_str(), gender_en.c_str(), male_points, female_points);
+                if (html_mode) {
+                    printf("<tr><td><b>%s</b></td><td><b style='color:%s;'>%s</b></td><td>%s: %d | %s: %d</td></tr>\n",
+                        telugu_mode ? title_te.c_str() : title_en.c_str(),
+                        (male_points > female_points) ? "#3498db" : (female_points > male_points ? "#e74c3c" : "#f1c40f"),
+                        telugu_mode ? gender_te.c_str() : gender_en.c_str(),
+                        telugu_mode ? "మగ" : "Male", male_points,
+                        telugu_mode ? "ఆడ" : "Female", female_points);
+                } else {
+                    if (telugu_mode) printf("  - %s: %s (మగ: %d pts | ఆడ: %d pts)\n", title_te.c_str(), gender_te.c_str(), male_points, female_points);
+                    else printf("  - %s: %s (Male: %d pts | Female: %d pts)\n", title_en.c_str(), gender_en.c_str(), male_points, female_points);
+                }
             };
 
             predict_child(1, c1_rashi, c1_lord, c1_n_en, c1_n_te);
@@ -1990,37 +2006,55 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
             if (base_children > 3) predict_child(4, c4_rashi, c4_lord, c4_n_en, c4_n_te);
             if (base_children > 4) predict_child(5, c5_rashi, c5_lord, c5_n_en, c5_n_te);
             if (base_children > 5) predict_child(6, c6_rashi, c6_lord, c6_n_en, c6_n_te);
+            
+            if (html_mode) printf("</table>\n");
         }
 
         int d7_ju = get_varga(7, planet_lons[5]);
         int d7_primary_lord = get_varga(7, planet_lons[c1_lord]);
         int primary_house = (gender_provided && is_female) ? 9 : 5;
 
-        if (telugu_mode) printf("\n[D7 సప్తాంశ కుండలి (Micro-Zodiac for Progeny)]\n");
-        else printf("\n[D7 SAPTAMSHA (Micro-Zodiac for Progeny)]\n");
-
-        if (telugu_mode) {
-            printf("  - D7 లగ్నం      : %s\n", get_rashi_name(d7_asc).c_str());
-            printf("  - D7 లో గురుడు  : %s లో ఉన్నాడు\n", get_rashi_name(d7_ju).c_str());
-            printf("  - D1 %dవ అధిపతి D7 లో: %s లో ఉన్నాడు\n", primary_house, get_rashi_name(d7_primary_lord).c_str());
-            if (d7_primary_lord == d7_asc || (d7_primary_lord - d7_asc + 12) % 12 + 1 == 5 || (d7_primary_lord - d7_asc + 12) % 12 + 1 == 9) {
-                printf("  * ఫలితం: D7 లో సంతాన అధిపతి బలంగా ఉన్నాడు. పూర్వజన్మ సుకృతం వల్ల మంచి సంతానం కలుగుతుంది.\n");
-            } else {
-                printf("  * ఫలితం: D7 లో గ్రహ స్థితి సాధారణంగా ఉంది.\n");
-            }
-        } else {
-            printf("  - D7 Lagna           : %s\n", rashi_names[d7_asc]);
-            printf("  - D7 Jupiter         : Placed in %s\n", rashi_names[d7_ju]);
-            printf("  - D1 %dth Lord in D7  : Placed in %s\n", primary_house, rashi_names[d7_primary_lord]);
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "D7 సప్తాంశ కుండలి (Micro-Zodiac for Progeny)" : "D7 Saptamsha (Micro-Zodiac for Progeny)");
+            printf("<div style='background: #1e1e24; padding: 15px; border-radius: 6px; border: 1px solid var(--border); line-height: 1.6;'>");
+            printf("<b>%s</b> %s<br>", telugu_mode?"D7 లగ్నం:":"D7 Lagna:", telugu_mode?get_rashi_name(d7_asc).c_str():rashi_names[d7_asc]);
+            printf("<b>%s</b> %s<br>", telugu_mode?"D7 లో గురుడు:":"D7 Jupiter:", telugu_mode?get_rashi_name(d7_ju).c_str():rashi_names[d7_ju]);
+            printf("<b>%s</b> %s<br>", telugu_mode?("D1 " + to_string(primary_house) + "వ అధిపతి D7 లో:").c_str():("D1 " + to_string(primary_house) + "th Lord in D7:").c_str(), telugu_mode?get_rashi_name(d7_primary_lord).c_str():rashi_names[d7_primary_lord]);
             
             int d7_h = (d7_primary_lord - d7_asc + 12) % 12 + 1;
             if (d7_h == 1 || d7_h == 5 || d7_h == 9) {
-                printf("  * Synthesis: The primary child Lord is highly dignified in the D7 Trines. Excellent past-life karma regarding children.\n");
+                printf("<p style='margin:10px 0 0 0; color:#2ecc71;'><b>%s</b> %s</p>", telugu_mode?"ఫలితం:":"Synthesis:", telugu_mode?"D7 లో సంతాన అధిపతి బలంగా ఉన్నాడు. పూర్వజన్మ సుకృతం వల్ల మంచి సంతానం కలుగుతుంది.":"The primary child Lord is highly dignified in the D7 Trines. Excellent past-life karma regarding children.");
             } else {
-                printf("  * Synthesis: Standard placement in D7. No extraordinary karmic blocks detected.\n");
+                printf("<p style='margin:10px 0 0 0; color:#aaa;'><b>%s</b> %s</p>", telugu_mode?"ఫలితం:":"Synthesis:", telugu_mode?"D7 లో గ్రహ స్థితి సాధారణంగా ఉంది.":"Standard placement in D7. No extraordinary karmic blocks detected.");
             }
+            printf("</div>\n");
+        } else {
+            if (telugu_mode) printf("\n[D7 సప్తాంశ కుండలి (Micro-Zodiac for Progeny)]\n");
+            else printf("\n[D7 SAPTAMSHA (Micro-Zodiac for Progeny)]\n");
+
+            if (telugu_mode) {
+                printf("  - D7 లగ్నం      : %s\n", get_rashi_name(d7_asc).c_str());
+                printf("  - D7 లో గురుడు  : %s లో ఉన్నాడు\n", get_rashi_name(d7_ju).c_str());
+                printf("  - D1 %dవ అధిపతి D7 లో: %s లో ఉన్నాడు\n", primary_house, get_rashi_name(d7_primary_lord).c_str());
+                if (d7_primary_lord == d7_asc || (d7_primary_lord - d7_asc + 12) % 12 + 1 == 5 || (d7_primary_lord - d7_asc + 12) % 12 + 1 == 9) {
+                    printf("  * ఫలితం: D7 లో సంతాన అధిపతి బలంగా ఉన్నాడు. పూర్వజన్మ సుకృతం వల్ల మంచి సంతానం కలుగుతుంది.\n");
+                } else {
+                    printf("  * ఫలితం: D7 లో గ్రహ స్థితి సాధారణంగా ఉంది.\n");
+                }
+            } else {
+                printf("  - D7 Lagna           : %s\n", rashi_names[d7_asc]);
+                printf("  - D7 Jupiter         : Placed in %s\n", rashi_names[d7_ju]);
+                printf("  - D1 %dth Lord in D7  : Placed in %s\n", primary_house, rashi_names[d7_primary_lord]);
+                
+                int d7_h = (d7_primary_lord - d7_asc + 12) % 12 + 1;
+                if (d7_h == 1 || d7_h == 5 || d7_h == 9) {
+                    printf("  * Synthesis: The primary child Lord is highly dignified in the D7 Trines. Excellent past-life karma regarding children.\n");
+                } else {
+                    printf("  * Synthesis: Standard placement in D7. No extraordinary karmic blocks detected.\n");
+                }
+            }
+            printf("=================================================================\n");
         }
-        printf("=================================================================\n");
     }
 void analyze_placements(int* p_rasi, int lagna) {
         if (html_mode) {
@@ -4170,18 +4204,23 @@ void print_birth_details_html() {
 };
 
 void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
-    bool te = p1.telugu_mode; // Pull the language state from Person 1
+    bool te = p1.telugu_mode; 
+    bool html = p1.html_mode;
     if (!p1.av_calculated) const_cast<JyotishaEngine&>(p1).calculate_ashtakavarga(true);
     if (!p2.av_calculated) const_cast<JyotishaEngine&>(p2).calculate_ashtakavarga(true);
 
-    if (te) {
-        printf("\n=================================================================\n");
-        printf("=== V8.4 వధూవరుల జాతక పొంతన & దోష పరిహార నివేదిక ===\n");
-        printf("=================================================================\n");
+    if (html) {
+        printf("<h2 style='margin-top: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", te ? "వధూవరుల జాతక పొంతన & దోష పరిహార నివేదిక" : "ULTIMATE SOULMATE & DOSHA RECTIFICATION AUDIT");
     } else {
-        printf("\n=================================================================\n");
-        printf("=== V8.4 ULTIMATE SOULMATE & DOSHA RECTIFICATION AUDIT ===\n");
-        printf("=================================================================\n");
+        if (te) {
+            printf("\n=================================================================\n");
+            printf("=== V8.4 వధూవరుల జాతక పొంతన & దోష పరిహార నివేదిక ===\n");
+            printf("=================================================================\n");
+        } else {
+            printf("\n=================================================================\n");
+            printf("=== V8.4 ULTIMATE SOULMATE & DOSHA RECTIFICATION AUDIT ===\n");
+            printf("=================================================================\n");
+        }
     }
 
     auto get_house = [](int p_rashi, int asc_rashi) { return (p_rashi - asc_rashi + 12) % 12 + 1; };
@@ -4207,6 +4246,26 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
         return (d9_rashi == 1 || d9_rashi == 3 || d9_rashi == 6 || d9_rashi == 8 || d9_rashi == 11);
     };
 
+    auto print_row = [&](int pts, string cat_en, string cat_te, string desc_en, string desc_te) {
+        if (html) {
+            string color = pts > 0 ? "#2ecc71" : (pts < 0 ? "#e74c3c" : "#888");
+            if (pts >= 6) color = "#f1c40f"; 
+            printf("<tr><td><b style='color:%s;'>%+d pts</b></td><td><b>%s</b></td><td>%s</td></tr>\n", color.c_str(), pts, te?cat_te.c_str():cat_en.c_str(), te?desc_te.c_str():desc_en.c_str());
+        } else {
+            printf("  %+d pts | %-15s : %s\n", pts, te?cat_te.c_str():cat_en.c_str(), te?desc_te.c_str():desc_en.c_str());
+        }
+    };
+
+    auto print_cat_header = [&](string title_en, string title_te) {
+        if (html) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", te?title_te.c_str():title_en.c_str());
+            printf("<table class='data-table'><tr><th style='width:90px;'>Points</th><th>Category</th><th>Synthesis</th></tr>\n");
+        } else {
+            printf("\n[%s]\n", te?title_te.c_str():title_en.c_str());
+        }
+    };
+    auto print_cat_footer = [&]() { if (html) printf("</table>\n"); };
+
     int gana_arr[27] = {0,1,2,1,0,1,0,0,2,2,1,1,0,2,0,2,0,2,2,1,1,0,2,2,1,1,0}; 
     int yoni_arr[27] = {1,2,3,4,4,5,6,7,6,8,8,9,10,11,10,11,12,12,5,13,14,13,15,1,15,9,2}; 
     int nadi_arr[27] = {0,1,2,2,1,0,0,1,2,2,1,0,0,1,2,2,1,0,0,1,2,2,1,0,0,1,2};
@@ -4215,7 +4274,6 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     int vedha_map[27] = {17, 16, 15, 14, 13, 21, 20, 19, 18, 26, 25, 24, 23, 4, 3, 2, 1, 0, 8, 7, 6, 5, -1, 12, 11, 10, 9};
     int rajju_arr[27] = {0,1,2,3,4, 3,2,1,0, 0,1,2,3,4, 3,2,1,0, 0,1,2,3,4, 3,2,1,0};
 
-    // --- Core Variables Person 1 ---
     int p1_asc = p1.planet_rashis[0], p1_su = p1.planet_rashis[1], p1_mo = p1.planet_rashis[2];
     int p1_ma = p1.planet_rashis[3], p1_ju = p1.planet_rashis[5], p1_ve = p1.planet_rashis[6];
     int p1_sa = p1.planet_rashis[7], p1_ra = p1.planet_rashis[8], p1_ke = p1.planet_rashis[9];
@@ -4232,7 +4290,6 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     int p1_d60_7L = p1.get_varga(60, p1.planet_lons[p1_7L]);
     double p1_bb = get_midpoint(p1.planet_lons[8], p1.planet_lons[2]);
 
-    // --- Core Variables Person 2 ---
     int p2_asc = p2.planet_rashis[0], p2_su = p2.planet_rashis[1], p2_mo = p2.planet_rashis[2];
     int p2_ma = p2.planet_rashis[3], p2_ju = p2.planet_rashis[5], p2_ve = p2.planet_rashis[6];
     int p2_sa = p2.planet_rashis[7], p2_ra = p2.planet_rashis[8], p2_ke = p2.planet_rashis[9];
@@ -4254,77 +4311,78 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     int nak_1 = (int)(p1.moon_lon / (360.0 / 27.0)); 
     int nak_2 = (int)(p2.moon_lon / (360.0 / 27.0));
 
-    if (te) {
-        printf("[జన్మ రాశి & నక్షత్ర వివరాలు]\n");
-        printf("వ్యక్తి 1 చంద్రుడు: %02d° %s | నక్షత్రం: %s (%d)\n", (int)fmod(p1.moon_lon, 30.0), te_rashi_names[p1_mo], te_nak_names[nak_1], nak_1 + 1);
-        printf("వ్యక్తి 2 చంద్రుడు: %02d° %s | నక్షత్రం: %s (%d)\n", (int)fmod(p2.moon_lon, 30.0), te_rashi_names[p2_mo], te_nak_names[nak_2], nak_2 + 1);
+    if (html) {
+        printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", te?"జన్మ రాశి & నక్షత్ర వివరాలు":"Luminal Anchors");
+        printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th></tr>\n", te?"వ్యక్తి":"Person", te?"చంద్రుని డిగ్రీ & రాశి":"Moon Degree & Sign", te?"నక్షత్రం (పాదం)":"Nakshatra (Pada)");
+        printf("<tr><td><b>Person 1</b></td><td>%02d° %s</td><td>%s (%d)</td></tr>\n", (int)fmod(p1.moon_lon, 30.0), te?te_rashi_names[p1_mo]:rashi_names[p1_mo], te?te_nak_names[nak_1]:nak_names[nak_1], nak_1 + 1);
+        printf("<tr><td><b>Person 2</b></td><td>%02d° %s</td><td>%s (%d)</td></tr>\n", (int)fmod(p2.moon_lon, 30.0), te?te_rashi_names[p2_mo]:rashi_names[p2_mo], te?te_nak_names[nak_2]:nak_names[nak_2], nak_2 + 1);
+        printf("</table>\n");
     } else {
-        printf("[LUMINAL ANCHORS]\n");
-        printf("Person 1 Moon: %02d° %s | Nakshatra: %s (%d)\n", (int)fmod(p1.moon_lon, 30.0), rashi_names[p1_mo], nak_names[nak_1], nak_1 + 1);
-        printf("Person 2 Moon: %02d° %s | Nakshatra: %s (%d)\n", (int)fmod(p2.moon_lon, 30.0), rashi_names[p2_mo], nak_names[nak_2], nak_2 + 1);
+        if (te) {
+            printf("[జన్మ రాశి & నక్షత్ర వివరాలు]\n");
+            printf("వ్యక్తి 1 చంద్రుడు: %02d° %s | నక్షత్రం: %s (%d)\n", (int)fmod(p1.moon_lon, 30.0), te_rashi_names[p1_mo], te_nak_names[nak_1], nak_1 + 1);
+            printf("వ్యక్తి 2 చంద్రుడు: %02d° %s | నక్షత్రం: %s (%d)\n", (int)fmod(p2.moon_lon, 30.0), te_rashi_names[p2_mo], te_nak_names[nak_2], nak_2 + 1);
+        } else {
+            printf("[LUMINAL ANCHORS]\n");
+            printf("Person 1 Moon: %02d° %s | Nakshatra: %s (%d)\n", (int)fmod(p1.moon_lon, 30.0), rashi_names[p1_mo], nak_names[nak_1], nak_1 + 1);
+            printf("Person 2 Moon: %02d° %s | Nakshatra: %s (%d)\n", (int)fmod(p2.moon_lon, 30.0), rashi_names[p2_mo], nak_names[nak_2], nak_2 + 1);
+        }
     }
 
-    // =================================================================
-    // 1. ATTRACTION & CHEMISTRY (29 Points Max)
-    // =================================================================
-    if (te) printf("\n[1. ఆకర్షణ & అనుబంధం - శృంగారం & ఆకర్షణ శక్తి (29 pts)]\n");
-    else printf("\n[1. ATTRACTION & CHEMISTRY - Romance & Magnetism (29 pts)]\n");
-    
+    // 1. ATTRACTION & CHEMISTRY
+    print_cat_header("1. ATTRACTION & CHEMISTRY - Romance & Magnetism (29 pts)", "1. ఆకర్షణ & అనుబంధం - శృంగారం & ఆకర్షణ శక్తి (29 pts)");
     int s_vema = 0, s_sumo = 0, s_vemo = 0, s_yoni = 0, s_varna = 0, s_vashya = 0;
 
     bool v1_m2 = (get_house(p1_ve, p2_ma)==1 || get_house(p1_ve, p2_ma)==7);
     bool m1_v2 = (get_house(p1_ma, p2_ve)==1 || get_house(p1_ma, p2_ve)==7);
-    if (v1_m2 && m1_v2) { s_vema = 8; printf(te ? "  + 8 pts | శుక్ర-కుజ బంధం   : డబుల్ లాక్ (పరస్పర ఆకర్షణ/దృష్టి)\n" : "  + 8 pts | Venus-Mars    : DOUBLE LOCK (Mutual cross-conjunction/opposition)\n"); }
-    else if (v1_m2 || m1_v2) { s_vema = 6; printf(te ? "  + 6 pts | శుక్ర-కుజ బంధం   : ఆకర్షణీయం (అయస్కాంత శక్తి)\n" : "  + 6 pts | Venus-Mars    : MAGNETIC (Conjunction/Opposition creates undeniable spark)\n"); }
-    else { s_vema = 2; printf(te ? "  + 2 pts | శుక్ర-కుజ బంధం   : సాధారణం (సాధారణ శారీరక ఆకర్షణ)\n" : "  + 2 pts | Venus-Mars    : AVERAGE (Standard physical chemistry)\n"); }
+    if (v1_m2 && m1_v2) { s_vema = 8; print_row(8, "Venus-Mars", "శుక్ర-కుజ బంధం", "DOUBLE LOCK (Mutual cross-conjunction/opposition)", "డబుల్ లాక్ (పరస్పర ఆకర్షణ/దృష్టి)"); }
+    else if (v1_m2 || m1_v2) { s_vema = 6; print_row(6, "Venus-Mars", "శుక్ర-కుజ బంధం", "MAGNETIC (Conjunction/Opposition creates undeniable spark)", "ఆకర్షణీయం (అయస్కాంత శక్తి)"); }
+    else { s_vema = 2; print_row(2, "Venus-Mars", "శుక్ర-కుజ బంధం", "AVERAGE (Standard physical chemistry)", "సాధారణం (సాధారణ శారీరక ఆకర్షణ)"); }
 
     bool su1_mo2 = (get_house(p1_su, p2_mo)==1 || get_house(p1_su, p2_mo)==5 || get_house(p1_su, p2_mo)==9 || get_house(p1_su, p2_mo)==7);
     bool su2_mo1 = (get_house(p2_su, p1_mo)==1 || get_house(p2_su, p1_mo)==5 || get_house(p2_su, p1_mo)==9 || get_house(p2_su, p1_mo)==7);
-    if (su1_mo2 && su2_mo1) { s_sumo = 8; printf(te ? "  + 8 pts | సూర్య-చంద్ర బంధం : డబుల్ లాక్ (పరస్పర అహం-భావోద్వేగాల అవగాహన)\n" : "  + 8 pts | Sun-Moon      : DOUBLE LOCK (Mutual ego-emotion mirroring)\n"); }
-    else if (su1_mo2 || su2_mo1) { s_sumo = 6; printf(te ? "  + 6 pts | సూర్య-చంద్ర బంధం : సామరస్యం (సూర్యుడు భాగస్వామి చంద్రుడిని ప్రకాశవంతం చేస్తాడు)\n" : "  + 6 pts | Sun-Moon      : HARMONY (Sun illuminates partner's Moon)\n"); }
-    else { s_sumo = 2; printf(te ? "  + 2 pts | సూర్య-చంద్ర బంధం : సాధారణం\n" : "  + 2 pts | Sun-Moon      : AVERAGE (Standard luminary interaction)\n"); }
+    if (su1_mo2 && su2_mo1) { s_sumo = 8; print_row(8, "Sun-Moon", "సూర్య-చంద్ర బంధం", "DOUBLE LOCK (Mutual ego-emotion mirroring)", "డబుల్ లాక్ (పరస్పర అహం-భావోద్వేగాల అవగాహన)"); }
+    else if (su1_mo2 || su2_mo1) { s_sumo = 6; print_row(6, "Sun-Moon", "సూర్య-చంద్ర బంధం", "HARMONY (Sun illuminates partner's Moon)", "సామరస్యం (సూర్యుడు భాగస్వామి చంద్రుడిని ప్రకాశవంతం చేస్తాడు)"); }
+    else { s_sumo = 2; print_row(2, "Sun-Moon", "సూర్య-చంద్ర బంధం", "AVERAGE (Standard luminary interaction)", "సాధారణం"); }
 
     bool v1_mo2 = (get_house(p1_ve, p2_mo)==1 || get_house(p1_ve, p2_mo)==5 || get_house(p1_ve, p2_mo)==9);
     bool v2_mo1 = (get_house(p2_ve, p1_mo)==1 || get_house(p2_ve, p1_mo)==5 || get_house(p2_ve, p1_mo)==9);
-    if (v1_mo2 || v2_mo1) { s_vemo = 5; printf(te ? "  + 5 pts | శుక్ర-చంద్ర బంధం : మధురానుభూతి (లోతైన ఆప్యాయత, భావోద్వేగ బంధం)\n" : "  + 5 pts | Venus-Moon    : SWEETNESS (Deep affection and emotional bonding)\n"); }
-    else { s_vemo = 2; printf(te ? "  + 2 pts | శుక్ర-చంద్ర బంధం : తటస్థం\n" : "  + 2 pts | Venus-Moon    : NEUTRAL (Affection requires conscious effort)\n"); }
+    if (v1_mo2 || v2_mo1) { s_vemo = 5; print_row(5, "Venus-Moon", "శుక్ర-చంద్ర బంధం", "SWEETNESS (Deep affection and emotional bonding)", "మధురానుభూతి (లోతైన ఆప్యాయత, భావోద్వేగ బంధం)"); }
+    else { s_vemo = 2; print_row(2, "Venus-Moon", "శుక్ర-చంద్ర బంధం", "NEUTRAL (Affection requires conscious effort)", "తటస్థం"); }
 
-    if (yoni_arr[nak_1] == yoni_arr[nak_2]) { s_yoni = 4; printf(te ? "  + 4 pts | యోని కూటమి     : ఏక యోని (పరిపూర్ణ శారీరక అనుకూలత)\n" : "  + 4 pts | Yoni Kuta     : IDENTICAL (Perfect instinctual/sexual rhythm)\n"); }
-    else { s_yoni = 2; printf(te ? "  + 2 pts | యోని కూటమి     : ఆమోదయోగ్యం\n" : "  + 2 pts | Yoni Kuta     : ACCEPTABLE (Different animal symbols)\n"); }
+    if (yoni_arr[nak_1] == yoni_arr[nak_2]) { s_yoni = 4; print_row(4, "Yoni Kuta", "యోని కూటమి", "IDENTICAL (Perfect instinctual/sexual rhythm)", "ఏక యోని (పరిపూర్ణ శారీరక అనుకూలత)"); }
+    else { s_yoni = 2; print_row(2, "Yoni Kuta", "యోని కూటమి", "ACCEPTABLE (Different animal symbols)", "ఆమోదయోగ్యం"); }
 
-    if (varna_arr[p1_mo] <= varna_arr[p2_mo]) { s_varna = 2; printf(te ? "  + 2 pts | వర్ణ కూటమి     : అనుకూలం (ఆధ్యాత్మిక అహంకారం సమతుల్యం)\n" : "  + 2 pts | Varna Kuta    : COMPATIBLE (Spiritual ego aligns)\n"); }
-    else { s_varna = 1; printf(te ? "  + 1 pts | వర్ణ కూటమి     : స్వల్ప ఘర్షణ (ఆధ్యాత్మిక అహంకార వివాదం)\n" : "  + 1 pts | Varna Kuta    : FRICTION (Minor spiritual ego conflict)\n"); }
+    if (varna_arr[p1_mo] <= varna_arr[p2_mo]) { s_varna = 2; print_row(2, "Varna Kuta", "వర్ణ కూటమి", "COMPATIBLE (Spiritual ego aligns)", "అనుకూలం (ఆధ్యాత్మిక అహంకారం సమతుల్యం)"); }
+    else { s_varna = 1; print_row(1, "Varna Kuta", "వర్ణ కూటమి", "FRICTION (Minor spiritual ego conflict)", "స్వల్ప ఘర్షణ (ఆధ్యాత్మిక అహంకార వివాదం)"); }
 
-    if (vashya_arr[p1_mo] == vashya_arr[p2_mo]) { s_vashya = 2; printf(te ? "  + 2 pts | వశ్య కూటమి     : సమానం (ఎవరు ఎవరిపైనా ఆధిపత్యం చెలాయించరు)\n" : "  + 2 pts | Vashya Kuta   : EQUAL (Neither dominates the other)\n"); }
-    else { s_vashya = 1; printf(te ? "  + 1 pts | వశ్య కూటమి     : అసమతుల్యం (ఒకరు సహజంగా మరొకరిని నియంత్రిస్తారు)\n" : "  + 1 pts | Vashya Kuta   : UNBALANCED (One sign naturally controls the other)\n"); }
+    if (vashya_arr[p1_mo] == vashya_arr[p2_mo]) { s_vashya = 2; print_row(2, "Vashya Kuta", "వశ్య కూటమి", "EQUAL (Neither dominates the other)", "సమానం (ఎవరు ఎవరిపైనా ఆధిపత్యం చెలాయించరు)"); }
+    else { s_vashya = 1; print_row(1, "Vashya Kuta", "వశ్య కూటమి", "UNBALANCED (One sign naturally controls the other)", "అసమతుల్యం (ఒకరు సహజంగా మరొకరిని నియంత్రిస్తారు)"); }
     
     total_score += (s_vema + s_sumo + s_vemo + s_yoni + s_varna + s_vashya);
+    print_cat_footer();
 
-    // =================================================================
-    // 2. PSYCHOLOGICAL HARMONY & SAV RESONANCE (33 Points Max)
-    // =================================================================
-    if (te) printf("\n[2. మానసిక సామరస్యం - మనస్సు & సౌఖ్యం (33 pts)]\n");
-    else printf("\n[2. PSYCHOLOGICAL HARMONY - Mind & Comfort (33 pts)]\n");
-    
+    // 2. PSYCHOLOGICAL HARMONY & SAV RESONANCE
+    print_cat_header("2. PSYCHOLOGICAL HARMONY - Mind & Comfort (33 pts)", "2. మానసిక సామరస్యం - మనస్సు & సౌఖ్యం (33 pts)");
     int s_bha = 0, s_nadi = 0, s_gana = 0, s_tara = 0, s_vedha = 0, s_maitri = 0, s_sav = 0;
 
     int mo_mo = get_house(p2_mo, p1_mo); 
-    if (mo_mo==6||mo_mo==8||mo_mo==2||mo_mo==12) { s_bha = 0; printf(te ? "  + 0 pts | భకూట దోషం      : దోషం (6/8 లేదా 2/12 స్థానాలు తీవ్ర ఘర్షణను సృష్టిస్తాయి)\n" : "  + 0 pts | Bhakoot (Sign): DOSHA (6/8 or 2/12 creates deep friction)\n"); }
-    else { s_bha = 6; printf(te ? "  + 6 pts | భకూట స్థానం    : శుభకరం (భావోద్వేగ రక్షణ మరియు ప్రశాంతత)\n" : "  + 6 pts | Bhakoot (Sign): AUSPICIOUS (Emotional safety and flow)\n"); }
+    if (mo_mo==6||mo_mo==8||mo_mo==2||mo_mo==12) { s_bha = 0; print_row(0, "Bhakoot (Sign)", "భకూట దోషం", "DOSHA (6/8 or 2/12 creates deep friction)", "దోషం (6/8 లేదా 2/12 స్థానాలు తీవ్ర ఘర్షణను సృష్టిస్తాయి)"); }
+    else { s_bha = 6; print_row(6, "Bhakoot (Sign)", "భకూట స్థానం", "AUSPICIOUS (Emotional safety and flow)", "శుభకరం (భావోద్వేగ రక్షణ మరియు ప్రశాంతత)"); }
 
-    if (nadi_arr[nak_1] == nadi_arr[nak_2]) { s_nadi = 2; printf(te ? "  + 2 pts | నాడి కూటమి     : ఏక నాడి దోషం (ఒకే రకమైన నాడీ వ్యవస్థ)\n" : "  + 2 pts | Nadi (Pulse)  : SAME NADI (Traditional Dosha, implies identical soul frequency)\n"); }
-    else { s_nadi = 6; printf(te ? "  + 6 pts | నాడి కూటమి     : అత్యుత్తమం (పరస్పర అనుకూలమైన నాడీ వ్యవస్థలు)\n" : "  + 6 pts | Nadi (Pulse)  : EXCELLENT (Complementary nervous systems)\n"); }
+    if (nadi_arr[nak_1] == nadi_arr[nak_2]) { s_nadi = 2; print_row(2, "Nadi (Pulse)", "నాడి కూటమి", "SAME NADI (Traditional Dosha, implies identical soul frequency)", "ఏక నాడి దోషం (ఒకే రకమైన నాడీ వ్యవస్థ)"); }
+    else { s_nadi = 6; print_row(6, "Nadi (Pulse)", "నాడి కూటమి", "EXCELLENT (Complementary nervous systems)", "అత్యుత్తమం (పరస్పర అనుకూలమైన నాడీ వ్యవస్థలు)"); }
 
-    if (gana_arr[nak_1] == gana_arr[nak_2]) { s_gana = 5; printf(te ? "  + 5 pts | గణ కూటమి       : అనుకూలం (ఒకే రకమైన స్వభావం)\n" : "  + 5 pts | Gana Kuta     : HARMONIOUS (Same temperament category)\n"); }
-    else { s_gana = 1; printf(te ? "  + 1 pts | గణ కూటమి       : విభేదం (భిన్నమైన స్వభావాలు)\n" : "  + 1 pts | Gana Kuta     : CLASH (Different temperaments)\n"); }
+    if (gana_arr[nak_1] == gana_arr[nak_2]) { s_gana = 5; print_row(5, "Gana Kuta", "గణ కూటమి", "HARMONIOUS (Same temperament category)", "అనుకూలం (ఒకే రకమైన స్వభావం)"); }
+    else { s_gana = 1; print_row(1, "Gana Kuta", "గణ కూటమి", "CLASH (Different temperaments)", "విభేదం (భిన్నమైన స్వభావాలు)"); }
 
     int tara_dist = (nak_2 - nak_1 + 27) % 9;
     if (tara_dist==1||tara_dist==3||tara_dist==5||tara_dist==7||tara_dist==8) { 
-        s_tara = 3; printf(te ? "  + 3 pts | తారా బలం       : శుభకరం (సంపత్/క్షేమ/సాధక/మిత్ర)\n" : "  + 3 pts | Tara Kuta     : AUSPICIOUS (Sampat/Kshema/Sadhaka/Mitra)\n"); 
+        s_tara = 3; print_row(3, "Tara Kuta", "తారా బలం", "AUSPICIOUS (Sampat/Kshema/Sadhaka/Mitra)", "శుభకరం (సంపత్/క్షేమ/సాధక/మిత్ర)"); 
     } else if (tara_dist==4) { 
-        s_tara = 1; printf(te ? "  + 1 pts | తారా బలం       : ప్రత్యక్ తార (కర్మ సంబంధిత అడ్డంకులు)\n" : "  + 1 pts | Tara Kuta     : PRATYAK (Obstacles / Karmic debt-clearing love)\n"); 
+        s_tara = 1; print_row(1, "Tara Kuta", "తారా బలం", "PRATYAK (Obstacles / Karmic debt-clearing love)", "ప్రత్యక్ తార (కర్మ సంబంధిత అడ్డంకులు)"); 
     } else { 
-        s_tara = 0; printf(te ? "  + 0 pts | తారా బలం       : ప్రతికూలం (విపత్/వధ/జన్మ తారలు)\n" : "  + 0 pts | Tara Kuta     : CHALLENGING (Vipat / Vadha / Janma)\n"); 
+        s_tara = 0; print_row(0, "Tara Kuta", "తారా బలం", "CHALLENGING (Vipat / Vadha / Janma)", "ప్రతికూలం (విపత్/వధ/జన్మ తారలు)"); 
     }
 
     bool vedha_hit = false;
@@ -4333,40 +4391,41 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
         if ((int)(p2.planet_lons[m] / (360.0/27.0)) == vedha_map[nak_1]) vedha_hit = true;
         if ((int)(p1.planet_lons[m] / (360.0/27.0)) == vedha_map[nak_2]) vedha_hit = true;
     }
-    if (vedha_hit) { s_vedha = 0; printf(te ? "  + 0 pts | వేధ దోషం       : బాధాకరం (పాప గ్రహాలచే వేధ)\n" : "  + 0 pts | SBC Vedha     : AFFLICTED (Malefics cast Vedha on Moon Nakshatra)\n"); }
-    else { s_vedha = 2; printf(te ? "  + 2 pts | వేధ దోషం       : సురక్షితం (చంద్రునిపై ఎలాంటి వేధ లేదు)\n" : "  + 2 pts | SBC Vedha     : CLEAR (No Malefic Vedha on Moon)\n"); }
+    if (vedha_hit) { s_vedha = 0; print_row(0, "SBC Vedha", "వేధ దోషం", "AFFLICTED (Malefics cast Vedha on Moon Nakshatra)", "బాధాకరం (పాప గ్రహాలచే వేధ)"); }
+    else { s_vedha = 2; print_row(2, "SBC Vedha", "వేధ దోషం", "CLEAR (No Malefic Vedha on Moon)", "సురక్షితం (చంద్రునిపై ఎలాంటి వేధ లేదు)"); }
 
     int m_lord1=1, m_lord2=1;
     for(int p=1; p<=7; p++) { if(string(rashi_lords[p1_mo])==p_names_full[p]) m_lord1=p; if(string(rashi_lords[p2_mo])==p_names_full[p]) m_lord2=p; }
     int maitri_grid[8][8] = { {0,0,0,0,0,0,0,0}, {0,2,2,2,1,2,0,0}, {0,2,2,1,2,1,1,1}, {0,2,2,2,0,2,1,1}, {0,2,0,1,2,1,2,1}, {0,2,2,2,0,2,0,1}, {0,0,0,1,2,1,2,2}, {0,0,0,0,2,1,2,2} };
     int m1 = maitri_grid[m_lord1][m_lord2], m2 = maitri_grid[m_lord2][m_lord1];
-    if(m1==2&&m2==2) { s_maitri=5; printf(te ? "  + 5 pts | గ్రహ మైత్రి     : అత్యుత్తమం (పరస్పర గ్రహ మిత్రులు)\n" : "  + 5 pts | Graha Maitri  : EXCELLENT (Mutual planetary friends)\n"); }
-    else if((m1==2&&m2==1)||(m1==1&&m2==2)) { s_maitri=4; printf(te ? "  + 4 pts | గ్రహ మైత్రి     : మంచిది (మిత్రుడు / తటస్థం)\n" : "  + 4 pts | Graha Maitri  : GOOD (Friend / Neutral)\n"); }
-    else if(m1==1&&m2==1) { s_maitri=3; printf(te ? "  + 3 pts | గ్రహ మైత్రి     : సాధారణం (పరస్పర తటస్థం)\n" : "  + 3 pts | Graha Maitri  : AVERAGE (Mutual Neutral)\n"); }
-    else if((m1==2&&m2==0)||(m1==0&&m2==2)) { s_maitri=2; printf(te ? "  + 2 pts | గ్రహ మైత్రి     : సవాలు (మిత్రుడు / శత్రువు)\n" : "  + 2 pts | Graha Maitri  : CHALLENGING (Friend / Enemy)\n"); }
-    else { s_maitri=1; printf(te ? "  + 1 pts | గ్రహ మైత్రి     : శత్రుత్వం (పరస్పర శత్రువులు)\n" : "  + 1 pts | Graha Maitri  : FRICTION (Mutual Enemies or Neutral/Enemy)\n"); }
+    if(m1==2&&m2==2) { s_maitri=5; print_row(5, "Graha Maitri", "గ్రహ మైత్రి", "EXCELLENT (Mutual planetary friends)", "అత్యుత్తమం (పరస్పర గ్రహ మిత్రులు)"); }
+    else if((m1==2&&m2==1)||(m1==1&&m2==2)) { s_maitri=4; print_row(4, "Graha Maitri", "గ్రహ మైత్రి", "GOOD (Friend / Neutral)", "మంచిది (మిత్రుడు / తటస్థం)"); }
+    else if(m1==1&&m2==1) { s_maitri=3; print_row(3, "Graha Maitri", "గ్రహ మైత్రి", "AVERAGE (Mutual Neutral)", "సాధారణం (పరస్పర తటస్థం)"); }
+    else if((m1==2&&m2==0)||(m1==0&&m2==2)) { s_maitri=2; print_row(2, "Graha Maitri", "గ్రహ మైత్రి", "CHALLENGING (Friend / Enemy)", "సవాలు (మిత్రుడు / శత్రువు)"); }
+    else { s_maitri=1; print_row(1, "Graha Maitri", "గ్రహ మైత్రి", "FRICTION (Mutual Enemies or Neutral/Enemy)", "శత్రుత్వం (పరస్పర శత్రువులు)"); }
 
     int sav_p1_in_p2 = p2.sav_scores[p1_mo];
     int sav_p2_in_p1 = p1.sav_scores[p2_mo];
     if(sav_p1_in_p2 >= 28) s_sav += 3; else if(sav_p1_in_p2 >= 25) s_sav += 1;
     if(sav_p2_in_p1 >= 28) s_sav += 3; else if(sav_p2_in_p1 >= 25) s_sav += 1;
-    printf(te ? "  + %d pts | SAV అనుకూలత    : పరస్పర పోషణ (P1 in P2: %d, P2 in P1: %d)\n" : "  + %d pts | SAV Resonance : MUTUAL NOURISHMENT (P1 in P2: %d, P2 in P1: %d)\n", s_sav, sav_p1_in_p2, sav_p2_in_p1);
+    
+    char buf_en[128], buf_te[128];
+    snprintf(buf_en, sizeof(buf_en), "MUTUAL NOURISHMENT (P1 in P2: %d, P2 in P1: %d)", sav_p1_in_p2, sav_p2_in_p1);
+    snprintf(buf_te, sizeof(buf_te), "పరస్పర పోషణ (P1 in P2: %d, P2 in P1: %d)", sav_p1_in_p2, sav_p2_in_p1);
+    print_row(s_sav, "SAV Resonance", "SAV అనుకూలత", string(buf_en), string(buf_te));
 
     total_score += (s_bha + s_nadi + s_gana + s_tara + s_vedha + s_maitri + s_sav);
+    print_cat_footer();
 
-    // =================================================================
-    // 3. KARMIC DESTINY & INTENSITY (42 Points Max)
-    // =================================================================
-    if (te) printf("\n[3. కర్మ బంధం - ఆత్మల కలయిక (42 pts)]\n");
-    else printf("\n[3. KARMIC DESTINY - Soul Binding & Exact Overlays (42 pts)]\n");
-    
+    // 3. KARMIC DESTINY
+    print_cat_header("3. KARMIC DESTINY - Soul Binding & Exact Overlays (42 pts)", "3. కర్మ బంధం - ఆత్మల కలయిక (42 pts)");
     int s_nodal = 0, s_ul = 0, s_akdk = 0, s_bb = 0, s_d60_dig = 0, s_d60_mut = 0, s_ascmo = 0;
 
     bool asc1_mo2 = (get_house(p1_asc, p2_mo)==1 || get_house(p1_asc, p2_mo)==7);
     bool asc2_mo1 = (get_house(p2_asc, p1_mo)==1 || get_house(p2_asc, p1_mo)==7);
-    if (asc1_mo2 && asc2_mo1) { s_ascmo = 8; printf(te ? "  + 8 pts | లగ్న-చంద్ర బంధం : ద్వంద్వ ఆత్మ బంధం (పరస్పర అనుసంధానం)\n" : "  + 8 pts | Lagna-Moon    : DOUBLE SOUL TIE (Mutual Ascendant/Moon locks)\n"); }
-    else if (asc1_mo2 || asc2_mo1) { s_ascmo = 6; printf(te ? "  + 6 pts | లగ్న-చంద్ర బంధం : ఆత్మ బంధం (భాగస్వామి చంద్రుడు లగ్నంపై పడటం)\n" : "  + 6 pts | Lagna-Moon    : SOUL TIE (Partner's Moon on Ascendant axis)\n"); }
-    else { s_ascmo = 0; printf(te ? "  + 0 pts | లగ్న-చంద్ర బంధం : స్వతంత్రం (ప్రత్యక్ష లగ్న-చంద్ర సంబంధం లేదు)\n" : "  + 0 pts | Lagna-Moon    : INDEPENDENT (No direct Ascendant-Moon overlay)\n"); }
+    if (asc1_mo2 && asc2_mo1) { s_ascmo = 8; print_row(8, "Lagna-Moon", "లగ్న-చంద్ర బంధం", "DOUBLE SOUL TIE (Mutual Ascendant/Moon locks)", "ద్వంద్వ ఆత్మ బంధం (పరస్పర అనుసంధానం)"); }
+    else if (asc1_mo2 || asc2_mo1) { s_ascmo = 6; print_row(6, "Lagna-Moon", "లగ్న-చంద్ర బంధం", "SOUL TIE (Partner's Moon on Ascendant axis)", "ఆత్మ బంధం (భాగస్వామి చంద్రుడు లగ్నంపై పడటం)"); }
+    else { s_ascmo = 0; print_row(0, "Lagna-Moon", "లగ్న-చంద్ర బంధం", "INDEPENDENT (No direct Ascendant-Moon overlay)", "స్వతంత్రం (ప్రత్యక్ష లగ్న-చంద్ర సంబంధం లేదు)"); }
 
     bool mo_node_hit = (p1_ra==p2_mo || p1_ke==p2_mo || p2_ra==p1_mo || p2_ke==p1_mo);
     bool nodal_hit = false;
@@ -4375,26 +4434,26 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     int n2[] = {p2_ra, p2_ke}; int t1[] = {p1_su, p1_mo, p1_ve, p1_asc, p1.planet_rashis[p1_7L]};
     for(int n : n2) for(int t : t1) if(n == t) nodal_hit = true;
 
-    if (mo_node_hit) { s_nodal = 10; printf(te ? "  +10 pts | రాహు/కేతు పట్టు : కర్మ రుణం (చంద్రుడు కచ్చితంగా నోడల్ యాక్సిస్‌పై ఉన్నాడు - తీవ్రత ఎక్కువ)\n" : "  +10 pts | Nodal Grip    : KARMIC DEBT (Moon exactly on Nodal Axis - High intensity)\n"); }
-    else if (nodal_hit) { s_nodal = 6; printf(te ? "  + 6 pts | రాహు/కేతు పట్టు : తీవ్రమైన బంధం (రాహు/కేతువులు భాగస్వామి ముఖ్య స్థానాలతో కలయిక)\n" : "  + 6 pts | Nodal Grip    : INTENSE (Rahu/Ketu conjunct partner's core pillars)\n"); }
-    else { s_nodal = 2; printf(te ? "  + 2 pts | రాహు/కేతు పట్టు : సురక్షితం (భారీ కర్మ రుణం లేదు)\n" : "  + 2 pts | Nodal Grip    : CLEAR (No heavy karmic debt or nodal obsession)\n"); }
+    if (mo_node_hit) { s_nodal = 10; print_row(10, "Nodal Grip", "రాహు/కేతు పట్టు", "KARMIC DEBT (Moon exactly on Nodal Axis - High intensity)", "కర్మ రుణం (చంద్రుడు కచ్చితంగా నోడల్ యాక్సిస్‌పై ఉన్నాడు - తీవ్రత ఎక్కువ)"); }
+    else if (nodal_hit) { s_nodal = 6; print_row(6, "Nodal Grip", "రాహు/కేతు పట్టు", "INTENSE (Rahu/Ketu conjunct partner's core pillars)", "తీవ్రమైన బంధం (రాహు/కేతువులు భాగస్వామి ముఖ్య స్థానాలతో కలయిక)"); }
+    else { s_nodal = 2; print_row(2, "Nodal Grip", "రాహు/కేతు పట్టు", "CLEAR (No heavy karmic debt or nodal obsession)", "సురక్షితం (భారీ కర్మ రుణం లేదు)"); }
 
     if (p1_ul == p2_ul || p1_a7 == p2_mo || p1_a7 == p2_ve || p2_a7 == p1_mo || p2_a7 == p1_ve) {
-        s_ul = 7; printf(te ? "  + 7 pts | ఆరూఢ లగ్న బంధం : విధి నిర్ణయం (దారపదం కచ్చితంగా భాగస్వామిపై పడటం)\n" : "  + 7 pts | Arudha (A7/UL): FATED (Darapada exactly hits spouse markers)\n");
-    } else { s_ul = 2; printf(te ? "  + 2 pts | ఆరూఢ లగ్న బంధం : సాధారణం\n" : "  + 2 pts | Arudha (A7/UL): STANDARD (No direct Arudha overlay)\n"); }
+        s_ul = 7; print_row(7, "Arudha (A7/UL)", "ఆరూఢ లగ్న బంధం", "FATED (Darapada exactly hits spouse markers)", "విధి నిర్ణయం (దారపదం కచ్చితంగా భాగస్వామిపై పడటం)");
+    } else { s_ul = 2; print_row(2, "Arudha (A7/UL)", "ఆరూఢ లగ్న బంధం", "STANDARD (No direct Arudha overlay)", "సాధారణం"); }
 
     double ak_1 = p1.planet_lons[p1.atmakaraka_idx], dk_2 = p2.planet_lons[p2.darakaraka_idx];
     double dk_1 = p1.planet_lons[p1.darakaraka_idx], mo_2 = p2.planet_lons[2];
     if (check_dist(ak_1, dk_2, 5.0) || check_dist(p2.planet_lons[p2.atmakaraka_idx], p1.planet_lons[p1.darakaraka_idx], 5.0)) {
-        s_akdk = 8; printf(te ? "  + 8 pts | డిగ్రీల కలయిక   : ఆత్మల ఒప్పందం (AK మరియు DK 5° లోపు కలయిక)\n" : "  + 8 pts | Exact Degrees : SOUL CONTRACT (AK conjunct DK within 5° orb)\n");
+        s_akdk = 8; print_row(8, "Exact Degrees", "డిగ్రీల కలయిక", "SOUL CONTRACT (AK conjunct DK within 5° orb)", "ఆత్మల ఒప్పందం (AK మరియు DK 5° లోపు కలయిక)");
     } else if (check_dist(dk_1, mo_2, 8.0) || check_dist(dk_2, p1.planet_lons[2], 8.0)) {
-        s_akdk = 6; printf(te ? "  + 6 pts | డిగ్రీల కలయిక   : సహజ భాగస్వామి (DK భాగస్వామి చంద్రునితో కలయిక)\n" : "  + 6 pts | Exact Degrees : DEFAULT SPOUSE (DK conjunct partner's Moon within orb)\n");
-    } else { s_akdk = 2; printf(te ? "  + 2 pts | డిగ్రీల కలయిక   : స్వతంత్రం\n" : "  + 2 pts | Exact Degrees : INDEPENDENT (No exact Jaimini degree locks)\n"); }
+        s_akdk = 6; print_row(6, "Exact Degrees", "డిగ్రీల కలయిక", "DEFAULT SPOUSE (DK conjunct partner's Moon within orb)", "సహజ భాగస్వామి (DK భాగస్వామి చంద్రునితో కలయిక)");
+    } else { s_akdk = 2; print_row(2, "Exact Degrees", "డిగ్రీల కలయిక", "INDEPENDENT (No exact Jaimini degree locks)", "స్వతంత్రం"); }
 
     if (check_dist(p1_bb, p2.planet_lons[6], 3.0) || check_dist(p1_bb, p2.planet_lons[p2_7L], 3.0) ||
         check_dist(p2_bb, p1.planet_lons[6], 3.0) || check_dist(p2_bb, p1.planet_lons[p1_7L], 3.0)) {
-        s_bb = 4; printf(te ? "  + 4 pts | భృగు బిందు     : విధి ప్రేరేపితం (డెస్టినీ పాయింట్ కచ్చితంగా భాగస్వామి 7వ అధిపతి/శుక్రునితో కలయిక)\n" : "  + 4 pts | Bhrigu Bindu  : FATED TRIGGER (Destiny point exactly conjunct/opposes partner's 7L/Venus)\n");
-    } else { s_bb = 0; printf(te ? "  + 0 pts | భృగు బిందు     : తటస్థం\n" : "  + 0 pts | Bhrigu Bindu  : SILENT (No exact destiny point triggers detected)\n"); }
+        s_bb = 4; print_row(4, "Bhrigu Bindu", "భృగు బిందు", "FATED TRIGGER (Destiny point exactly conjunct/opposes partner's 7L/Venus)", "విధి ప్రేరేపితం (డెస్టినీ పాయింట్ కచ్చితంగా భాగస్వామి 7వ అధిపతి/శుక్రునితో కలయిక)");
+    } else { s_bb = 0; print_row(0, "Bhrigu Bindu", "భృగు బిందు", "SILENT (No exact destiny point triggers detected)", "తటస్థం"); }
 
     int ex_signs[] = {-1, 0, 1, 9, 5, 3, 11, 6}; 
     int own_1[] = {-1, 4, 3, 0, 2, 8, 1, 9};
@@ -4402,84 +4461,78 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     bool d60_p1_strong = (p1_d60_7L == ex_signs[p1_7L] || p1_d60_7L == own_1[p1_7L] || p1_d60_7L == own_2[p1_7L]);
     bool d60_p2_strong = (p2_d60_7L == ex_signs[p2_7L] || p2_d60_7L == own_1[p2_7L] || p2_d60_7L == own_2[p2_7L]);
     
-    if (d60_p1_strong && d60_p2_strong) { s_d60_dig = 3; printf(te ? "  + 3 pts | D60 7L బలం     : శాశ్వత బంధం (ఇద్దరి D60 7వ అధిపతులు అత్యంత బలంగా ఉన్నారు)\n" : "  + 3 pts | D60 7L Dignity: ETERNAL BOND (Both D60 7th Lords hold massive dignity across lifetimes)\n"); }
-    else if (d60_p1_strong || d60_p2_strong) { s_d60_dig = 1; printf(te ? "  + 1 pts | D60 7L బలం     : పాక్షిక బలం (ఒకరి D60 7వ అధిపతి బలంగా ఉన్నాడు)\n" : "  + 1 pts | D60 7L Dignity: PARTIAL PROMISE (One D60 7th Lord shows past-life marital mastery)\n"); }
-    else { s_d60_dig = 0; printf(te ? "  + 0 pts | D60 7L బలం     : సాధారణం\n" : "  + 0 pts | D60 7L Dignity: STANDARD (D60 does not show exalted marital karma)\n"); }
+    if (d60_p1_strong && d60_p2_strong) { s_d60_dig = 3; print_row(3, "D60 7L Dignity", "D60 7L బలం", "ETERNAL BOND (Both D60 7th Lords hold massive dignity across lifetimes)", "శాశ్వత బంధం (ఇద్దరి D60 7వ అధిపతులు అత్యంత బలంగా ఉన్నారు)"); }
+    else if (d60_p1_strong || d60_p2_strong) { s_d60_dig = 1; print_row(1, "D60 7L Dignity", "D60 7L బలం", "PARTIAL PROMISE (One D60 7th Lord shows past-life marital mastery)", "పాక్షిక బలం (ఒకరి D60 7వ అధిపతి బలంగా ఉన్నాడు)"); }
+    else { s_d60_dig = 0; print_row(0, "D60 7L Dignity", "D60 7L బలం", "STANDARD (D60 does not show exalted marital karma)", "సాధారణం"); }
 
     if (get_house(p1_d60_7L, p2_d60_7L) == 1 || get_house(p1_d60_7L, p2_d60_7L) == 7) {
-        s_d60_mut = 2; printf(te ? "  + 2 pts | D60 పరస్పర బంధం : విడదీయరాని బంధం (D60 7వ అధిపతులు పరస్పర కలయిక/దృష్టి)\n" : "  + 2 pts | D60 Mutual    : UNBREAKABLE (D60 7th Lords conjunct/opposed across lifetimes)\n");
-    } else { s_d60_mut = 0; printf(te ? "  + 0 pts | D60 పరస్పర బంధం : స్వతంత్రం\n" : "  + 0 pts | D60 Mutual    : INDEPENDENT (No D60 mutual aspect)\n"); }
+        s_d60_mut = 2; print_row(2, "D60 Mutual", "D60 పరస్పర బంధం", "UNBREAKABLE (D60 7th Lords conjunct/opposed across lifetimes)", "విడదీయరాని బంధం (D60 7వ అధిపతులు పరస్పర కలయిక/దృష్టి)");
+    } else { s_d60_mut = 0; print_row(0, "D60 Mutual", "D60 పరస్పర బంధం", "INDEPENDENT (No D60 mutual aspect)", "స్వతంత్రం"); }
 
     total_score += (s_ascmo + s_nodal + s_ul + s_akdk + s_bb + s_d60_dig + s_d60_mut);
+    print_cat_footer();
 
-    // =================================================================
-    // 4. MARRIAGE STABILITY & DHARMA (31 Points Max)
-    // =================================================================
-    if (te) printf("\n[4. వివాహ స్థిరత్వం & ధర్మం - ఆయుష్షు & లక్ష్యం (31 pts)]\n");
-    else printf("\n[4. MARRIAGE STABILITY & DHARMA - Longevity & Purpose (31 pts)]\n");
-    
+    // 4. MARRIAGE STABILITY
+    print_cat_header("4. MARRIAGE STABILITY & DHARMA - Longevity & Purpose (31 pts)", "4. వివాహ స్థిరత్వం & ధర్మం - ఆయుష్షు & లక్ష్యం (31 pts)");
     int s_sat = 0, s_7L = 0, s_kuja = 0, s_comp = 0, s_d30 = 0, s_pushkara = 0, s_nodal_dosha = 0, s_rajju = 0;
 
     if (p1_sa==p2_mo || p1_sa==p2_ve || p1_sa==p2_ul || p1_sa==p2.planet_rashis[p2_7L] ||
         p2_sa==p1_mo || p2_sa==p1_ve || p2_sa==p1_ul || p2_sa==p1.planet_rashis[p1_7L]) {
-        s_sat = 6; printf(te ? "  + 6 pts | శని బంధం       : దృఢత్వం (శని భాగస్వామి వివాహ స్థానాలను బలంగా పట్టుకున్నాడు)\n" : "  + 6 pts | Saturn Binding: GRAVITY (Saturn grips partner's marriage markers)\n");
-    } else { s_sat = 2; printf(te ? "  + 2 pts | శని బంధం       : సాధారణం (భారీ శని బంధం లేదు)\n" : "  + 2 pts | Saturn Binding: LIGHT (Lacks heavy Saturnian glue)\n"); }
+        s_sat = 6; print_row(6, "Saturn Binding", "శని బంధం", "GRAVITY (Saturn grips partner's marriage markers)", "దృఢత్వం (శని భాగస్వామి వివాహ స్థానాలను బలంగా పట్టుకున్నాడు)");
+    } else { s_sat = 2; print_row(2, "Saturn Binding", "శని బంధం", "LIGHT (Lacks heavy Saturnian glue)", "సాధారణం (భారీ శని బంధం లేదు)"); }
 
     bool parivartana = (get_house(p1.planet_rashis[p1_7L], p2_asc) == get_house(p2.planet_rashis[p2_7L], p1_asc));
     if (parivartana && (p1_7L==p2_5L || p1_7L==p2_9L || p2_7L==p1_5L || p2_7L==p1_9L)) {
-        s_7L = 8; printf(te ? "  + 8 pts | భావాధిపతుల బంధం : కళానిధి యోగం (దోషరహిత పరస్పర మార్పిడి మరియు త్రికోణ కలయిక)\n" : "  + 8 pts | House Lords   : KALANIDHI YOGA (Flawless mutual exchange and Trinal crossing)\n");
+        s_7L = 8; print_row(8, "House Lords", "భావాధిపతుల బంధం", "KALANIDHI YOGA (Flawless mutual exchange and Trinal crossing)", "కళానిధి యోగం (దోషరహిత పరస్పర మార్పిడి మరియు త్రికోణ కలయిక)");
     } else if (p1_7L==p2_5L || p1_7L==p2_9L || p2_7L==p1_5L || p2_7L==p1_9L || p1_5L==p2_ve || p2_5L==p1_ve || get_house(p1.planet_rashis[p1_5L], p2_ve)==1 || get_house(p2.planet_rashis[p2_5L], p1_ve)==1) {
-        s_7L = 6; printf(te ? "  + 6 pts | భావాధిపతుల బంధం : ధార్మిక బంధం (5/9 అధిపతులు 7వ/శుక్రునితో కలయిక - పూర్వ పుణ్యం)\n" : "  + 6 pts | House Lords   : DHARMIC (5th/9th lords cross-connect with 7th/Venus - Poorva Punya)\n");
-    } else { s_7L = 2; printf(te ? "  + 2 pts | భావాధిపతుల బంధం : సాధారణం\n" : "  + 2 pts | House Lords   : AVERAGE (No major Trinal cross-chart exchanges)\n"); }
+        s_7L = 6; print_row(6, "House Lords", "భావాధిపతుల బంధం", "DHARMIC (5th/9th lords cross-connect with 7th/Venus - Poorva Punya)", "ధార్మిక బంధం (5/9 అధిపతులు 7వ/శుక్రునితో కలయిక - పూర్వ పుణ్యం)");
+    } else { s_7L = 2; print_row(2, "House Lords", "భావాధిపతుల బంధం", "AVERAGE (No major Trinal cross-chart exchanges)", "సాధారణం"); }
 
     bool kd1 = is_kd_house(get_house(p1_ma, p1_asc)) || is_kd_house(get_house(p1_ma, p1_mo));
     bool kd2 = is_kd_house(get_house(p2_ma, p2_asc)) || is_kd_house(get_house(p2_ma, p2_mo));
-    if (kd1 == kd2) { s_kuja = 4; printf(te ? "  + 4 pts | కుజ దోషం       : అద్భుతం (దోష సామ్యం - దూకుడు తటస్థీకరించబడింది)\n" : "  + 4 pts | Kuja Dosha    : EXCELLENT (Dosha Samya - Aggression neutralized)\n"); }
-    else { s_kuja = 0; printf(te ? "  + 0 pts | కుజ దోషం       : అసమతుల్యం (వివాహంలో తీవ్రమైన వేడి మరియు ఘర్షణ)\n" : "  + 0 pts | Kuja Dosha    : ASYMMETRIC (Volatile marital heat)\n"); }
+    if (kd1 == kd2) { s_kuja = 4; print_row(4, "Kuja Dosha", "కుజ దోషం", "EXCELLENT (Dosha Samya - Aggression neutralized)", "అద్భుతం (దోష సామ్యం - దూకుడు తటస్థీకరించబడింది)"); }
+    else { s_kuja = 0; print_row(0, "Kuja Dosha", "కుజ దోషం", "ASYMMETRIC (Volatile marital heat)", "అసమతుల్యం (వివాహంలో తీవ్రమైన వేడి మరియు ఘర్షణ)"); }
 
     bool nd1 = get_nodal_dosha(p1_ra, p1_asc);
     bool nd2 = get_nodal_dosha(p2_ra, p2_asc);
-    if (nd1 == nd2) { s_nodal_dosha = 5; printf(te ? "  + 5 pts | రాహు/కేతు సామ్యం : సమతుల్యం (ఛాయా గ్రహ దోషాలు తటస్థీకరించబడ్డాయి)\n" : "  + 5 pts | Nodal Samya   : BALANCED (Shadow nodes neutralized)\n"); }
-    else { s_nodal_dosha = 0; printf(te ? "  + 0 pts | రాహు/కేతు సామ్యం : అసమతుల్యం (ప్రమాదకరమైన నోడల్ అసమతుల్యత)\n" : "  + 0 pts | Nodal Samya   : ASYMMETRIC (Fatal nodal imbalance)\n"); }
+    if (nd1 == nd2) { s_nodal_dosha = 5; print_row(5, "Nodal Samya", "రాహు/కేతు సామ్యం", "BALANCED (Shadow nodes neutralized)", "సమతుల్యం (ఛాయా గ్రహ దోషాలు తటస్థీకరించబడ్డాయి)"); }
+    else { s_nodal_dosha = 0; print_row(0, "Nodal Samya", "రాహు/కేతు సామ్యం", "ASYMMETRIC (Fatal nodal imbalance)", "అసమతుల్యం (ప్రమాదకరమైన నోడల్ అసమతుల్యత)"); }
 
     if (rajju_arr[nak_1] == rajju_arr[nak_2]) { 
-        s_rajju = -10; printf(te ? " -10 pts | రజ్జు కూటమి     : ఏక రజ్జు దోషం (ప్రాణ గండం - ఆయుష్షుకు ముప్పు)\n" : " -10 pts | Rajju Kuta    : FATAL DOSHA (Same Rajju - Threat to longevity)\n"); 
-    } else { s_rajju = 0; printf(te ? "  + 0 pts | రజ్జు కూటమి     : సురక్షితం (వేర్వేరు రజ్జువులు)\n" : "  + 0 pts | Rajju Kuta    : SAFE (Different Rajjus)\n"); }
+        s_rajju = -10; print_row(-10, "Rajju Kuta", "రజ్జు కూటమి", "FATAL DOSHA (Same Rajju - Threat to longevity)", "ఏక రజ్జు దోషం (ప్రాణ గండం - ఆయుష్షుకు ముప్పు)"); 
+    } else { s_rajju = 0; print_row(0, "Rajju Kuta", "రజ్జు కూటమి", "SAFE (Different Rajjus)", "సురక్షితం (వేర్వేరు రజ్జువులు)"); }
 
     double comp_mo = get_midpoint(p1.planet_lons[2], p2.planet_lons[2]);
     double comp_ra = get_midpoint(p1.planet_lons[8], p2.planet_lons[8]);
     if (check_dist(comp_mo, p1.planet_lons[8], 10.0) || check_dist(comp_mo, p2.planet_lons[8], 10.0) || check_dist(comp_mo, comp_ra, 10.0)) { 
-        s_comp = 4; printf(te ? "  + 4 pts | ఉమ్మడి గ్రహ స్థితి : విధి నిర్ణయం (కాంపోజిట్ చంద్రుడు రాహువుతో కలయిక)\n" : "  + 4 pts | Composite     : FATED BOND (Composite Moon conjunct Rahu)\n"); 
-    } else { s_comp = 1; printf(te ? "  + 1 pts | ఉమ్మడి గ్రహ స్థితి : సాధారణం\n" : "  + 1 pts | Composite     : STANDARD (No profound composite planetary alignments)\n"); }
+        s_comp = 4; print_row(4, "Composite", "ఉమ్మడి గ్రహ స్థితి", "FATED BOND (Composite Moon conjunct Rahu)", "విధి నిర్ణయం (కాంపోజిట్ చంద్రుడు రాహువుతో కలయిక)"); 
+    } else { s_comp = 1; print_row(1, "Composite", "ఉమ్మడి గ్రహ స్థితి", "STANDARD (No profound composite planetary alignments)", "సాధారణం"); }
 
     int deb_signs[] = {-1, 6, 7, 3, 11, 9, 5, 0}; 
     if (p1_d30_7L != deb_signs[p1_7L] && p2_d30_7L != deb_signs[p2_7L]) {
-        s_d30 = 2; printf(te ? "  + 2 pts | D30 త్రింశాంశ   : దోష రహితం (7వ అధిపతులు దాగి ఉన్న దోషాల నుండి విముక్తం)\n" : "  + 2 pts | D30 Trimsamsa : CLEAN (7th Lords free from deep hidden afflictions)\n");
-    } else { s_d30 = 0; printf(te ? "  + 0 pts | D30 త్రింశాంశ   : బాధాకరం (దాగి ఉన్న వైవాహిక కర్మ / దోషాలు ఉన్నాయి)\n" : "  + 0 pts | D30 Trimsamsa : AFFLICTED (Hidden marital karma / evils present)\n"); }
+        s_d30 = 2; print_row(2, "D30 Trimsamsa", "D30 త్రింశాంశ", "CLEAN (7th Lords free from deep hidden afflictions)", "దోష రహితం (7వ అధిపతులు దాగి ఉన్న దోషాల నుండి విముక్తం)");
+    } else { s_d30 = 0; print_row(0, "D30 Trimsamsa", "D30 త్రింశాంశ", "AFFLICTED (Hidden marital karma / evils present)", "బాధాకరం (దాగి ఉన్న వైవాహిక కర్మ / దోషాలు ఉన్నాయి)"); }
 
     if (is_pushkara(p1.get_varga(9, p1.planet_lons[6])) || is_pushkara(p2.get_varga(9, p2.planet_lons[2]))) {
-        s_pushkara = 2; printf(te ? "  + 2 pts | పుష్కర భాగ     : దైవిక ఆశీర్వాదం (నవాంశలో శుక్రుడు/చంద్రుడు పుష్కర భాగలో ఉన్నారు)\n" : "  + 2 pts | Pushkara Bhaga: DIVINE BLESSING (Venus/Moon in Pushkara Navamsa)\n");
-    } else { s_pushkara = 0; printf(te ? "  + 0 pts | పుష్కర భాగ     : సాధారణం\n" : "  + 0 pts | Pushkara Bhaga: STANDARD (No Pushkara Navamsa protection)\n"); }
+        s_pushkara = 2; print_row(2, "Pushkara Bhaga", "పుష్కర భాగ", "DIVINE BLESSING (Venus/Moon in Pushkara Navamsa)", "దైవిక ఆశీర్వాదం (నవాంశలో శుక్రుడు/చంద్రుడు పుష్కర భాగలో ఉన్నారు)");
+    } else { s_pushkara = 0; print_row(0, "Pushkara Bhaga", "పుష్కర భాగ", "STANDARD (No Pushkara Navamsa protection)", "సాధారణం"); }
 
     total_score += (s_sat + s_7L + s_kuja + s_comp + s_d30 + s_pushkara + s_nodal_dosha + s_rajju);
+    print_cat_footer();
 
-    // =================================================================
-    // 5. NAVAMSA (D9) & TIMING MANIFESTATION (15 Points Max)
-    // =================================================================
-    if (te) printf("\n[5. నవాంశ (D9) & సమయ అనుకూలత (15 pts)]\n");
-    else printf("\n[5. NAVAMSA (D9) & TIMING MANIFESTATION (15 pts)]\n");
-    
+    // 5. NAVAMSA (D9)
+    print_cat_header("5. NAVAMSA (D9) & TIMING MANIFESTATION (15 pts)", "5. నవాంశ (D9) & సమయ అనుకూలత (15 pts)");
     int s_d9 = 0, s_time = 0;
     
     if (p1_d9_asc == p2_asc || p1_d9_asc == p2_mo || p2_d9_asc == p1_asc || p2_d9_asc == p1_mo || p1_d9_asc == p2_d9_asc) {
-        s_d9 = 4; printf(te ? "  + 4 pts | D9 లగ్న అనుసంధానం : ఆత్మ గుర్తింపు (D9 లగ్నాలు D1 లగ్నాలు/చంద్రులతో కచ్చితంగా కలిశాయి)\n" : "  + 4 pts | D9 Lagna Lock : SOUL RECOGNITION (D9 Lagnas exactly overlay D1 Lagnas/Moons)\n");
+        s_d9 = 4; print_row(4, "D9 Lagna Lock", "D9 లగ్న అనుసంధానం", "SOUL RECOGNITION (D9 Lagnas exactly overlay D1 Lagnas/Moons)", "ఆత్మ గుర్తింపు (D9 లగ్నాలు D1 లగ్నాలు/చంద్రులతో కచ్చితంగా కలిశాయి)");
     } else if (get_house(p1_d9_asc, p2_d9_asc)==1 || get_house(p1_d9_asc, p2_d9_asc)==5 || get_house(p1_d9_asc, p2_d9_asc)==9 || get_house(p1_d9_asc, p2_d9_asc)==7) {
-        s_d9 = 2; printf(te ? "  + 2 pts | D9 లగ్న అక్షం   : అనుకూలం (D9 లగ్నాలు 1/5/9 లేదా 1/7 సంబంధంలో ఉన్నాయి)\n" : "  + 2 pts | D9 Lagna Axis : ALIGNED (D9 Lagnas in 1/5/9 or 1/7 relationship)\n");
-    } else { s_d9 = 0; printf(te ? "  + 0 pts | D9 లగ్న అక్షం   : స్వతంత్రం (నవాంశలో వేర్వేరు ఆత్మ మార్గాలు)\n" : "  + 0 pts | D9 Lagna Axis : DIVERGENT (Independent soul paths in Navamsa)\n"); }
+        s_d9 = 2; print_row(2, "D9 Lagna Axis", "D9 లగ్న అక్షం", "ALIGNED (D9 Lagnas in 1/5/9 or 1/7 relationship)", "అనుకూలం (D9 లగ్నాలు 1/5/9 లేదా 1/7 సంబంధంలో ఉన్నాయి)");
+    } else { s_d9 = 0; print_row(0, "D9 Lagna Axis", "D9 లగ్న అక్షం", "DIVERGENT (Independent soul paths in Navamsa)", "స్వతంత్రం (నవాంశలో వేర్వేరు ఆత్మ మార్గాలు)"); }
 
     int d9_ve_dist = get_house(p1_d9_ve, p2_d9_ve);
     if (d9_ve_dist == 7) {
-        s_d9 += 3; printf(te ? "  + 3 pts | D9 శుక్ర బంధం   : ఆత్మల ఆకర్షణ (D9 శుక్రులు పరస్పర దృష్టిలో ఉన్నారు - అత్యంత అయస్కాంత ఆకర్షణ)\n" : "  + 3 pts | D9 Venus Axis : SOUL POLARITY (D9 Venuses are opposite - highly magnetic)\n");
+        s_d9 += 3; print_row(3, "D9 Venus Axis", "D9 శుక్ర బంధం", "SOUL POLARITY (D9 Venuses are opposite - highly magnetic)", "ఆత్మల ఆకర్షణ (D9 శుక్రులు పరస్పర దృష్టిలో ఉన్నారు - అత్యంత అయస్కాంత ఆకర్షణ)");
     }
 
     time_t t = time(nullptr); tm* now = gmtime(&t);
@@ -4497,26 +4550,20 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     bool p1_active = is_activator(p1_md, p1_ad, dasha_7L_1);
     bool p2_active = is_activator(p2_md, p2_ad, dasha_7L_2);
 
-    if (te) {
-        printf("  - వ్యక్తి 1 దశ : %s / %s -> వివాహ సమయ అనుకూలత: %s\n", te_dasha_lords[p1_md], te_dasha_lords[p1_ad], p1_active ? "అధికం" : "తక్కువ");
-        printf("  - వ్యక్తి 2 దశ : %s / %s -> వివాహ సమయ అనుకూలత: %s\n", te_dasha_lords[p2_md], te_dasha_lords[p2_ad], p2_active ? "అధికం" : "తక్కువ");
-    } else {
+    if (!html) {
         printf("  - Person 1 Dasha : %s / %s -> Readiness: %s\n", dasha_lords[p1_md], dasha_lords[p1_ad], p1_active ? "HIGH" : "Low");
         printf("  - Person 2 Dasha : %s / %s -> Readiness: %s\n", dasha_lords[p2_md], dasha_lords[p2_ad], p2_active ? "HIGH" : "Low");
     }
 
-    if (p1_active && p2_active) { s_time = 8; printf(te ? "  + 8 pts | దశా అనుకూలత   : సమకాలీకరించబడింది (విశ్వం మీ కలయికను చురుకుగా ప్రోత్సహిస్తోంది)\n" : "  + 8 pts | Manifestation : SYNCHRONIZED (Universe is actively pushing union)\n"); }
-    else if (p1_active || p2_active) { s_time = 4; printf(te ? "  + 4 pts | దశా అనుకూలత   : అసమతుల్యత (సమయం సరిగ్గా లేదు; ఒక భాగస్వామికి జాప్యం ఉంది)\n" : "  + 4 pts | Manifestation : ASYMMETRIC (Timing is off; one partner is delayed)\n"); }
-    else { s_time = 0; printf(te ? "  + 0 pts | దశా అనుకూలత   : నిద్రాణస్థితి (ప్రస్తుతం వివాహ సమయం యాక్టివ్‌గా లేదు)\n" : "  + 0 pts | Manifestation : DORMANT (No marital timing activated currently)\n"); }
+    if (p1_active && p2_active) { s_time = 8; print_row(8, "Manifestation", "దశా అనుకూలత", "SYNCHRONIZED (Universe is actively pushing union)", "సమకాలీకరించబడింది (విశ్వం మీ కలయికను చురుకుగా ప్రోత్సహిస్తోంది)"); }
+    else if (p1_active || p2_active) { s_time = 4; print_row(4, "Manifestation", "దశా అనుకూలత", "ASYMMETRIC (Timing is off; one partner is delayed)", "అసమతుల్యత (సమయం సరిగ్గా లేదు; ఒక భాగస్వామికి జాప్యం ఉంది)"); }
+    else { s_time = 0; print_row(0, "Manifestation", "దశా అనుకూలత", "DORMANT (No marital timing activated currently)", "నిద్రాణస్థితి (ప్రస్తుతం వివాహ సమయం యాక్టివ్‌గా లేదు)"); }
 
     total_score += (s_d9 + s_time);
+    print_cat_footer();
 
-    // =================================================================
-    // 6. MUTUAL RECTIFICATION & DESTRUCTION (15 Points Max)
-    // =================================================================
-    if (te) printf("\n[6. దోష పరిహారాలు & నష్టాలు - పరస్పర శాంతి (15 pts)]\n");
-    else printf("\n[6. MUTUAL RECTIFICATION & DESTRUCTION - Dosha Nullification (15 pts)]\n");
-    
+    // 6. MUTUAL RECTIFICATION
+    print_cat_header("6. MUTUAL RECTIFICATION & DESTRUCTION - Dosha Nullification (15 pts)", "6. దోష పరిహారాలు & నష్టాలు - పరస్పర శాంతి (15 pts)");
     int s_rect = 0;
 
     auto check_afflictions = [&](int mo, int ve, int l7, int sa, int ra, int ke) {
@@ -4555,12 +4602,14 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     double p1_rect_pct = (p2_afflictions > 0) ? std::min(100.0, ((double)p1_heals_p2 / p2_afflictions) * 100.0) : 100.0;
     double p2_rect_pct = (p1_afflictions > 0) ? std::min(100.0, ((double)p2_heals_p1 / p1_afflictions) * 100.0) : 100.0;
 
-    if (te) {
-        printf("  - వ్యక్తి 1 గ్రహ దోషాలు : %d | వ్యక్తి 2 ద్వారా పరిహరించబడినవి: %.0f%%\n", p1_afflictions, p2_rect_pct);
-        printf("  - వ్యక్తి 2 గ్రహ దోషాలు : %d | వ్యక్తి 1 ద్వారా పరిహరించబడినవి: %.0f%%\n", p2_afflictions, p1_rect_pct);
-    } else {
-        printf("  - Person 1 Internal Afflictions : %d | Rectified by P2: %.0f%%\n", p1_afflictions, p2_rect_pct);
-        printf("  - Person 2 Internal Afflictions : %d | Rectified by P1: %.0f%%\n", p2_afflictions, p1_rect_pct);
+    if (!html) {
+        if (te) {
+            printf("  - వ్యక్తి 1 గ్రహ దోషాలు : %d | వ్యక్తి 2 ద్వారా పరిహరించబడినవి: %.0f%%\n", p1_afflictions, p2_rect_pct);
+            printf("  - వ్యక్తి 2 గ్రహ దోషాలు : %d | వ్యక్తి 1 ద్వారా పరిహరించబడినవి: %.0f%%\n", p2_afflictions, p1_rect_pct);
+        } else {
+            printf("  - Person 1 Internal Afflictions : %d | Rectified by P2: %.0f%%\n", p1_afflictions, p2_rect_pct);
+            printf("  - Person 2 Internal Afflictions : %d | Rectified by P1: %.0f%%\n", p2_afflictions, p1_rect_pct);
+        }
     }
 
     int net_healing = (p1_heals_p2 * 3) + (p2_heals_p1 * 3);
@@ -4571,14 +4620,15 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     if (s_rect < 0) s_rect = 0;
 
     if (net_damage > net_healing) {
-        printf(te ? "  + %d pts | పరస్పర దోష పరిహారం : దోష తీవ్రత పెరుగుదల (ఒకరి దోషాలను మరొకరు పెంచుతున్నారు)\n" : "  + %d pts | Dosha Exchange  : AGGRAVATION (Charts compound each other's malefic flaws)\n", s_rect);
+        print_row(s_rect, "Dosha Exchange", "పరస్పర దోష పరిహారం", "AGGRAVATION (Charts compound each other's malefic flaws)", "దోష తీవ్రత పెరుగుదల (ఒకరి దోషాలను మరొకరు పెంచుతున్నారు)");
     } else if (net_healing > 0) {
-        printf(te ? "  + %d pts | పరస్పర దోష పరిహారం : పరిహారం (ఒకరి అంతర్గత దోషాలను మరొకరు విజయవంతంగా తగ్గిస్తున్నారు)\n" : "  + %d pts | Dosha Exchange  : HEALING (Charts successfully nullify internal afflictions)\n", s_rect);
+        print_row(s_rect, "Dosha Exchange", "పరస్పర దోష పరిహారం", "HEALING (Charts successfully nullify internal afflictions)", "పరిహారం (ఒకరి అంతర్గత దోషాలను మరొకరు విజయవంతంగా తగ్గిస్తున్నారు)");
     } else {
-        printf(te ? "  + %d pts | పరస్పర దోష పరిహారం : సాధారణం (పెద్దగా ఒకరికొకరు నష్టం/మేలు చేయడం లేదు)\n" : "  + %d pts | Dosha Exchange  : NEUTRAL (No major cross-chart healing or destruction)\n", s_rect);
+        print_row(s_rect, "Dosha Exchange", "పరస్పర దోష పరిహారం", "NEUTRAL (No major cross-chart healing or destruction)", "సాధారణం (పెద్దగా ఒకరికొకరు నష్టం/మేలు చేయడం లేదు)");
     }
 
     total_score += s_rect;
+    print_cat_footer();
 
     // =================================================================
     // FINAL VERDICT NORMALIZATION
@@ -4586,27 +4636,48 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     int max_score = 165; // 29 + 33 + 42 + 31 + 15 + 15 = 165 Maximum Points
     int final_percentage = (int)round(((double)total_score / max_score) * 100.0);
     
-    printf("=================================================================\n");
-    if (te) printf("తుది V8.4 సార్వత్రిక జాతక పొంతన స్కోరు: %d / %d పాయింట్లు (శాతం: %d%%)\n", (int)total_score, max_score, final_percentage);
-    else printf("FINAL V8.4 UNIVERSAL SYNASTRY INDEX: %d / %d Raw Points (Normalized: %d%%)\n", (int)total_score, max_score, final_percentage);
-    
+    string status_en, status_te;
     if (final_percentage >= 80) {
-        printf(te ? "ఫలితం: అరుదైన ఆత్మ బంధం (ప్రగాఢమైన కర్మ, శారీరక మరియు ఆధ్యాత్మిక కలయిక. దశా సమయం అనుకూలంగా ఉంది.)\n" : "STATUS: RARE SOULMATE (Profound karmic, physical, and spiritual union. Timing is aligned.)\n");
+        status_en = "RARE SOULMATE (Profound karmic, physical, and spiritual union. Timing is aligned.)";
+        status_te = "అరుదైన ఆత్మ బంధం (ప్రగాఢమైన కర్మ, శారీరక మరియు ఆధ్యాత్మిక కలయిక. దశా సమయం అనుకూలంగా ఉంది.)";
     } else if (final_percentage >= 60) {
-        printf(te ? "ఫలితం: అత్యంత శుభకరం (బలమైన ప్రేమ, నిర్మాణపరమైన దీర్ఘాయువు మరియు అద్భుతమైన అనుకూలత.)\n" : "STATUS: HIGHLY AUSPICIOUS (Strong love, structural longevity, and excellent compatibility.)\n");
+        status_en = "HIGHLY AUSPICIOUS (Strong love, structural longevity, and excellent compatibility.)";
+        status_te = "అత్యంత శుభకరం (బలమైన ప్రేమ, నిర్మాణపరమైన దీర్ఘాయువు మరియు అద్భుతమైన అనుకూలత.)";
     } else if (final_percentage >= 40) {
-        printf(te ? "ఫలితం: సాధారణం (సాధారణ మానవ సంబంధం; రాజీ మరియు ఓర్పు అవసరం.)\n" : "STATUS: AVERAGE (Standard human connection; requires compromise and patience.)\n");
+        status_en = "AVERAGE (Standard human connection; requires compromise and patience.)";
+        status_te = "సాధారణం (సాధారణ మానవ సంబంధం; రాజీ మరియు ఓర్పు అవసరం.)";
     } else {
-        printf(te ? "ఫలితం: తీవ్రమైన ఘర్షణ / కర్మ రుణం (శాంతి కోసం సిఫార్సు చేయబడదు; నిర్మాణపరమైన అడ్డంకులు ఉన్నాయి.)\n" : "STATUS: HIGH FRICTION / KARMIC DEBT (Not recommended for peace; structural obstacles detected.)\n");
+        status_en = "HIGH FRICTION / KARMIC DEBT (Not recommended for peace; structural obstacles detected.)";
+        status_te = "తీవ్రమైన ఘర్షణ / కర్మ రుణం (శాంతి కోసం సిఫార్సు చేయబడదు; నిర్మాణపరమైన అడ్డంకులు ఉన్నాయి.)";
     }
-    printf("=================================================================\n");
+
+    if (html) {
+        printf("<div style='margin-top: 30px; padding: 20px; background: #2a2a35; border-radius: 8px; border-left: 5px solid %s;'>", final_percentage >= 60 ? "#2ecc71" : (final_percentage >= 40 ? "#f1c40f" : "#e74c3c"));
+        printf("<h2 style='margin:0 0 10px 0; color:#fff;'>%s: <span style='color:var(--accent);'>%d / %d</span> (%d%%)</h2>", te?"తుది సార్వత్రిక జాతక పొంతన స్కోరు":"FINAL UNIVERSAL SYNASTRY INDEX", total_score, max_score, final_percentage);
+        printf("<p style='font-size:16px; margin:0;'><b>%s:</b> %s</p>", te?"ఫలితం":"STATUS", te?status_te.c_str():status_en.c_str());
+        printf("</div>\n");
+    } else {
+        printf("=================================================================\n");
+        if (te) printf("తుది V8.4 సార్వత్రిక జాతక పొంతన స్కోరు: %d / %d పాయింట్లు (శాతం: %d%%)\n", (int)total_score, max_score, final_percentage);
+        else printf("FINAL V8.4 UNIVERSAL SYNASTRY INDEX: %d / %d Raw Points (Normalized: %d%%)\n", (int)total_score, max_score, final_percentage);
+        printf("STATUS: %s\n", te ? status_te.c_str() : status_en.c_str());
+        printf("=================================================================\n");
+    }
 }
 
 void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2, int start_year, int end_year) {
-    printf("\n=================================================================\n");
-    printf("=== MUTUAL EVENT SCANNER (SYNASTRY DOUBLE-BLIND CROSS-TRANSIT) ===\n");
-    printf("=================================================================\n");
-    printf("Scanning %d to %d for days where BOTH charts hit critical mass...\n\n", start_year, end_year);
+    bool html = p1.html_mode;
+    bool te = p1.telugu_mode;
+
+    if (html) {
+        printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", te ? "పరస్పర సంఘటనల స్కానర్ (Mutual Event Scanner)" : "Mutual Event Scanner (Synastry Double-Blind Cross-Transit)");
+        printf("<p style='color:#ccc; margin-bottom:15px;'>Scanning %d to %d for exact Jup/Sat/Sun/Ven/Dasha alignments...</p>", start_year, end_year);
+    } else {
+        printf("\n=================================================================\n");
+        printf("=== MUTUAL EVENT SCANNER (SYNASTRY DOUBLE-BLIND CROSS-TRANSIT) ===\n");
+        printf("=================================================================\n");
+        printf("Scanning %d to %d for days where BOTH charts hit critical mass...\n\n", start_year, end_year);
+    }
 
     auto calculate_person_score = [](const JyotishaEngine& p, double jd, string& reason, string& env, string& archetype) -> int {
         int score = 0;
@@ -4680,17 +4751,18 @@ void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2,
         if (sa_hit) score += 4;
 
         if (ju_hit_d1 && sa_hit && (md_active || ad_active)) {
+            
             swe_calc_ut(jd, SE_VENUS, p.iflag, xx_ve, serr);
             int t_ve_rashi = (int)(xx_ve[0]/30.0);
             if (t_ve_rashi == h7_rashi || t_ve_rashi == ul_rashi || t_ve_rashi == asc_rashi || t_ve_rashi == p.planet_rashis[l7_idx] || t_ve_rashi == dk_rashi) {
                 score += 3; reason += "[Ven in " + string(short_rashi[t_ve_rashi]) + " hits " + get_trigger_name(t_ve_rashi) + "] ";
             }
+            
             swe_calc_ut(jd, SE_SUN, p.iflag, xx_su, serr);
             int t_su_rashi = (int)(xx_su[0]/30.0);
             if (t_su_rashi == h7_rashi || t_su_rashi == ul_rashi || t_su_rashi == asc_rashi || t_su_rashi == p.planet_rashis[l7_idx] || t_su_rashi == dk_rashi) {
                 score += 2; reason += "[Sun in " + string(short_rashi[t_su_rashi]) + " hits " + get_trigger_name(t_su_rashi) + "] ";
                 
-                // --- LIFE PATTERN ARCHETYPE DEDUCTION ---
                 int hit_house = (t_su_rashi - asc_rashi + 12) % 12 + 1;
                 if (hit_house == 5 || hit_house == 9) archetype = "Creation/Lineage";
                 else if (hit_house == 1 || hit_house == 7) archetype = "Union/Partnership";
@@ -4708,7 +4780,6 @@ void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2,
                 else if (hit_house == 4 || hit_house == 12) archetype = "Foundation/Hospital";
                 else archetype = "Social/Karmic Shift";
             }
-
         } else { score = 0; } 
         
         char md_buf[32]; snprintf(md_buf, sizeof(md_buf), "[%s/%s] ", dasha_lords[md], dasha_lords[ad]);
@@ -4719,7 +4790,6 @@ void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2,
     double start_jd = swe_julday(start_year, 1, 1, 0.0, SE_GREG_CAL);
     double end_jd = swe_julday(end_year, 12, 31, 0.0, SE_GREG_CAL);
 
-    // V9.1 Addition: Added t_pos to store the Cosmic Metronome degrees
     struct Hit { int y, m, d; int s1, s2, total; string cons_env, arch1, arch2, res1, res2, t_pos; };
     vector<Hit> peak_hits;
 
@@ -4734,7 +4804,6 @@ void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2,
             
             string combined_env = (e1 == e2) ? e1 : e1 + " & " + e2;
 
-            // Extract the exact degrees of the Sun and Venus to map the pattern
             double xx_su[6], xx_ve[6]; char serr[256];
             swe_calc_ut(jd, SE_SUN, p1.iflag, xx_su, serr);
             swe_calc_ut(jd, SE_VENUS, p1.iflag, xx_ve, serr);
@@ -4759,7 +4828,8 @@ void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2,
     }
 
     if (peak_hits.empty()) {
-        printf("No mutual convergence found. The cosmic clocks for these two charts do not align in this timeframe.\n");
+        if (html) printf("<div style='padding:15px; background:#2a2a35; border-left:4px solid #e74c3c; border-radius:4px;'><p style='margin:0; color:#e0e0e0;'>%s</p></div>\n", te?"ఈ సమయంలో రెండు జాతకాలను సమకాలీకరించే (కలిపే) ఖచ్చితమైన కాస్మిక్ ఈవెంట్స్ ఏవీ లేవు.":"No mutual convergence found. The cosmic clocks for these two charts do not align in this timeframe.");
+        else printf("No mutual convergence found. The cosmic clocks for these two charts do not align in this timeframe.\n");
     } else {
         sort(peak_hits.begin(), peak_hits.end(), [](const Hit& a, const Hit& b) { 
             if (a.y != b.y) return a.y < b.y;
@@ -4767,19 +4837,32 @@ void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2,
             return a.d < b.d;
         });
 
-        // V9.1 Upgrade: New "Cosmic Metronome" column added to the print layout
-        printf("%-10s | %-12s | %-12s | %-19s | %-30s | %-20s | %-20s\n", 
-               "Mutual Day", "P1 Power", "P2 Power", "Cosmic Clock", "Consolidated Env", "P1 Life Theme", "P2 Life Theme");
-        printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
-        for (const auto& hit : peak_hits) {
-            printf("%02d/%02d/%04d | P1: %d/22 pts | P2: %d/22 pts | %-19s | %-30s | %-20s | %-20s\n", 
-                   hit.d, hit.m, hit.y, hit.s1, hit.s2, hit.t_pos.c_str(), hit.cons_env.c_str(), hit.arch1.c_str(), hit.arch2.c_str());
-            printf("           | %-120s \n", hit.res1.c_str());
-            printf("           | %-120s \n", hit.res2.c_str());
+        if (html) {
+            printf("<table class='data-table'><tr><th style='width:90px;'>Date</th><th>Power</th><th>Cosmic Clock</th><th>Consolidated Env</th><th>P1 Theme</th><th>P2 Theme</th></tr>\n");
+            int count = 0;
+            for (const auto& hit : peak_hits) {
+                if (count++ >= 10) break;
+                printf("<tr><td><b>%02d/%02d/%04d</b></td><td>P1: %d<br>P2: %d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n", 
+                       hit.d, hit.m, hit.y, hit.s1, hit.s2, hit.t_pos.c_str(), hit.cons_env.c_str(), hit.arch1.c_str(), hit.arch2.c_str());
+                printf("<tr><td colspan='6' style='font-size:13px; color:#aaa; padding-bottom:15px; border-bottom:2px solid var(--border);'><b>P1 Triggers:</b> %s<br><b>P2 Triggers:</b> %s</td></tr>\n", hit.res1.c_str(), hit.res2.c_str());
+            }
+            printf("</table>\n");
+        } else {
+            printf("%-10s | %-12s | %-12s | %-19s | %-30s | %-20s | %-20s\n", 
+                   "Mutual Day", "P1 Power", "P2 Power", "Cosmic Clock", "Consolidated Env", "P1 Life Theme", "P2 Life Theme");
             printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+            int count = 0;
+            for (const auto& hit : peak_hits) {
+                if (count++ >= 10) break;
+                printf("%02d/%02d/%04d | P1: %d/22 pts | P2: %d/22 pts | %-19s | %-30s | %-20s | %-20s\n", 
+                       hit.d, hit.m, hit.y, hit.s1, hit.s2, hit.t_pos.c_str(), hit.cons_env.c_str(), hit.arch1.c_str(), hit.arch2.c_str());
+                printf("           | %-120s \n", hit.res1.c_str());
+                printf("           | %-120s \n", hit.res2.c_str());
+                printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+            }
         }
     }
-    printf("=================================================================\n");
+    if (!html) printf("=================================================================\n");
 }
 
 void run_ayush_analysis(JyotishaEngine& p) {

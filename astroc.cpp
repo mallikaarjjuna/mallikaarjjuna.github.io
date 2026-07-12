@@ -2427,7 +2427,7 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         printf("----------------------------------------------------------------------------------------------------\n");
     }
 
-    void calculate_dasha_balance() {
+	void calculate_dasha_balance() {
         if (json_mode) return;
         double nak_size = 360.0 / 27.0; 
         int n_idx = (int)(moon_lon / nak_size);
@@ -2436,10 +2436,20 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         double left = (1.0 - frac) * dasha_years[l_idx];
         int y = (int)left; double m_rem = (left - y) * 12.0; int m = (int)m_rem;
         int d = (int)round((m_rem - m) * (365.2425 / 12.0)); 
-        printf("\n=== VIMSHOTTARI DASHA BALANCE ===\n");
-        printf("Maha Dasha: %s (Balance: %d Years, %d Months, %d Days)\n", dasha_lords[l_idx], y, m, d);
+        
+        if (html_mode) {
+            printf("<div style='background: #1e1e24; padding: 15px; border-radius: 6px; border-left: 4px solid var(--term-text); margin-bottom: 20px;'>");
+            printf("<p style='margin: 0; color: #888; font-size: 13px; text-transform: uppercase; letter-spacing: 1px;'>%s</p>", telugu_mode ? "వింశోత్తరి దశా నిల్వ" : "Vimshottari Dasha Balance");
+            printf("<h4 style='margin: 5px 0 0 0; color: #fff; font-size: 16px;'>%s <span style='color: var(--term-text);'>%d %s, %d %s, %d %s</span></h4>", 
+                telugu_mode ? (get_dasha_lord(l_idx) + " మహాదశ నిల్వ:").c_str() : (string(dasha_lords[l_idx]) + " Maha Dasha:").c_str(),
+                y, telugu_mode ? "సంవత్సరాలు" : "Years", m, telugu_mode ? "నెలలు" : "Months", d, telugu_mode ? "రోజులు" : "Days");
+            printf("</div>\n");
+        } else {
+            printf("\n=== VIMSHOTTARI DASHA BALANCE ===\n");
+            printf("Maha Dasha: %s (Balance: %d Years, %d Months, %d Days)\n", dasha_lords[l_idx], y, m, d);
+        }
     }
-
+	
     void calculate_6_level_dasha_target(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool is_current_clock = false) {
         if (json_mode) return;
         double target_jd;
@@ -2618,8 +2628,7 @@ void print_dasha_web() {
                     printf("   %s\n\n", get_dynamic_mahadasha(md_p, score, house).c_str());
                 }
             }
-
-            double ad_start = cur_start;
+			double ad_start = cur_start;
             for (int j = 0; j < 9; j++) {
                 int ad_idx = (md_idx + j) % 9;
                 int ad_p = d_map[ad_idx];
@@ -2645,6 +2654,35 @@ void print_dasha_web() {
                     }
                 }
 
+                // --- NEW: Ashtakavarga Evaluation for Bhukti Lord ---
+                int eval_p = ad_p;
+                if (ad_p == 8 || ad_p == 9) { // If Rahu/Ketu, use their dispositor's strength
+                    string r_lord = rashi_lords[planet_rashis[ad_p]];
+                    for(int p=1; p<=7; p++) {
+                        if (string(p_names_full[p]) == r_lord) { eval_p = p; break; }
+                    }
+                }
+                
+                int r_bav = bav_scores[eval_p - 1][planet_rashis[eval_p]];
+                int r_sav = sav_scores[planet_rashis[eval_p]];
+                
+                string av_text_en, av_text_te;
+                if (r_bav >= 5 && r_sav >= 28) {
+                    av_text_en = "<b style='color:#2ecc71;'>Ashtakavarga Impact:</b> Highly supportive environment (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Even challenging periods will yield surprisingly positive end results.";
+                    av_text_te = "<b style='color:#2ecc71;'>అష్టకవర్గ ప్రభావం:</b> అత్యంత అనుకూల వాతావరణం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ప్రతికూల దశలు కూడా ఆశ్చర్యకరంగా మంచి ఫలితాలను ఇస్తాయి.";
+                } else if (r_bav <= 3 && r_sav < 25) {
+                    av_text_en = "<b style='color:#e74c3c;'>Ashtakavarga Impact:</b> Weak environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Expect delays and hard work; even good periods will face friction.";
+                    av_text_te = "<b style='color:#e74c3c;'>అష్టకవర్గ ప్రభావం:</b> వాతావరణ బలం తక్కువగా ఉంది (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఆలస్యం మరియు తీవ్ర శ్రమ అవసరం; శుభ దశలలో కూడా స్వల్ప ఘర్షణ ఉంటుంది.";
+                } else {
+                    av_text_en = "<b style='color:#f1c40f;'>Ashtakavarga Impact:</b> Moderate environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Results will manifest exactly as promised without extreme shifts.";
+                    av_text_te = "<b style='color:#f1c40f;'>అష్టకవర్గ ప్రభావం:</b> మధ్యస్థ వాతావరణ బలం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఎలాంటి అడ్డంకులు లేకుండా ఫలితాలు యధావిధిగా ఉంటాయి.";
+                }
+                
+                if (ad_p == 8 || ad_p == 9) {
+                    av_text_en = "<i>(Shadow Node relies on Dispositor " + string(p_names_full[eval_p]) + ")</i> " + av_text_en;
+                    av_text_te = "<i>(ఛాయా గ్రహం అధిపతి " + get_planet_name(eval_p) + " పై ఆధారపడి ఉంటుంది)</i> " + av_text_te;
+                }
+
                 if (html_mode) {
                     printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
                     printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s %s <span style='color:#888; font-size:12px; font-weight:normal; margin-left:10px;'>[ %s &rarr; %s ]</span></h4>", 
@@ -2655,6 +2693,10 @@ void print_dasha_web() {
                            telugu_mode ? te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str() 
                                        : get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
                     
+                    // --- Inject Ashtakavarga Box ---
+                    printf("<p style='margin:10px 0; font-size:13px; line-height:1.5; color:#ccc; background:#1e1e24; padding:8px; border-radius:4px;'>%s</p>", 
+                           telugu_mode ? av_text_te.c_str() : av_text_en.c_str());
+
                     if (ad_p == 8 || ad_p == 9) {
                         printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>%s</b> %s</p>", 
                                telugu_mode ? "ముఖ్య సంఘటనలు:" : "Key Events:",
@@ -5107,7 +5149,7 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "annual") == 0 || strcasecmp(cmd.c_str(), "web_annual") == 0 || strcasecmp(cmd.c_str(), "web_varshaphal") == 0) {
+		else if (strcasecmp(cmd.c_str(), "annual") == 0 || strcasecmp(cmd.c_str(), "web_annual") == 0 || strcasecmp(cmd.c_str(), "web_varshaphal") == 0) {
             if (clean_argc >= 10) {
                 int annual_year = stoi(clean_argv[9]);
                 double tithi_jd = engine.calculate_tithi_return(annual_year);
@@ -5127,7 +5169,9 @@ int main(int argc, char *argv[]) {
                     JyotishaEngine annual_engine(ty, tm, td, th, tmin, tsec, *it, json_mode, telugu_ui, html_ui);
                     annual_engine.calculate_chart();
                     
-                    // Varshaphala is a 1-year chart. We DO NOT print lifetime Doshas, Yogas, or Personality here.
+                    // --- FIX: Print the actual Rasi Chart Grid so it doesn't look empty! ---
+                    annual_engine.print_birth_chart_ui(); 
+                    
                     annual_engine.analyze_functional_nature(annual_engine.planet_rashis[0]);
                     annual_engine.analyze_placements(annual_engine.planet_rashis, annual_engine.planet_rashis[0]);
                     annual_engine.analyze_lordships(annual_engine.planet_rashis[0], annual_engine.planet_rashis);

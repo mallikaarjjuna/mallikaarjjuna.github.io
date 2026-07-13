@@ -2628,7 +2628,7 @@ void print_dasha_web() {
                     printf("   %s\n\n", get_dynamic_mahadasha(md_p, score, house).c_str());
                 }
             }
-			double ad_start = cur_start;
+double ad_start = cur_start;
             for (int j = 0; j < 9; j++) {
                 int ad_idx = (md_idx + j) % 9;
                 int ad_p = d_map[ad_idx];
@@ -2654,7 +2654,7 @@ void print_dasha_web() {
                     }
                 }
 
-                // --- NEW: Ashtakavarga Evaluation for Bhukti Lord ---
+                // --- Ashtakavarga Evaluation for Bhukti Lord ---
                 int eval_p = ad_p;
                 if (ad_p == 8 || ad_p == 9) { // If Rahu/Ketu, use their dispositor's strength
                     string r_lord = rashi_lords[planet_rashis[ad_p]];
@@ -2666,21 +2666,37 @@ void print_dasha_web() {
                 int r_bav = bav_scores[eval_p - 1][planet_rashis[eval_p]];
                 int r_sav = sav_scores[planet_rashis[eval_p]];
                 
-                string av_text_en, av_text_te;
+                // We create two separate strings: One with HTML tags for Web, one clean for CLI
+                string av_text_en_html, av_text_te_html;
+                string av_text_en_cli, av_text_te_cli;
+
                 if (r_bav >= 5 && r_sav >= 28) {
-                    av_text_en = "<b style='color:#2ecc71;'>Ashtakavarga Impact:</b> Highly supportive environment (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Even challenging periods will yield surprisingly positive end results.";
-                    av_text_te = "<b style='color:#2ecc71;'>అష్టకవర్గ ప్రభావం:</b> అత్యంత అనుకూల వాతావరణం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ప్రతికూల దశలు కూడా ఆశ్చర్యకరంగా మంచి ఫలితాలను ఇస్తాయి.";
+                    av_text_en_html = "<b style='color:#2ecc71;'>Ashtakavarga Impact:</b> Highly supportive environment (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Even challenging periods will yield surprisingly positive end results.";
+                    av_text_te_html = "<b style='color:#2ecc71;'>అష్టకవర్గ ప్రభావం:</b> అత్యంత అనుకూల వాతావరణం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ప్రతికూల దశలు కూడా ఆశ్చర్యకరంగా మంచి ఫలితాలను ఇస్తాయి.";
+                    
+                    av_text_en_cli = "* Ashtakavarga Impact: Highly supportive environment (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Positive end results.";
+                    av_text_te_cli = "* అష్టకవర్గ ప్రభావం: అత్యంత అనుకూల వాతావరణం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ప్రతికూలతలు ఉన్నా మంచి ఫలితాలు వస్తాయి.";
                 } else if (r_bav <= 3 && r_sav < 25) {
-                    av_text_en = "<b style='color:#e74c3c;'>Ashtakavarga Impact:</b> Weak environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Expect delays and hard work; even good periods will face friction.";
-                    av_text_te = "<b style='color:#e74c3c;'>అష్టకవర్గ ప్రభావం:</b> వాతావరణ బలం తక్కువగా ఉంది (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఆలస్యం మరియు తీవ్ర శ్రమ అవసరం; శుభ దశలలో కూడా స్వల్ప ఘర్షణ ఉంటుంది.";
+                    av_text_en_html = "<b style='color:#e74c3c;'>Ashtakavarga Impact:</b> Weak environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Expect delays and hard work; even good periods will face friction.";
+                    av_text_te_html = "<b style='color:#e74c3c;'>అష్టకవర్గ ప్రభావం:</b> వాతావరణ బలం తక్కువగా ఉంది (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఆలస్యం మరియు తీవ్ర శ్రమ అవసరం; శుభ దశలలో కూడా స్వల్ప ఘర్షణ ఉంటుంది.";
+                    
+                    av_text_en_cli = "* Ashtakavarga Impact: Weak environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Expect delays/friction.";
+                    av_text_te_cli = "* అష్టకవర్గ ప్రభావం: వాతావరణ బలం తక్కువగా ఉంది (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). స్వల్ప ఘర్షణ, జాప్యం ఉంటుంది.";
                 } else {
-                    av_text_en = "<b style='color:#f1c40f;'>Ashtakavarga Impact:</b> Moderate environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Results will manifest exactly as promised without extreme shifts.";
-                    av_text_te = "<b style='color:#f1c40f;'>అష్టకవర్గ ప్రభావం:</b> మధ్యస్థ వాతావరణ బలం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఎలాంటి అడ్డంకులు లేకుండా ఫలితాలు యధావిధిగా ఉంటాయి.";
+                    av_text_en_html = "<b style='color:#f1c40f;'>Ashtakavarga Impact:</b> Moderate environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Results will manifest exactly as promised without extreme shifts.";
+                    av_text_te_html = "<b style='color:#f1c40f;'>అష్టకవర్గ ప్రభావం:</b> మధ్యస్థ వాతావరణ బలం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఎలాంటి అడ్డంకులు లేకుండా ఫలితాలు యధావిధిగా ఉంటాయి.";
+                    
+                    av_text_en_cli = "* Ashtakavarga Impact: Moderate environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Standard results.";
+                    av_text_te_cli = "* అష్టకవర్గ ప్రభావం: మధ్యస్థ వాతావరణ బలం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఫలితాలు యధావిధిగా ఉంటాయి.";
                 }
                 
+                // Add Shadow Node warning if applicable
                 if (ad_p == 8 || ad_p == 9) {
-                    av_text_en = "<i>(Shadow Node relies on Dispositor " + string(p_names_full[eval_p]) + ")</i> " + av_text_en;
-                    av_text_te = "<i>(ఛాయా గ్రహం అధిపతి " + get_planet_name(eval_p) + " పై ఆధారపడి ఉంటుంది)</i> " + av_text_te;
+                    av_text_en_html = "<i>(Shadow Node relies on Dispositor " + string(p_names_full[eval_p]) + ")</i> " + av_text_en_html;
+                    av_text_te_html = "<i>(ఛాయా గ్రహం అధిపతి " + get_planet_name(eval_p) + " పై ఆధారపడి ఉంటుంది)</i> " + av_text_te_html;
+                    
+                    av_text_en_cli = "[Node relies on " + string(p_names_full[eval_p]) + "] " + av_text_en_cli;
+                    av_text_te_cli = "[ఛాయా గ్రహం అధిపతి " + get_planet_name(eval_p) + " పై ఆధారం] " + av_text_te_cli;
                 }
 
                 if (html_mode) {
@@ -2693,9 +2709,9 @@ void print_dasha_web() {
                            telugu_mode ? te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str() 
                                        : get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
                     
-                    // --- Inject Ashtakavarga Box ---
+                    // --- Inject HTML Ashtakavarga Box ---
                     printf("<p style='margin:10px 0; font-size:13px; line-height:1.5; color:#ccc; background:#1e1e24; padding:8px; border-radius:4px;'>%s</p>", 
-                           telugu_mode ? av_text_te.c_str() : av_text_en.c_str());
+                           telugu_mode ? av_text_te_html.c_str() : av_text_en_html.c_str());
 
                     if (ad_p == 8 || ad_p == 9) {
                         printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>%s</b> %s</p>", 
@@ -2712,17 +2728,26 @@ void print_dasha_web() {
                     if (telugu_mode) {
                         printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
                         printf("        %s\n", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
+                        
+                        // --- Inject CLI-Safe Ashtakavarga Text ---
+                        printf("        %s\n", av_text_te_cli.c_str());
+                        
                         if (ad_p == 8 || ad_p == 9) printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, html_mode).c_str());
                         else printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str());
                     } else {
                         printf("     -> [ %s - %s ] : %s Bhukti\n", ad_start_str.c_str(), ad_end_str.c_str(), p_names_full[ad_p]);
                         printf("        %s\n", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
+                        
+                        // --- Inject CLI-Safe Ashtakavarga Text ---
+                        printf("        %s\n", av_text_en_cli.c_str());
+                        
                         if (ad_p == 8 || ad_p == 9) printf("        * Life Events: %s\n", get_node_bhukti_event(p_names_full[ad_p], ad_house, html_mode).c_str());
                         else printf("        * Life Events: %s\n", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, html_mode).c_str());
                     }
                 }
                 ad_start += ad_dur;
             }
+			
             if (html_mode) printf("</div>\n"); // Close the Mahadasha wrapper div
             else printf("\n-----------------------------------------------------------------------------------------\n\n");
             

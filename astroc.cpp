@@ -2594,6 +2594,8 @@ void print_dasha_web() {
         int d_map[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
 
         double cur_start = life_start_jd;
+        
+        // OUTER LOOP (Mahadashas)
         for (int i = 0; i < 9; i++) {
             int md_idx = (lord_index + i) % 9;
             int md_p = d_map[md_idx];
@@ -2628,7 +2630,10 @@ void print_dasha_web() {
                     printf("   %s\n\n", get_dynamic_mahadasha(md_p, score, house).c_str());
                 }
             }
-double ad_start = cur_start;
+
+            double ad_start = cur_start;
+            
+            // INNER LOOP (Bhuktis)
             for (int j = 0; j < 9; j++) {
                 int ad_idx = (md_idx + j) % 9;
                 int ad_p = d_map[ad_idx];
@@ -2654,9 +2659,41 @@ double ad_start = cur_start;
                     }
                 }
 
-                // --- Ashtakavarga Evaluation for Bhukti Lord ---
+                // 1. GET CLEAN BHUKTI TEXT (Cliffhanger permanently removed from headers)
+                string bhukti_desc_te = te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode);
+                string bhukti_desc_en = get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode);
+
+                // 2. NEW: CONCRETE STAR LORD OUTCOME GENERATOR
+                int sl_house = (planet_rashis[ad_star_lord_idx] - planet_rashis[0] + 12) % 12 + 1;
+                string sl_name_en = p_names_full[ad_star_lord_idx];
+                string sl_name_te = get_planet_name(ad_star_lord_idx);
+
+                string sl_domain_en, sl_domain_te;
+                switch(sl_house) {
+                    case 1: sl_domain_en = "health, self-development, and major life shifts"; sl_domain_te = "ఆరోగ్యం, వ్యక్తిగత ఎదుగుదల మరియు జీవితంలో ప్రధాన మార్పులు"; break;
+                    case 2: sl_domain_en = "wealth accumulation, family matters, and savings"; sl_domain_te = "ఆర్థిక లాభాలు, కుటుంబ వ్యవహారాలు మరియు పొదుపు"; break;
+                    case 3: sl_domain_en = "short travels, siblings, and courageous new initiatives"; sl_domain_te = "చిన్న ప్రయాణాలు, తోబుట్టువులు మరియు ధైర్యంతో చేసే కొత్త పనులు"; break;
+                    case 4: sl_domain_en = "real estate, vehicles, mother, and domestic peace"; sl_domain_te = "స్థిరాస్తులు (రియల్ ఎస్టేట్), వాహనాలు, తల్లి మరియు గృహ సౌఖ్యం"; break;
+                    case 5: sl_domain_en = "children, creative projects, and speculative investments"; sl_domain_te = "సంతానం, సృజనాత్మక ప్రాజెక్టులు మరియు పెట్టుబడులు"; break;
+                    case 6: sl_domain_en = "overcoming debts, resolving health issues, and defeating competitors"; sl_domain_te = "అప్పులు తీర్చడం, ఆరోగ్య సమస్యల పరిష్కారం మరియు పోటీలో విజయం"; break;
+                    case 7: sl_domain_en = "marriage, business partnerships, and public relations"; sl_domain_te = "వివాహం, వ్యాపార భాగస్వామ్యాలు మరియు ప్రజా సంబంధాలు"; break;
+                    case 8: sl_domain_en = "sudden transformations, hidden wealth, and deep research"; sl_domain_te = "ఆకస్మిక పరివర్తనలు, గుప్త ధనం మరియు లోతైన పరిశోధనలు"; break;
+                    case 9: sl_domain_en = "long-distance travel, higher education, and fortune"; sl_domain_te = "దూర ప్రయాణాలు, ఉన్నత విద్య మరియు అదృష్టం కలిసిరావడం"; break;
+                    case 10: sl_domain_en = "career milestones, social status, and professional authority"; sl_domain_te = "కెరీర్ (వృత్తి) మైలురాళ్ళు, సామాజిక హోదా మరియు అధికారం"; break;
+                    case 11: sl_domain_en = "large financial gains, fulfilling desires, and networking"; sl_domain_te = "భారీ ఆర్థిక లాభాలు, ఆశయాల నెరవేర్పు మరియు నెట్‌వర్కింగ్"; break;
+                    case 12: sl_domain_en = "foreign connections, heavy expenses, and spiritual isolation"; sl_domain_te = "విదేశీ సంబంధాలు, భారీ ఖర్చులు మరియు ఆధ్యాత్మిక ఏకాంతం"; break;
+                }
+
+                string sl_text_en_html = "<b>Star Lord Reality (" + sl_name_en + "):</b> Placed in House " + to_string(sl_house) + ". The ultimate physical events of this period will materialize strictly regarding " + sl_domain_en + ".";
+                string sl_text_te_html = "<b>నక్షత్రాధిపతి ఫలితం (" + sl_name_te + "):</b> మీ జాతకంలో " + to_string(sl_house) + "వ భావంలో ఉన్నాడు. కాబట్టి ఈ కాలంలో అంతిమంగా " + sl_domain_te + " కి సంబంధించిన కచ్చితమైన ఫలితాలు సిద్ధిస్తాయి.";
+                
+                string sl_text_en_cli = "* Star Lord Reality (" + sl_name_en + "): Placed in House " + to_string(sl_house) + ". Final events manifest regarding " + sl_domain_en + ".";
+                string sl_text_te_cli = "* నక్షత్రాధిపతి ఫలితం (" + sl_name_te + "): " + to_string(sl_house) + "వ భావంలో ఉన్నాడు. " + sl_domain_te + " కి సంబంధించిన ఫలితాలు సిద్ధిస్తాయి.";
+
+
+                // 3. Ashtakavarga Evaluation for Bhukti Lord
                 int eval_p = ad_p;
-                if (ad_p == 8 || ad_p == 9) { // If Rahu/Ketu, use their dispositor's strength
+                if (ad_p == 8 || ad_p == 9) { 
                     string r_lord = rashi_lords[planet_rashis[ad_p]];
                     for(int p=1; p<=7; p++) {
                         if (string(p_names_full[p]) == r_lord) { eval_p = p; break; }
@@ -2666,93 +2703,125 @@ double ad_start = cur_start;
                 int r_bav = bav_scores[eval_p - 1][planet_rashis[eval_p]];
                 int r_sav = sav_scores[planet_rashis[eval_p]];
                 
-                // We create two separate strings: One with HTML tags for Web, one clean for CLI
                 string av_text_en_html, av_text_te_html;
                 string av_text_en_cli, av_text_te_cli;
 
                 if (r_bav >= 5 && r_sav >= 28) {
                     av_text_en_html = "<b style='color:#2ecc71;'>Ashtakavarga Impact:</b> Highly supportive environment (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Even challenging periods will yield surprisingly positive end results.";
                     av_text_te_html = "<b style='color:#2ecc71;'>అష్టకవర్గ ప్రభావం:</b> అత్యంత అనుకూల వాతావరణం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ప్రతికూల దశలు కూడా ఆశ్చర్యకరంగా మంచి ఫలితాలను ఇస్తాయి.";
-                    
                     av_text_en_cli = "* Ashtakavarga Impact: Highly supportive environment (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Positive end results.";
                     av_text_te_cli = "* అష్టకవర్గ ప్రభావం: అత్యంత అనుకూల వాతావరణం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ప్రతికూలతలు ఉన్నా మంచి ఫలితాలు వస్తాయి.";
                 } else if (r_bav <= 3 && r_sav < 25) {
                     av_text_en_html = "<b style='color:#e74c3c;'>Ashtakavarga Impact:</b> Weak environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Expect delays and hard work; even good periods will face friction.";
                     av_text_te_html = "<b style='color:#e74c3c;'>అష్టకవర్గ ప్రభావం:</b> వాతావరణ బలం తక్కువగా ఉంది (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఆలస్యం మరియు తీవ్ర శ్రమ అవసరం; శుభ దశలలో కూడా స్వల్ప ఘర్షణ ఉంటుంది.";
-                    
                     av_text_en_cli = "* Ashtakavarga Impact: Weak environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Expect delays/friction.";
                     av_text_te_cli = "* అష్టకవర్గ ప్రభావం: వాతావరణ బలం తక్కువగా ఉంది (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). స్వల్ప ఘర్షణ, జాప్యం ఉంటుంది.";
                 } else {
                     av_text_en_html = "<b style='color:#f1c40f;'>Ashtakavarga Impact:</b> Moderate environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Results will manifest exactly as promised without extreme shifts.";
                     av_text_te_html = "<b style='color:#f1c40f;'>అష్టకవర్గ ప్రభావం:</b> మధ్యస్థ వాతావరణ బలం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఎలాంటి అడ్డంకులు లేకుండా ఫలితాలు యధావిధిగా ఉంటాయి.";
-                    
                     av_text_en_cli = "* Ashtakavarga Impact: Moderate environmental support (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). Standard results.";
                     av_text_te_cli = "* అష్టకవర్గ ప్రభావం: మధ్యస్థ వాతావరణ బలం (BAV: " + to_string(r_bav) + ", SAV: " + to_string(r_sav) + "). ఫలితాలు యధావిధిగా ఉంటాయి.";
                 }
                 
-                // Add Shadow Node warning if applicable
                 if (ad_p == 8 || ad_p == 9) {
                     av_text_en_html = "<i>(Shadow Node relies on Dispositor " + string(p_names_full[eval_p]) + ")</i> " + av_text_en_html;
                     av_text_te_html = "<i>(ఛాయా గ్రహం అధిపతి " + get_planet_name(eval_p) + " పై ఆధారపడి ఉంటుంది)</i> " + av_text_te_html;
-                    
                     av_text_en_cli = "[Node relies on " + string(p_names_full[eval_p]) + "] " + av_text_en_cli;
                     av_text_te_cli = "[ఛాయా గ్రహం అధిపతి " + get_planet_name(eval_p) + " పై ఆధారం] " + av_text_te_cli;
                 }
 
+                // 4. MD-AD Mutual Relationship (Sthana) & Modern Tech / Career Mapping
+                int md_rashi = planet_rashis[md_p];
+                int ad_rashi = planet_rashis[ad_p];
+                int md_ad_dist = (ad_rashi - md_rashi + 12) % 12 + 1;
+                
+                string sthana_en, sthana_te;
+                string sthana_en_cli, sthana_te_cli;
+                
+                if (md_ad_dist == 6 || md_ad_dist == 8 || md_ad_dist == 12) {
+                    sthana_en = "<b>Operational Flow (6/8/12 Axis):</b> High friction. Expect sudden scope creep, hidden bugs, tech debt surfacing, or misaligned team dynamics. Requires heavy debugging and refactoring of past work.";
+                    sthana_te = "<b>కార్యనిర్వహణ (6/8/12 స్థానం):</b> తీవ్రమైన ఘర్షణ. ప్రాజెక్టులలో ఆకస్మిక మార్పులు, అడ్డంకులు, మరియు టీమ్ మధ్య సమన్వయ లోపం ఏర్పడుతుంది. పాత పనులను పదే పదే సరిదిద్దాల్సి వస్తుంది.";
+                    sthana_en_cli = "* Operational Flow: High friction (6/8/12 Axis). Scope creep, bugs, misaligned dynamics.";
+                    sthana_te_cli = "* కార్యనిర్వహణ: తీవ్రమైన ఘర్షణ (6/8/12). ప్రాజెక్టులలో అడ్డంకులు, టీమ్ సమన్వయ లోపం.";
+                } else if (md_ad_dist == 5 || md_ad_dist == 9) {
+                    sthana_en = "<b>Operational Flow (5/9 Axis):</b> Smooth execution. Excellent for creative problem-solving, innovation, learning new frameworks, and getting swift approvals/deployments.";
+                    sthana_te = "<b>కార్యనిర్వహణ (5/9 స్థానం):</b> సాఫీగా సాగే కాలం. సృజనాత్మకత, కొత్త నైపుణ్యాలు నేర్చుకోవడం, మరియు ప్రాజెక్టులకు సులభంగా ఆమోదం లభించడానికి ఇది అద్భుతమైన సమయం.";
+                    sthana_en_cli = "* Operational Flow: Smooth execution (5/9 Axis). Innovation, swift approvals, and learning.";
+                    sthana_te_cli = "* కార్యనిర్వహణ: సాఫీగా సాగే కాలం (5/9). సృజనాత్మకత, కొత్త నైపుణ్యాలు, ప్రాజెక్టు ఆమోదం.";
+                } else if (md_ad_dist == 1 || md_ad_dist == 4 || md_ad_dist == 7 || md_ad_dist == 10) {
+                    sthana_en = "<b>Operational Flow (Kendra Axis):</b> Heavy, visible workload. Focus shifts to core architecture, strict deadlines, and major production releases. Demands high structural discipline.";
+                    sthana_te = "<b>కార్యనిర్వహణ (కేంద్ర స్థానం):</b> కంటికి కనిపించే భారీ పనిభారం. కఠినమైన డెడ్‌లైన్స్, మరియు ప్రధాన బాధ్యతలపై పూర్తి దృష్టి పెట్టాల్సి వస్తుంది. అత్యధిక క్రమశిక్షణ అవసరం.";
+                    sthana_en_cli = "* Operational Flow: Heavy workload (Kendra Axis). Core architecture, strict deadlines, releases.";
+                    sthana_te_cli = "* కార్యనిర్వహణ: భారీ పనిభారం (కేంద్ర స్థానం). కఠినమైన డెడ్‌లైన్స్, ప్రధాన బాధ్యతలపై దృష్టి.";
+                } else {
+                    sthana_en = "<b>Operational Flow (3/11 Axis):</b> Growth oriented. Excellent for teamwork, communication, scaling systems, and financial gains through successful project deliveries.";
+                    sthana_te = "<b>కార్యనిర్వహణ (3/11 స్థానం):</b> వృద్ధికి అనుకూలం. కమ్యూనికేషన్, టీమ్‌వర్క్, మరియు విజయవంతమైన ప్రాజెక్టుల ద్వారా ఆర్థిక లాభాలు సాధించడానికి మంచి కాలం.";
+                    sthana_en_cli = "* Operational Flow: Growth oriented (3/11 Axis). Teamwork, scaling, financial gains.";
+                    sthana_te_cli = "* కార్యనిర్వహణ: వృద్ధికి అనుకూలం (3/11). టీమ్‌వర్క్, విజయవంతమైన ప్రాజెక్టుల ద్వారా లాభాలు.";
+                }
+
+                // --- 5. PRINT THE BEAUTIFULLY STRUCTURED OUTPUT ---
                 if (html_mode) {
                     printf("<div style='margin-bottom:15px; padding:15px; background:#2a2a35; border-left:4px solid var(--accent); border-radius:4px;'>");
                     printf("<h4 style='margin-top:0; color:#e0e0e0;'>%s %s <span style='color:#888; font-size:12px; font-weight:normal; margin-left:10px;'>[ %s &rarr; %s ]</span></h4>", 
                            telugu_mode ? get_planet_name(ad_p).c_str() : p_names_full[ad_p],
                            telugu_mode ? "భుక్తి" : "Bhukti", ad_start_str.c_str(), ad_end_str.c_str());
                     
+                    // Base Bhukti Text (with cliffhanger erased)
                     printf("<p style='margin:5px 0; font-size:14px; line-height:1.6; color:#ccc;'>%s</p>", 
-                           telugu_mode ? te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str() 
-                                       : get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
+                           telugu_mode ? bhukti_desc_te.c_str() : bhukti_desc_en.c_str());
                     
-                    // --- Inject HTML Ashtakavarga Box ---
-                    printf("<p style='margin:10px 0; font-size:13px; line-height:1.5; color:#ccc; background:#1e1e24; padding:8px; border-radius:4px;'>%s</p>", 
+                    // Ashtakavarga Box
+                    printf("<p style='margin:10px 0 0 0; font-size:13px; line-height:1.5; color:#ccc; background:#1e1e24; padding:8px; border-radius:4px;'>%s</p>", 
                            telugu_mode ? av_text_te_html.c_str() : av_text_en_html.c_str());
 
+                    // Sthana / Workflow Box
+                    printf("<p style='margin:10px 0 0 0; font-size:13px; line-height:1.5; color:#ccc; background:#1e1e24; padding:8px; border-radius:4px;'>%s</p>", 
+                           telugu_mode ? sthana_te.c_str() : sthana_en.c_str());
+
+                    // Star Lord Reality Box
+                    printf("<p style='margin:10px 0; font-size:13px; line-height:1.5; color:#ccc; background:#1e1e24; border-left: 2px solid #e67e22; padding:8px; border-radius:4px;'>%s</p>", 
+                           telugu_mode ? sl_text_te_html.c_str() : sl_text_en_html.c_str());
+
+					// Key Events (House Lordships)
                     if (ad_p == 8 || ad_p == 9) {
                         printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>%s</b> %s</p>", 
                                telugu_mode ? "ముఖ్య సంఘటనలు:" : "Key Events:",
-                               telugu_mode ? te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, html_mode).c_str() : get_node_bhukti_event(p_names_full[ad_p], ad_house, html_mode).c_str());
+                               telugu_mode ? te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, ad_score, html_mode).c_str() : get_node_bhukti_event(p_names_full[ad_p], ad_house, ad_score, html_mode).c_str());
                     } else {
                         printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>%s</b> %s</p>", 
                                telugu_mode ? "ముఖ్య సంఘటనలు:" : "Key Events:",
-                               telugu_mode ? te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str() : get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, html_mode).c_str());
+                               telugu_mode ? te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, ad_score, html_mode).c_str() : get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, ad_score, html_mode).c_str());
                     }
                     printf("</div>\n");
-                    fflush(stdout); 
-                } else {
+                    fflush(stdout);
+					} else {
                     if (telugu_mode) {
                         printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
-                        printf("        %s\n", te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
-                        
-                        // --- Inject CLI-Safe Ashtakavarga Text ---
+                        printf("        %s\n", bhukti_desc_te.c_str());
                         printf("        %s\n", av_text_te_cli.c_str());
-                        
-                        if (ad_p == 8 || ad_p == 9) printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, html_mode).c_str());
-                        else printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, html_mode).c_str());
+                        printf("        %s\n", sthana_te_cli.c_str());
+                        printf("        %s\n", sl_text_te_cli.c_str());
+                        if (ad_p == 8 || ad_p == 9) printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_node_bhukti_event(get_planet_name(ad_p), ad_house, ad_score, html_mode).c_str());
+                        else printf("        * ప్రత్యక్ష సంఘటనలు: %s\n", te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, ad_score, html_mode).c_str());
                     } else {
                         printf("     -> [ %s - %s ] : %s Bhukti\n", ad_start_str.c_str(), ad_end_str.c_str(), p_names_full[ad_p]);
-                        printf("        %s\n", get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode).c_str());
-                        
-                        // --- Inject CLI-Safe Ashtakavarga Text ---
+                        printf("        %s\n", bhukti_desc_en.c_str());
                         printf("        %s\n", av_text_en_cli.c_str());
-                        
-                        if (ad_p == 8 || ad_p == 9) printf("        * Life Events: %s\n", get_node_bhukti_event(p_names_full[ad_p], ad_house, html_mode).c_str());
-                        else printf("        * Life Events: %s\n", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, html_mode).c_str());
+                        printf("        %s\n", sthana_en_cli.c_str());
+                        printf("        %s\n", sl_text_en_cli.c_str());
+                        if (ad_p == 8 || ad_p == 9) printf("        * Life Events: %s\n", get_node_bhukti_event(p_names_full[ad_p], ad_house, ad_score, html_mode).c_str());
+                        else printf("        * Life Events: %s\n", get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, ad_score, html_mode).c_str());
                     }
                 }
                 ad_start += ad_dur;
-            }
-			
-            if (html_mode) printf("</div>\n"); // Close the Mahadasha wrapper div
+            } // END INNER LOOP
+            
+            if (html_mode) printf("</div>\n"); 
             else printf("\n-----------------------------------------------------------------------------------------\n\n");
             
             cur_start += md_dur;
-        }
+        } // END OUTER LOOP
     }
 	
 void print_dasha_tables_html(double target_jd) {

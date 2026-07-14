@@ -700,12 +700,8 @@ inline std::string te_get_dynamic_bhukti(int md_idx, int ad_idx, int score, int 
     if (house == 6 || house == 8 || house == 12) modifier += " ఇది దుస్థానం (6,8,12) నుండి పనిచేయడం వల్ల కర్మ ప్రక్షాళన, ఆరోగ్య సమస్యలు లేదా ఆకస్మిక పరివర్తనలను సృష్టిస్తుంది.";
     else if (house == 1 || house == 4 || house == 7 || house == 10) modifier += " ఇది కేంద్ర స్థానం నుండి పనిచేయడం వల్ల, మీ జీవితంలో (కెరీర్/గృహం/వివాహం) కంటికి కనిపించే భారీ మార్పులను వేగవంతం చేస్తుంది.";
 
-	std::string sl_text = "";
-	
-	if (!is_html) {
-        sl_text = " [నక్షత్ర సిద్ధాంతం: " + std::string(te_p_names_full[ad_idx]) + " గ్రహం " + std::string(te_p_names_full[star_lord]) + " నక్షత్రంలో ఉంది. కాబట్టి ఈ భుక్తి కాలంలో జరిగే వాస్తవ సంఘటనలు మరియు అంతిమ ఫలితాలు " + std::string(te_p_names_full[star_lord]) + " యొక్క స్థితిగతుల ద్వారా నిర్ణయించబడతాయి.]";
-    }    
-	return base + modifier + sl_text;
+    // The cliffhanger text has been permanently removed from the data layer
+    return base + modifier;
 }
 
 // =========================================================================
@@ -729,20 +725,37 @@ inline std::string te_get_house_theme(int h) {
         default: return "";
     }
 }
-inline std::string te_get_lordship_bhukti_event(std::string p_name, const std::vector<int>& houses, bool is_html) {
+
+inline std::string te_get_lordship_bhukti_event(std::string p_name, const std::vector<int>& houses, int score, bool is_html) {
     if (houses.empty()) return "";
-    if (houses.size() == 1) {
-        if (is_html) return "ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + "కి సంబంధించిన సంఘటనలు మీ జీవితంలో బలంగా జరుగుతాయి.";
-        else return "మీ జాతకంలో " + p_name + " " + std::to_string(houses[0]) + "వ భావానికి అధిపతి కాబట్టి, ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + "కి సంబంధించిన ప్రత్యక్ష సంఘటనలు మీ జీవితంలో జరుగుతాయి.";
+    std::string themes = "";
+    if (houses.size() == 1) themes = te_get_house_theme(houses[0]);
+    else themes = te_get_house_theme(houses[0]) + " తో పాటు " + te_get_house_theme(houses[1]);
+    
+    if (score >= 3) {
+        return is_html ? "ఈ గ్రహం అత్యంత బలంగా ఉన్నందున, <b>" + themes + "</b> కి సంబంధించిన విషయాలు అద్భుతంగా కలసివస్తాయి. ఈ రంగాల్లో ఎలాంటి ఆటంకం లేకుండా భారీ విజయాలు సిద్ధిస్తాయి." 
+                       : "ఈ గ్రహం అత్యంత బలంగా ఉన్నందున, " + themes + " కి సంబంధించిన విషయాలు అద్భుతంగా కలసివస్తాయి. ఈ రంగాల్లో ఎలాంటి ఆటంకం లేకుండా భారీ విజయాలు సిద్ధిస్తాయి.";
+    } else if (score <= -2) {
+        return is_html ? "ఈ గ్రహం బలహీనంగా/ప్రతికూలంగా ఉన్నందున, <b>" + themes + "</b> కి సంబంధించిన విషయాల్లో తీవ్రమైన సవాళ్లు, జాప్యం మరియు మానసిక ఒత్తిడిని ఎదుర్కొంటారు."
+                       : "ఈ గ్రహం బలహీనంగా/ప్రతికూలంగా ఉన్నందున, " + themes + " కి సంబంధించిన విషయాల్లో తీవ్రమైన సవాళ్లు, జాప్యం మరియు మానసిక ఒత్తిడిని ఎదుర్కొంటారు.";
     } else {
-        if (is_html) return "ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + " మరియు " + te_get_house_theme(houses[1]) + "కి సంబంధించిన సంఘటనలు మీ జీవితంలో బలంగా జరుగుతాయి.";
-        else return "మీ జాతకంలో " + p_name + " " + std::to_string(houses[0]) + "వ మరియు " + std::to_string(houses[1]) + "వ భావాలకు అధిపతి కాబట్టి, ఈ భుక్తి కాలంలో " + te_get_house_theme(houses[0]) + " తో పాటు " + te_get_house_theme(houses[1]) + "కి సంబంధించిన ప్రత్యక్ష సంఘటనలు మీ జీవితంలో బలంగా జరుగుతాయి.";
+        return is_html ? "ఈ గ్రహం మధ్యస్థ బలంతో ఉన్నందున, <b>" + themes + "</b> లో సాధారణ, యధావిధి పరిణామాలు జరుగుతాయి."
+                       : "ఈ గ్రహం మధ్యస్థ బలంతో ఉన్నందున, " + themes + " లో సాధారణ, యధావిధి పరిణామాలు జరుగుతాయి.";
     }
 }
 
-inline std::string te_get_node_bhukti_event(std::string p_name, int placed_house, bool is_html) {
-    if (is_html) return "ఈ సమయంలో " + te_get_house_theme(placed_house) + "కి సంబంధించిన సంఘటనలను తీవ్రంగా మరియు అనూహ్యంగా ప్రేరేపిస్తుంది.";
-    else return "ఛాయా గ్రహమైన " + p_name + " మీ జాతకంలో " + std::to_string(placed_house) + "వ భావంలో ఉన్నందున, ఈ సమయంలో " + te_get_house_theme(placed_house) + "కి సంబంధించిన సంఘటనలను తీవ్రంగా మరియు అనూహ్యంగా ప్రేరేపిస్తుంది.";
+inline std::string te_get_node_bhukti_event(std::string p_name, int placed_house, int score, bool is_html) {
+    std::string theme = te_get_house_theme(placed_house);
+    if (score >= 3) {
+        return is_html ? "ఈ ఛాయా గ్రహం అత్యంత అనుకూల స్థితిలో ఉన్నందున, <b>" + theme + "</b> లో ఊహించని, ఆకస్మిక మరియు భారీ లాభాలను ఇస్తుంది."
+                       : "ఈ ఛాయా గ్రహం అత్యంత అనుకూల స్థితిలో ఉన్నందున, " + theme + " లో ఊహించని, ఆకస్మిక మరియు భారీ లాభాలను ఇస్తుంది.";
+    } else if (score <= -2) {
+        return is_html ? "ఈ ఛాయా గ్రహం ప్రతికూల స్థితిలో ఉన్నందున, <b>" + theme + "</b> లో తీవ్రమైన గందరగోళం, ఆకస్మిక అడ్డంకులు సృష్టిస్తుంది."
+                       : "ఈ ఛాయా గ్రహం ప్రతికూల స్థితిలో ఉన్నందున, " + theme + " లో తీవ్రమైన గందరగోళం, ఆకస్మిక అడ్డంకులు సృష్టిస్తుంది.";
+    } else {
+        return is_html ? "ఈ ఛాయా గ్రహం స్థానం వల్ల <b>" + theme + "</b> కి సంబంధించి అనూహ్యమైన, మిశ్రమ మార్పులు వస్తాయి."
+                       : "ఈ ఛాయా గ్రహం స్థానం వల్ల " + theme + " కి సంబంధించి అనూహ్యమైన, మిశ్రమ మార్పులు వస్తాయి.";
+    }
 }
 // =========================================================================
 // NAKSHATRA PADA PERSONALITY MATRIX (TELUGU) - BATCH 1 (0 to 8)

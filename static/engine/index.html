@@ -186,11 +186,12 @@
         <h2 style="font-size: 1.3em;">Natal Birth Parameters & Global Settings</h2>
 		<!-- SAVED PROFILES SECTION -->
         <div style="background: #2a2a35; padding: 15px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-            <label style="margin: 0; color: #f1c40f;">Saved Profiles:</label>
+            <label style="margin: 0; color: #f1c40f; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px;">Saved Profiles:</label>
             <select id="profile-selector" onchange="loadProfile()" style="flex-grow: 1; max-width: 250px;">
                 <option value="">-- Select a Profile --</option>
             </select>
             <button type="button" onclick="saveProfile()" style="width: auto; padding: 8px 15px; font-size: 0.9em; background: #2ecc71; color: #111; border-radius: 4px;">💾 Save Current</button>
+            <button type="button" onclick="setDefaultProfile()" style="width: auto; padding: 8px 15px; font-size: 0.9em; background: #f39c12; color: #111; border-radius: 4px;">⭐ Set Default</button>
             <button type="button" onclick="deleteProfile()" style="width: auto; padding: 8px 15px; font-size: 0.9em; background: #e74c3c; color: #fff; border-radius: 4px;">🗑️ Delete</button>
         </div>
         <div class="form-grid">
@@ -540,10 +541,21 @@
 
     function updateProfileDropdown() {
         const profiles = getProfiles();
+        const defaultName = localStorage.getItem('default_astrology_profile');
         const selector = document.getElementById('profile-selector');
+        
+        // Preserve currently selected value
+        const currentValue = selector.value;
+        
         selector.innerHTML = '<option value="">-- Select a Profile --</option>';
         for (const name in profiles) {
-            selector.innerHTML += `<option value="${name}">${name}</option>`;
+            const isDefault = (name === defaultName) ? " (Default)" : "";
+            selector.innerHTML += `<option value="${name}">${name}${isDefault}</option>`;
+        }
+        
+        // Restore selection if it still exists
+        if (profiles[currentValue]) {
+            selector.value = currentValue;
         }
     }
 
@@ -588,6 +600,17 @@
         }
     }
 
+    function setDefaultProfile() {
+        const name = document.getElementById('profile-selector').value;
+        if (!name) {
+            alert("Please select a saved profile from the dropdown first to set it as default.");
+            return;
+        }
+        localStorage.setItem('default_astrology_profile', name);
+        updateProfileDropdown();
+        alert(`'${name}' is now your default profile! It will load automatically when you open the app.`);
+    }
+
     function deleteProfile() {
         const name = document.getElementById('profile-selector').value;
         if (!name) {
@@ -598,14 +621,32 @@
             const profiles = getProfiles();
             delete profiles[name];
             saveProfiles(profiles);
+            
+            // If they delete the default profile, remove the default setting
+            if (localStorage.getItem('default_astrology_profile') === name) {
+                localStorage.removeItem('default_astrology_profile');
+            }
+            
             updateProfileDropdown();
             document.querySelector('input[name="user_name"]').value = "";
         }
     }
 
-    // Initialize the dropdown immediately when the page loads
+    // Initialize dropdown and auto-load default profile on startup
     window.addEventListener('DOMContentLoaded', (event) => {
         updateProfileDropdown();
+        
+        const defaultName = localStorage.getItem('default_astrology_profile');
+        if (defaultName) {
+            const profiles = getProfiles();
+            if (profiles[defaultName]) {
+                document.getElementById('profile-selector').value = defaultName;
+                loadProfile();
+            } else {
+                // Cleanup if the default profile was somehow wiped from localStorage
+                localStorage.removeItem('default_astrology_profile');
+            }
+        }
     });
 	
     document.getElementById('calc-form').addEventListener('submit', function(e) {

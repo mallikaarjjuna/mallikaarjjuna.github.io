@@ -1615,22 +1615,14 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
         string c1_n_en, c2_n_en, c3_n_en, c4_n_en, c5_n_en, c6_n_en;
         string c1_n_te, c2_n_te, c3_n_te, c4_n_te, c5_n_te, c6_n_te;
 
-        if (d7_asc % 2 == 0) {
-            c1_rashi = h5_rashi;  c1_lord = l5_idx;  c1_n_en = "First Child (5th House)";  c1_n_te = "మొదటి సంతానం (5వ భావం)";
-            c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
-            c3_rashi = h9_rashi;  c3_lord = l9_idx;  c3_n_en = "Third Child (9th House)";  c3_n_te = "మూడవ సంతానం (9వ భావం)";
-            c4_rashi = h11_rashi; c4_lord = l11_idx; c4_n_en = "Fourth Child (11th House)"; c4_n_te = "నాల్గవ సంతానం (11వ భావం)";
-            c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
-            c6_rashi = h3_rashi;  c6_lord = l3_idx;  c6_n_en = "Sixth Child (3rd House)";   c6_n_te = "ఆరవ సంతానం (3వ భావం)";
-        } else {
-            c1_rashi = h9_rashi;  c1_lord = l9_idx;  c1_n_en = "First Child (9th House)";  c1_n_te = "మొదటి సంతానం (9వ భావం)";
-            c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
-            c3_rashi = h5_rashi;  c3_lord = l5_idx;  c3_n_en = "Third Child (5th House)";  c3_n_te = "మూడవ సంతానం (5వ భావం)";
-            c4_rashi = h3_rashi;  c4_lord = l3_idx;  c4_n_en = "Fourth Child (3rd House)"; c4_n_te = "నాల్గవ సంతానం (3వ భావం)";
-            c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
-            c6_rashi = h11_rashi; c6_lord = l11_idx; c6_n_en = "Sixth Child (11th House)"; c6_n_te = "ఆరవ సంతానం (11వ భావం)";
-        }
-
+		// --- STANDARD PARASHARI D1 SEQUENCE (Bhavat Bhavam: 3rd from previous) ---
+        c1_rashi = h5_rashi;  c1_lord = l5_idx;  c1_n_en = "First Child (5th House)";  c1_n_te = "మొదటి సంతానం (5వ భావం)";
+        c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
+        c3_rashi = h9_rashi;  c3_lord = l9_idx;  c3_n_en = "Third Child (9th House)";  c3_n_te = "మూడవ సంతానం (9వ భావం)";
+        c4_rashi = h11_rashi; c4_lord = l11_idx; c4_n_en = "Fourth Child (11th House)"; c4_n_te = "నాల్గవ సంతానం (11వ భావం)";
+        c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
+        c6_rashi = h3_rashi;  c6_lord = l3_idx;  c6_n_en = "Sixth Child (3rd House)";   c6_n_te = "ఆరవ సంతానం (3వ భావం)";
+		
         double beeja_sphuta = fmod(planet_lons[1] + planet_lons[6] + planet_lons[5], 360.0);
         double kshetra_sphuta = fmod(planet_lons[2] + planet_lons[3] + planet_lons[5], 360.0);
         
@@ -1889,18 +1881,10 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                     }
                 }
 
-                int house_num = 5;
-                if (d7_asc % 2 == 0) { 
-                    const int odd_seq[] = {5, 7, 9, 11, 1, 3};
-                    house_num = odd_seq[(child_num - 1) % 6];
-                } else { 
-                    const int even_seq[] = {9, 7, 5, 3, 1, 11};
-                    house_num = even_seq[(child_num - 1) % 6];
-                }
-
-                int d7_house_rashi = 0;
-                if (d7_asc % 2 == 0) d7_house_rashi = (d7_asc + (house_num - 1)) % 12;
-                else d7_house_rashi = (d7_asc - (house_num - 1) + 12) % 12;
+                // --- Standard Forward D7 Projection ---
+                const int seq[] = {5, 7, 9, 11, 1, 3};
+                int house_num = seq[(child_num - 1) % 6];
+                int d7_house_rashi = (d7_asc + house_num - 1) % 12;
 
                 if (is_male_rashi(d7_house_rashi)) male_points += 3; else female_points += 3;
                 

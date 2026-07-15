@@ -151,8 +151,36 @@
     </header>
 
 <div class="container">
-    <h1>Vedic Astrology Computation Matrix</h1>
-    <p style="color: #888; font-size: 0.9em; margin-top: -10px; margin-bottom: 30px;">Powered by WebAssembly Orbital Engine</p>
+    <!-- TOP HEADER ROW: Title on Left, Donation on Right -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px;">
+        
+        <!-- Left Side: Title & Subtitle -->
+        <div>
+            <h1>Vedic Astrology Computation Matrix</h1>
+            <p style="color: #888; font-size: 0.9em; margin-top: -10px; margin-bottom: 20px;">Powered by WebAssembly Orbital Engine</p>
+        </div>
+        
+        <!-- Right Side: UPI Donation Card -->
+        <div style="background: #2a2a35; padding: 15px 20px; border-radius: 8px; border-top: 4px solid #3498db; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: center; max-width: 260px; display: flex; flex-direction: column; align-items: center;">
+            <h3 style="margin: 0 0 8px 0; color: #3498db; font-size: 15px; display: flex; align-items: center;">
+                <span style="font-size: 18px; margin-right: 8px;">☕</span> Support The Developer
+            </h3>
+            <p style="margin: 0 0 12px 0; font-size: 12px; color: #bbb; line-height: 1.4;">
+                If this free engine provided value to your life, consider buying me a coffee!
+            </p>
+            
+            <!-- Replace 'upi-qr.png' with the actual filename of your QR code image -->
+            <img src="upi-qr.png" alt="Scan to Donate via UPI" style="width: 110px; height: 110px; border-radius: 6px; border: 2px solid #1e1e24; margin-bottom: 12px; background: #fff; padding: 4px;">
+            
+            <!-- Mobile Deep Link: Replace 'your_upi_id@bank' and 'YourName' -->
+            <a href="upi://pay?pa=8309136205@ptsbi&pn=Mallikarjuna%20Munagapati&cu=INR" style="text-decoration: none; width: 100%;">
+                <button type="button" style="background: #3498db; color: #fff; border: none; padding: 8px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; width: 100%; transition: background 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                    Open UPI App (Mobile)
+                </button>
+            </a>
+        </div>
+        
+    </div>
 
     <form id="calc-form">
         <!-- 1. PERMANENT NATAL PARAMETERS -->

@@ -1439,7 +1439,7 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         
         fflush(stdout); // CRITICAL FIX: Flush the UI immediately!
     }
-// ---------------------------------------------------------
+	// ---------------------------------------------------------
     // CRITICAL MATH FIX: Force floating-point division with 30.0
     // ---------------------------------------------------------
     int get_varga(int varga, double lon) {
@@ -1447,7 +1447,8 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
     }
 
 	void analyze_progeny(bool is_female = false, bool gender_provided = false) {
-        if (json_mode) return;
+        
+		if (json_mode) return;
 
         if (html_mode) {
             printf("<h2 style='margin-top: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", telugu_mode ? "సంతాన విశ్లేషణ (PROGENY & D7 SAPTAMSHA ANALYSIS)" : "SANTAN YOGA & DOSHA (PROGENY & D7 SAPTAMSHA ANALYSIS)");

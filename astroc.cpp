@@ -1455,7 +1455,7 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
             // --- STRICT LEGAL & ALGORITHMIC DISCLAIMER ---
             printf("<div style='background: #311b1b; padding: 15px; border-radius: 6px; border-left: 4px solid #e74c3c; margin-bottom: 25px;'>");
             printf("<h4 style='margin: 0 0 8px 0; color: #e74c3c;'>%s</h4>", telugu_mode ? "ముఖ్య గమనిక / చట్టపరమైన నిరాకరణ (DISCLAIMER)" : "LEGAL & ALGORITHMIC DISCLAIMER");
-            printf("<p style='margin: 0; font-size: 13px; color: #ccc; line-height: 1.5;'>%s</p>", telugu_mode ? "ఇక్కడ అందించిన సమాచారం ప్రాచీన పరాశర మరియు జైమిని గణిత పద్ధతుల ఆధారంగా లెక్కించబడింది. ఇది కేవలం జ్యోతిష్య పరిశోధన మరియు విద్యా ప్రయోజనాల కోసం మాత్రమే. ఈ ఫలితాల ఖచ్చితత్వానికి మేము ఎలాంటి బాధ్యత వహించము. అంతేకాకుండా, భారతీయ చట్టాలకు (PCPNDT Act) లోబడి, పుట్టబోయే బిడ్డ యొక్క లింగ నిర్ధారణ (ఆడ/మగ అంచనా వేయుట) ఈ సాఫ్ట్‌వేర్‌లో పూర్తిగా నిషేధించబడింది మరియు ఆ కోడ్ తొలగించబడింది." : "The calculations presented here are based purely on ancient classical algorithms (Brihat Parashara Hora Shastra and Jaimini Sutras). They are provided for astrological research and educational purposes only. We hold no liability for the exact manifestation of these algorithmic outcomes. Furthermore, in strict compliance with the laws of India (including the PCPNDT Act), this software strictly prohibits and restricts the astrological prediction of a child's gender.");
+            printf("<p style='margin: 0; font-size: 13px; color: #ccc; line-height: 1.5;'>%s</p>", telugu_mode ? "ఇక్కడ అందించిన సమాచారం ప్రాచీన పరాశర మరియు జైమిని గణిత పద్ధతుల ఆధారంగా లెక్కించబడింది. ఇది కేవలం జ్యోతిష్య పరిశోధన మరియు విద్యా ప్రయోజనాల కోసం మాత్రమే. ఈ ఫలితాల ఖచ్చితత్వానికి మేము ఎలాంటి బాధ్యత వహించము. అంతేకాకుండా, భారతీయ చట్టాలకు (PCPNDT Act) లోబడి, పుట్టబోయే బిడ్డ యొక్క లింగ నిర్ధారణ (ఆడ/మగ అంచనా వేయుట) ఈ సాఫ్ట్‌వేర్‌లో పూర్తిగా నిషేధించబడింది మరియు ఆ కోడ్ వెబ్ ఇంటర్‌ఫేస్ నుండి తొలగించబడింది." : "The calculations presented here are based purely on ancient classical algorithms (Brihat Parashara Hora Shastra and Jaimini Sutras). They are provided for astrological research and educational purposes only. We hold no liability for the exact manifestation of these algorithmic outcomes. Furthermore, in strict compliance with the laws of India (including the PCPNDT Act), this software strictly prohibits and restricts the astrological prediction of a child's gender on the web interface.");
             printf("</div>\n");
             
         } else {
@@ -1477,11 +1477,39 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
             if (r == 3 || r == 11) return true;
             return (r % 2 == 0); 
         };
+        
+        auto is_male_planet = [&](int p) { 
+            if (p == 1 || p == 3 || p == 5 || p == 8) return true; // Sun, Mars, Jupiter, Rahu
+            if (p == 2 || p == 6 || p == 9) return false; // Moon, Venus, Ketu
+            if (p == 7 || p == 4) return is_male_rashi(get_varga(1, planet_lons[p])); // Sat, Merc adapt
+            return false; 
+        }; 
+        
+        auto is_female_planet = [&](int p) { 
+            return !is_male_planet(p);
+        }; 
 
         auto get_varga_rashi = [&](int p, int varga) { return get_varga(varga, planet_lons[p]); };
+
+        auto is_male_planet_in_varga = [&](int p, int varga) {
+            if (p == 1 || p == 3 || p == 5 || p == 8) return true;
+            if (p == 2 || p == 6 || p == 9) return false;
+            if (p == 7 || p == 4) return is_male_rashi(get_varga_rashi(p, varga));
+            return false;
+        };
         
         auto check_aspect = [&](int p, int target_rashi) {
             int r = planet_rashis[p];
+            int d = (target_rashi - r + 12) % 12 + 1;
+            if (d == 7) return true;
+            if (p == 3 && (d == 4 || d == 8)) return true;
+            if (p == 5 && (d == 5 || d == 9)) return true;
+            if (p == 7 && (d == 3 || d == 10)) return true;
+            return false;
+        };
+
+        auto check_aspect_varga = [&](int p, int target_rashi, int varga) {
+            int r = get_varga(varga, planet_lons[p]);
             int d = (target_rashi - r + 12) % 12 + 1;
             if (d == 7) return true;
             if (p == 3 && (d == 4 || d == 8)) return true;
@@ -1512,15 +1540,40 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
             else if (h == 6 || h == 8 || h == 12) local_scores[p] -= 3;
         }
 
+        auto get_dignity_weight = [&](int p, bool is_occupant) {
+            int base = is_occupant ? 2 : 1;
+            if (local_scores[p] >= 3) return base + 2; 
+            if (local_scores[p] <= -3) return base - 1; 
+            return base;
+        };
+
+        vector<pair<int, double>> k_list;
+        for (int i = 1; i <= 7; i++) k_list.push_back({i, fmod(planet_lons[i], 30.0)});
+        sort(k_list.begin(), k_list.end(), [](const pair<int, double>& a, const pair<int, double>& b) { return a.second > b.second; });
+        int pk_idx = k_list[5].first; 
+
+        // --- RESTORED HOUSE & LORD DECLARATIONS ---
         int h5_rashi = (asc_rashi + 4) % 12;
         int l5_idx = get_lord(h5_rashi);
+        
+        int h7_rashi = (asc_rashi + 6) % 12;
+        int l7_idx = get_lord(h7_rashi);
+        
         int h9_rashi = (asc_rashi + 8) % 12;
         int l9_idx = get_lord(h9_rashi);
+        
+        int h11_rashi = (asc_rashi + 10) % 12;
+        int l11_idx = get_lord(h11_rashi);
+        
+        int h1_rashi = asc_rashi;
+        int l1_idx = get_lord(h1_rashi);
+        
+        int h3_rashi = (asc_rashi + 2) % 12;
+        int l3_idx = get_lord(h3_rashi);
 
         int d9_asc = get_varga(9, planet_lons[0]);
         int d7_asc = get_varga(7, planet_lons[0]);
 
-        // --- CORE PROMISE & ESTIMATED NUMBER OF CHILDREN ---
         int lord_for_count = (gender_provided && is_female) ? l9_idx : l5_idx;
         int navamsas_gained = (int)(fmod(planet_lons[lord_for_count], 30.0) / (10.0 / 3.0)) + 1; 
         int base_children = navamsas_gained;
@@ -1557,7 +1610,27 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
 
         if (base_children > max_children_allowed) base_children = max_children_allowed;
 
-        // CALCULATE SPHUTAS GLOBALLY
+        int c1_rashi, c2_rashi, c3_rashi, c4_rashi, c5_rashi, c6_rashi;
+        int c1_lord, c2_lord, c3_lord, c4_lord, c5_lord, c6_lord;
+        string c1_n_en, c2_n_en, c3_n_en, c4_n_en, c5_n_en, c6_n_en;
+        string c1_n_te, c2_n_te, c3_n_te, c4_n_te, c5_n_te, c6_n_te;
+
+        if (d7_asc % 2 == 0) {
+            c1_rashi = h5_rashi;  c1_lord = l5_idx;  c1_n_en = "First Child (5th House)";  c1_n_te = "మొదటి సంతానం (5వ భావం)";
+            c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
+            c3_rashi = h9_rashi;  c3_lord = l9_idx;  c3_n_en = "Third Child (9th House)";  c3_n_te = "మూడవ సంతానం (9వ భావం)";
+            c4_rashi = h11_rashi; c4_lord = l11_idx; c4_n_en = "Fourth Child (11th House)"; c4_n_te = "నాల్గవ సంతానం (11వ భావం)";
+            c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
+            c6_rashi = h3_rashi;  c6_lord = l3_idx;  c6_n_en = "Sixth Child (3rd House)";   c6_n_te = "ఆరవ సంతానం (3వ భావం)";
+        } else {
+            c1_rashi = h9_rashi;  c1_lord = l9_idx;  c1_n_en = "First Child (9th House)";  c1_n_te = "మొదటి సంతానం (9వ భావం)";
+            c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
+            c3_rashi = h5_rashi;  c3_lord = l5_idx;  c3_n_en = "Third Child (5th House)";  c3_n_te = "మూడవ సంతానం (5వ భావం)";
+            c4_rashi = h3_rashi;  c4_lord = l3_idx;  c4_n_en = "Fourth Child (3rd House)"; c4_n_te = "నాల్గవ సంతానం (3వ భావం)";
+            c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
+            c6_rashi = h11_rashi; c6_lord = l11_idx; c6_n_en = "Sixth Child (11th House)"; c6_n_te = "ఆరవ సంతానం (11వ భావం)";
+        }
+
         double beeja_sphuta = fmod(planet_lons[1] + planet_lons[6] + planet_lons[5], 360.0);
         double kshetra_sphuta = fmod(planet_lons[2] + planet_lons[3] + planet_lons[5], 360.0);
         
@@ -1600,12 +1673,12 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
         }
         
         bool sarpa_dosha = false, pitru_dosha = false, garbha_dosha = false;
-        int c1_rashi = house_for_count_rashi;
-        int c1_lord = get_lord(c1_rashi);
+        int c1_rashi_dosha = house_for_count_rashi;
+        int c1_lord_dosha = get_lord(c1_rashi_dosha);
 
-        if (planet_rashis[8] == c1_rashi || planet_rashis[9] == c1_rashi || 
-            planet_rashis[8] == planet_rashis[c1_lord] || planet_rashis[9] == planet_rashis[c1_lord] ||
-            check_aspect(8, c1_rashi) || check_aspect(9, c1_rashi)) {
+        if (planet_rashis[8] == c1_rashi_dosha || planet_rashis[9] == c1_rashi_dosha || 
+            planet_rashis[8] == planet_rashis[c1_lord_dosha] || planet_rashis[9] == planet_rashis[c1_lord_dosha] ||
+            check_aspect(8, c1_rashi_dosha) || check_aspect(9, c1_rashi_dosha)) {
             sarpa_dosha = true;
         }
         if ((check_aspect(1, h5_rashi) && check_aspect(7, h5_rashi)) || 
@@ -1646,6 +1719,13 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
             
             if (base_children == 0) printf("<li style='color:#e74c3c; margin-top:5px;'><b>%s</b> %s</li>", telugu_mode?"అంచనా:":"Estimate:", telugu_mode?"తీవ్రమైన కర్మ అడ్డంకి. జ్యోతిష్య/వైద్య పరిహారాలు లేకుండా సంతాన ప్రాప్తి కష్టం.":"Severe Karmic block detected. High probability of obstacles without intervention.");
             else printf("<li style='color:#fff; margin-top:5px;'><b>%s</b> %s</li>", telugu_mode?"అంచనా:":"Estimate:", telugu_mode?("ప్రాచీన పరాశర/జైమిని గణితం ప్రకారం " + to_string(base_children) + " సంతానం కలిగే అవకాశం ఉంది.").c_str() : ("Pure Classical algorithmic capacity for " + to_string(base_children) + " child(ren).").c_str());
+
+            if (gender_provided && is_female) {
+                double lagna_deg = fmod(planet_lons[0], 30.0);
+                if (lagna_deg > 28.0 || lagna_deg < 2.0) {
+                    printf("<li style='color:#aaa; margin-top:5px;'><b>%s</b> %s</li>", telugu_mode?"గమనిక:":"Note:", telugu_mode?("లగ్నం " + to_string((int)lagna_deg) + "° వద్ద ఉంది (రాశి సంధి). జనన సమయం ±4 నిమిషాలు మారితే సంతాన ఫలితాలు మారవచ్చు.").c_str() : ("Lagna at " + to_string((int)lagna_deg) + "° - within 2° of sign cusp. Gender sequence sensitive to birth time ±4 min.").c_str());
+                }
+            }
             printf("</ul>\n");
         } else { 
             if (telugu_mode) printf("\n[సంతాన సంఖ్య & ప్రాథమిక యోగం (Estimated Progeny Count)]\n");
@@ -1660,9 +1740,289 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                 if (base_children == 0) printf("  * Estimate: Severe Karmic block detected. High probability of obstacles without intervention.\n");
                 else printf("  * Estimate: Pure Classical algorithmic capacity for %d child(ren).\n", base_children);
             }
+
+            if (gender_provided && is_female) {
+                double lagna_deg = fmod(planet_lons[0], 30.0);
+                if (lagna_deg > 28.0 || lagna_deg < 2.0) {
+                    if (telugu_mode) printf("  * గమనిక: లగ్నం %02d° వద్ద ఉంది (రాశి సంధి). జనన సమయం ±4 నిమిషాలు మారితే సంతాన ఫలితాలు మారవచ్చు.\n", (int)lagna_deg);
+                    else printf("  * Note: Lagna at %02d° - within 2° of sign cusp. Gender sequence sensitive to birth time ±4 min.\n", (int)lagna_deg);
+                }
+            }
         }
 
-        // NOTE: GENDER PREDICTION BLOCK COMPLETELY REMOVED HERE.
+        // --- NEW: INDIVIDUAL PROGENY PROFILING & CLI GENDER PREDICTION ---
+        if (base_children > 0) {
+            if (html_mode) {
+                printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "సంతాన భవిష్యత్తు & ఆరోగ్య విశ్లేషణ (Child-by-Child Profiling)" : "Individual Progeny Profiling (Health & Destiny)");
+                printf("<div style='display: grid; gap: 15px;'>");
+            } else {
+                if (telugu_mode) {
+                    printf("\n[సంతాన భవిష్యత్తు & ఆరోగ్య విశ్లేషణ (Child-by-Child Profiling)]\n");
+                    printf("[సంతాన లింగ నిర్ధారణ (Gender Sequence Prediction - CLI ONLY)]\n");
+                } else {
+                    printf("\n[INDIVIDUAL PROGENY PROFILING (Health & Destiny)]\n");
+                    printf("[GENDER SEQUENCE PREDICTION (D1 + D2 + D3 + D9 + D7 Weighted - CLI ONLY)]\n");
+                }
+            }
+
+            // GRAHA YUDDHA (Planetary War Defeat Mask) - Needed for Gender Prediction Points
+            bool is_loser[10] = {false};
+            for(int p1=3; p1<=7; p1++) {
+                for(int p2=p1+1; p2<=7; p2++) {
+                    if(planet_rashis[p1] == planet_rashis[p2]) {
+                        double d = std::abs(planet_lons[p1] - planet_lons[p2]);
+                        if (d < 1.0) {
+                            double rem1 = fmod(planet_lons[p1], 30.0);
+                            double rem2 = fmod(planet_lons[p2], 30.0);
+                            int winner = -1, loser = -1;
+                            if (p1 == 6 && p2 != 5) { winner = 6; loser = p2; }
+                            else if (p2 == 6 && p1 != 5) { winner = 6; loser = p1; }
+                            else if (p1 == 5 && p2 == 6) { winner = 5; loser = 6; } 
+                            else if (p2 == 5 && p1 == 6) { winner = 5; loser = 6; }
+                            else { if (rem1 < rem2) { winner = p1; loser = p2; } else { winner = p2; loser = p1; } }
+                            if (loser != -1) is_loser[loser] = true;
+                        }
+                    }
+                }
+            }
+
+            // COMBUSTION CHECK (Astangata)
+            auto is_combust = [&](int p) {
+                if (p == 1 || p == 8 || p == 9) return false; 
+                double d = std::abs(planet_lons[p] - planet_lons[1]);
+                if (d > 180.0) d = 360.0 - d;
+                if (p == 2 && d <= 12.0) return true;
+                if (p == 3 && d <= 17.0) return true;
+                if (p == 4 && d <= 14.0) return true;
+                if (p == 5 && d <= 11.0) return true;
+                if (p == 6 && d <= 10.0) return true;
+                if (p == 7 && d <= 15.0) return true;
+                return false;
+            };
+
+            auto analyze_specific_child = [&](int child_num, int h_rashi, int l_idx, string title_en, string title_te) {
+                
+                // --- 1. HEALTH & DESTINY PROFILING ---
+                int lord_h = (planet_rashis[l_idx] - asc_rashi + 12) % 12 + 1;
+                int lord_score = local_scores[l_idx];
+                
+                int malefic_count = 0;
+                int mals[] = {1, 3, 7, 8, 9}; 
+                for (int m : mals) {
+                    if (planet_rashis[m] == h_rashi || check_aspect(m, h_rashi)) malefic_count++;
+                }
+
+                bool is_afflicted = (lord_h == 6 || lord_h == 8 || lord_h == 12 || lord_score <= -2 || malefic_count >= 2);
+                bool is_blessed = (!is_afflicted && (lord_h == 1 || lord_h == 5 || lord_h == 9 || lord_h == 10 || lord_score >= 3));
+
+                string status_en, status_te, color, icon;
+                if (is_afflicted) {
+                    color = "#e74c3c"; icon = "⚠️";
+                    status_en = "<b>VULNERABLE (Remedy Required):</b> The astrological indicators for this child are under heavy karmic stress. They may face health struggles or developmental delays. It is highly recommended to perform classical remedies for <b>" + string(p_names_full[l_idx]) + "</b>.";
+                    status_te = "<b>హెచ్చరిక (పరిహారం అవసరం):</b> ఈ సంతానానికి సంబంధించిన స్థానాలు తీవ్రమైన ఒత్తిడిలో ఉన్నాయి. వీరికి బాల్యంలో ఆరోగ్య సమస్యలు రావచ్చు. వీరి రక్షణ కోసం <b>" + get_planet_name(l_idx) + "</b> కి శాంతి/దానాలు చేయడం అత్యంత అవసరం.";
+                } else if (is_blessed) {
+                    color = "#2ecc71"; icon = "🌟";
+                    status_en = "<b>HIGHLY AUSPICIOUS:</b> The indicators for this child are extremely strong. This child will be highly fortunate, intelligent, and a source of immense pride.";
+                    status_te = "<b>అత్యంత శుభకరం:</b> ఈ సంతాన స్థానం చాలా బలంగా ఉంది. ఈ బిడ్డ అత్యంత అదృష్టవంతులు, తెలివైనవారు, మరియు కుటుంబానికి గొప్ప పేరు తీసుకువస్తారు.";
+                } else {
+                    color = "#f1c40f"; icon = "✅";
+                    status_en = "<b>STABLE:</b> The indicators for this child are balanced. They will have a standard, healthy development and a normal life trajectory.";
+                    status_te = "<b>సాధారణం:</b> ఈ సంతాన స్థానం స్థిరంగా ఉంది. వీరు సాధారణ, ఆరోగ్యకరమైన జీవితాన్ని గడుపుతారు.";
+                }
+
+                // --- 2. GENDER PREDICTION (CLI ONLY) ---
+                int male_points = 0; int female_points = 0;
+                
+                if (is_male_rashi(h_rashi)) male_points += 2; else female_points += 2;
+                if (is_male_planet(l_idx)) male_points += 2; else if (is_female_planet(l_idx)) female_points += 2;
+
+                bool has_jup_d1 = false; bool has_mars_d1 = false; bool has_sun_d1 = false;
+                for (int p=1; p<=9; p++) {
+                    if (is_loser[p]) continue; 
+                    if (is_combust(p)) { if (p == 5) female_points += 2; continue; }
+
+                    bool is_present = false;
+                    if (planet_rashis[p] == h_rashi) { 
+                        is_present = true;
+                        int weight = get_dignity_weight(p, true);
+                        if (is_male_planet(p)) male_points += weight;
+                        else if (is_female_planet(p)) female_points += weight;
+                    }
+                    else if (check_aspect(p, h_rashi)) { 
+                        is_present = true;
+                        int weight = get_dignity_weight(p, false); 
+                        if (is_male_planet(p)) male_points += weight;
+                        else if (is_female_planet(p)) female_points += weight;
+                    }
+                    if (is_present) {
+                        if (p == 5) has_jup_d1 = true;
+                        if (p == 3) has_mars_d1 = true;
+                        if (p == 1) has_sun_d1 = true;
+                    }
+                }
+
+                if (has_jup_d1) male_points += 4;
+                if (has_mars_d1) male_points += 6;
+
+                if ((planet_rashis[6] == h_rashi || check_aspect(6, h_rashi)) && local_scores[6] >= 2 && !is_loser[6] && !is_combust(6)) {
+                    female_points += 4; 
+                }
+
+                double cusp_lon = (h_rashi * 30.0) + fmod(planet_lons[0], 30.0);
+                int d2_rashi = get_varga(2, cusp_lon);
+                if (is_male_rashi(d2_rashi)) male_points += 1; else female_points += 1;
+
+                int d3_rashi = get_varga(3, cusp_lon);
+                if (is_male_rashi(d3_rashi)) male_points += 1; else female_points += 1;
+
+                int d9_house_rashi = get_varga(9, cusp_lon);
+                if (is_male_rashi(d9_house_rashi)) male_points += 2; else female_points += 2;
+
+                int d9_lord = get_lord(d9_house_rashi);
+                if (is_male_planet_in_varga(d9_lord, 9)) male_points += 2; else female_points += 2;
+
+                for (int p=1; p<=9; p++) {
+                    if (is_loser[p]) continue;
+                    if (check_aspect_varga(p, d9_house_rashi, 9)) {
+                        if (is_male_planet_in_varga(p, 9)) male_points += 1;
+                        else female_points += 1;
+                    }
+                }
+
+                int house_num = 5;
+                if (d7_asc % 2 == 0) { 
+                    const int odd_seq[] = {5, 7, 9, 11, 1, 3};
+                    house_num = odd_seq[(child_num - 1) % 6];
+                } else { 
+                    const int even_seq[] = {9, 7, 5, 3, 1, 11};
+                    house_num = even_seq[(child_num - 1) % 6];
+                }
+
+                int d7_house_rashi = 0;
+                if (d7_asc % 2 == 0) d7_house_rashi = (d7_asc + (house_num - 1)) % 12;
+                else d7_house_rashi = (d7_asc - (house_num - 1) + 12) % 12;
+
+                if (is_male_rashi(d7_house_rashi)) male_points += 3; else female_points += 3;
+                
+                int d7_lord = get_lord(d7_house_rashi);
+                if (is_male_planet_in_varga(d7_lord, 7)) male_points += 2; else female_points += 2;
+
+                for (int p=1; p<=9; p++) {
+                    if (is_loser[p]) continue; 
+                    if (get_varga(7, planet_lons[p]) == d7_house_rashi) {
+                        if (is_male_planet_in_varga(p, 7)) male_points += 2;
+                        else female_points += 2;
+                    }
+                    else if (check_aspect_varga(p, d7_house_rashi, 7)) {
+                        if (is_male_planet_in_varga(p, 7)) male_points += 1;
+                        else female_points += 1;
+                    }
+                }
+
+                int pk_dignity = get_dignity_weight(pk_idx, false); 
+                if (is_male_planet(pk_idx)) male_points += pk_dignity;
+                else if (is_female_planet(pk_idx)) female_points += pk_dignity;
+
+                if (pk_idx == 6) { 
+                    int pk_house = (planet_rashis[6] - asc_rashi + 12) % 12 + 1;
+                    if (pk_house == 1 || pk_house == 4 || pk_house == 7 || pk_house == 10) female_points += 3; 
+                }
+
+                int d7_pk = get_varga(7, planet_lons[pk_idx]);
+                if (is_male_rashi(d7_pk)) male_points += 3; else female_points += 3;
+                
+                if (d7_pk == exaltation_signs[pk_idx]) {
+                    if (male_points >= female_points) male_points += 2; else female_points += 2;
+                } else if (d7_pk == debilitation_signs[pk_idx]) {
+                    if (male_points >= female_points) male_points -= 2; else female_points -= 2;
+                }
+
+                double tithi_angle = fmod((planet_lons[2] - planet_lons[1] + 360.0), 360.0);
+                if (tithi_angle < 180.0) female_points += 1; else male_points += 1; 
+
+                if (child_num == 1) {
+                    if (gender_provided && is_female) {
+                        if (!is_male_rashi(kshetra_rashi)) female_points += 1; 
+                        if (!is_male_rashi(kshetra_d9)) female_points += 1; 
+                    } else if (gender_provided && !is_female) {
+                        if (is_male_rashi(beeja_rashi)) male_points += 1; 
+                        if (is_male_rashi(beeja_d9)) male_points += 1; 
+                    }
+                }
+
+                if (gender_provided && is_female && child_num == 1) {
+                    if (planet_rashis[6] == h_rashi || check_aspect(6, h_rashi)) female_points = male_points + 10; 
+                }
+
+                int sphuta_rashi = 0;
+                int sphuta_d9 = 0;
+                if (gender_provided && is_female) {
+                    sphuta_rashi = (int)(kshetra_sphuta / 30.0);
+                    sphuta_d9 = get_varga(9, kshetra_sphuta);
+                } else {
+                    sphuta_rashi = (int)(beeja_sphuta / 30.0);
+                    sphuta_d9 = get_varga(9, beeja_sphuta);
+                }
+
+                int sphuta_points = 0;
+                if (is_male_rashi(sphuta_rashi)) sphuta_points++;
+                if (is_male_rashi(sphuta_d9)) sphuta_points++;
+
+                if (sphuta_points == 2) male_points += 2; 
+                else if (sphuta_points == 0) female_points += 2; 
+                else {
+                    if (gender_provided) {
+                        if (is_female) female_points += 1;
+                        else male_points += 1;
+                    }
+                }
+
+                if (is_male_planet(pk_idx)) male_points += 2;
+                else female_points += 2;
+
+                string gender_en, gender_te;
+                if (male_points > female_points) { gender_en = "Male (Boy)"; gender_te = "మగ బిడ్డ"; }
+                else if (female_points > male_points) { gender_en = "Female (Girl)"; gender_te = "ఆడ బిడ్డ"; }
+                else { 
+                    if (is_male_rashi(planet_rashis[0])) { 
+                        gender_en = "Male (Lagna Tiebreaker)"; gender_te = "మగ బిడ్డ (లగ్నం ఆధారంగా)"; male_points++; 
+                    } else { 
+                        gender_en = "Female (Lagna Tiebreaker)"; gender_te = "ఆడ బిడ్డ (లగ్నం ఆధారంగా)"; female_points++; 
+                    }
+                }
+
+                // --- 3. OUTPUT GENERATION ---
+                if (html_mode) {
+                    printf("<div style='background: #2a2a35; padding: 15px; border-radius: 6px; border-left: 4px solid %s;'>", color.c_str());
+                    printf("<h4 style='margin: 0 0 8px 0; color: #fff;'>%s %s <span style='font-size:12px; color:#888; font-weight:normal;'>[Lord: %s in H%d]</span></h4>", 
+                           icon.c_str(), telugu_mode ? title_te.c_str() : title_en.c_str(), 
+                           telugu_mode ? get_planet_name(l_idx).c_str() : p_names_full[l_idx], lord_h);
+                    
+                    // HTML Only gets the Health/Destiny profile. Gender is strictly skipped.
+                    printf("<p style='margin: 0; font-size: 14px; color: #ccc; line-height: 1.5;'>%s</p>", telugu_mode ? status_te.c_str() : status_en.c_str());
+                    printf("</div>\n");
+                } else {
+                    if (telugu_mode) {
+                        printf("  - %s [అధిపతి: %s (%dవ భావంలో)]\n", title_te.c_str(), get_planet_name(l_idx).c_str(), lord_h);
+                        printf("    * ఆరోగ్య/భవిష్యత్ విశ్లేషణ: %s\n", is_afflicted ? "హెచ్చరిక (పరిహారం అవసరం)" : (is_blessed ? "అత్యంత శుభకరం" : "సాధారణం"));
+                        printf("    * లింగ నిర్ధారణ (అంచనా) : %s (మగ: %d pts | ఆడ: %d pts)\n", gender_te.c_str(), male_points, female_points);
+                    } else {
+                        printf("  - %s [Lord: %s (in House %d)]\n", title_en.c_str(), p_names_full[l_idx], lord_h);
+                        printf("    * Health/Destiny Profile : %s\n", is_afflicted ? "VULNERABLE (Remedy Required)" : (is_blessed ? "HIGHLY AUSPICIOUS" : "STABLE"));
+                        printf("    * Gender Prediction (Est): %s (Male: %d pts | Female: %d pts)\n", gender_en.c_str(), male_points, female_points);
+                    }
+                }
+            };
+
+            if (base_children >= 1) analyze_specific_child(1, c1_rashi, c1_lord, c1_n_en, c1_n_te);
+            if (base_children >= 2) analyze_specific_child(2, c2_rashi, c2_lord, c2_n_en, c2_n_te);
+            if (base_children >= 3) analyze_specific_child(3, c3_rashi, c3_lord, c3_n_en, c3_n_te);
+            if (base_children >= 4) analyze_specific_child(4, c4_rashi, c4_lord, c4_n_en, c4_n_te);
+            if (base_children >= 5) analyze_specific_child(5, c5_rashi, c5_lord, c5_n_en, c5_n_te);
+            if (base_children >= 6) analyze_specific_child(6, c6_rashi, c6_lord, c6_n_en, c6_n_te);
+
+            if (html_mode) printf("</div>\n");
+        }
 
         int d7_ju = get_varga(7, planet_lons[5]);
         int d7_primary_lord = get_varga(7, planet_lons[c1_lord]);

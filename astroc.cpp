@@ -3548,7 +3548,77 @@ double calculate_tithi_return(int target_year) {
             return 0.0;
         }
     }
-	
+
+	// ==========================================
+    // NAKSHATRA (TARA BALA) BOUNDARY SCANNER
+    // ==========================================
+    void get_nakshatra_transit_range(int p_idx, double target_jd, long flags, std::string& start_date, std::string& end_date) {
+        double xx[6];
+        char serr[256];
+        
+        // Map engine planet indices to Swiss Ephemeris planet codes
+        int se_p = p_idx - 1; 
+        if (p_idx >= 8) se_p = SE_TRUE_NODE; // Both Rahu and Ketu use TRUE_NODE
+
+        // Helper lambda to instantly fetch longitude and auto-correct for Ketu
+        auto get_lon = [&](double jd) {
+            swe_calc_ut(jd, se_p, flags, xx, serr);
+            double lon = xx[0];
+            if (p_idx == 9) lon = fmod(lon + 180.0, 360.0); // Ketu is exactly 180° from Rahu
+            return lon;
+        };
+
+        double current_lon = get_lon(target_jd);
+        int current_nak = (int)(current_lon / (360.0 / 27.0));
+
+        // Set adaptive step size based on planet speed to optimize execution loops
+        double step = 1.0; 
+        if (p_idx == 2) step = 0.05; // Moon moves fast (~13° per day)
+        else if (p_idx == 7 || p_idx == 8 || p_idx == 9) step = 4.0; // Saturn and Nodes move slow
+
+        // 1. Scan backward for Nakshatra entry date
+        double jd_start = target_jd;
+        while (true) {
+            double lon = get_lon(jd_start);
+            int nak = (int)(lon / (360.0 / 27.0));
+            if (nak != current_nak) {
+                double low = jd_start, high = jd_start + step;
+                for (int iter = 0; iter < 12; iter++) {
+                    double mid = (low + high) / 2.0;
+                    if ((int)(get_lon(mid) / (360.0 / 27.0)) == current_nak) high = mid;
+                    else low = mid;
+                }
+                jd_start = high;
+                break;
+            }
+            jd_start -= step;
+            if (target_jd - jd_start > 1100) { jd_start = target_jd; break; } // Safety escape
+        }
+
+        // 2. Scan forward for Nakshatra exit date
+        double jd_end = target_jd;
+        while (true) {
+            double lon = get_lon(jd_end);
+            int nak = (int)(lon / (360.0 / 27.0));
+            if (nak != current_nak) {
+                double low = jd_end - step, high = jd_end;
+                for (int iter = 0; iter < 12; iter++) {
+                    double mid = (low + high) / 2.0;
+                    if ((int)(get_lon(mid) / (360.0 / 27.0)) == current_nak) low = mid;
+                    else high = mid;
+                }
+                jd_end = low;
+                break;
+            }
+            jd_end += step;
+            if (jd_end - target_jd > 1100) { jd_end = target_jd; break; } // Safety escape
+        }
+
+        start_date = jd_to_string(jd_start).substr(0, 10);
+        end_date = jd_to_string(jd_end).substr(0, 10);
+    }
+
+	   
 void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool use_current_date, bool is_web_mode = false) {
         double trans_jd; int p_y = t_year, p_m = t_month, p_d = t_day, p_h = t_hour, p_min = t_min, p_s = t_sec;
         if (use_current_date) {
@@ -3683,12 +3753,12 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
             if (i == 1 || i == 3 || i == 5 || i == 7 || i == 8 || i == 9) {
                 double step = (i == 1 || i == 3) ? 1.0 : 5.0; // Fast planets step by 1 day, Slow planets by 5 days
                 
-                // Sweep backwards to find Entry Date
+                // Sweep backwards to find Entry Date (Rashi)
                 double jd_in = trans_jd;
                 while ((int)(get_planet_lon_on_jd(i, jd_in) / 30.0) == trans_rashi) jd_in -= step;
                 while ((int)(get_planet_lon_on_jd(i, jd_in) / 30.0) != trans_rashi) jd_in += 1.0;
 
-                // Sweep forwards to find Exit Date
+                // Sweep forwards to find Exit Date (Rashi)
                 double jd_out = trans_jd;
                 while ((int)(get_planet_lon_on_jd(i, jd_out) / 30.0) == trans_rashi) jd_out += step;
                 while ((int)(get_planet_lon_on_jd(i, jd_out) / 30.0) != trans_rashi) jd_out -= 1.0;
@@ -3697,15 +3767,39 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                 
                 // Fetch the SAV score for this planet's transit sign
                 int r_sav = sav_scores[trans_rashi];
+
+                // --- NEW: NAKSHATRA (TARA BALA) DATE INJECTION LOGIC ---
+                string nak_start_dt, nak_end_dt;
+                get_nakshatra_transit_range(i, trans_jd, iflag, nak_start_dt, nak_end_dt);
+
+                string date_injection = html_mode ? " <span style='color: var(--accent); font-weight: bold;'>[ " + nak_start_dt + " &rarr; " + nak_end_dt + " ]</span>"
+                                                  : " [ " + nak_start_dt + " -> " + nak_end_dt + " ]";
+
+                string gochar_text_en = get_gochar_text(i, from_mo, r_sav, tara_idx);
+                string gochar_text_te = te_get_gochar_text(i, from_mo, r_sav, tara_idx);
+
+                // Inject into English text exactly after the word "star"
+                size_t pos_en = gochar_text_en.find(" star");
+                if (pos_en != string::npos) {
+                    gochar_text_en.insert(pos_en + 5, date_injection); 
+                }
+
+                // Inject into Telugu text exactly after the word "నక్షత్రం"
+                string target_te_phrase = " నక్షత్రం";
+                size_t pos_te = gochar_text_te.find(target_te_phrase);
+                if (pos_te != string::npos) {
+                    gochar_text_te.insert(pos_te + target_te_phrase.length(), date_injection);
+                }
+                // --------------------------------------------------------
                 
                 // Formulate the payload string perfectly for HTML vs CLI
                 string gochar_payload = "";
                 if (html_mode) {
                     gochar_payload = (telugu_mode ? "<b>కాల వ్యవధి:</b> " : "<b>Timeline:</b> ") + date_range + "<br><br>" + 
-                                     (telugu_mode ? te_get_gochar_text(i, from_mo, r_sav, tara_idx) : get_gochar_text(i, from_mo, r_sav, tara_idx));
+                                     (telugu_mode ? gochar_text_te : gochar_text_en);
                 } else {
                     gochar_payload = (telugu_mode ? "కాల వ్యవధి: " : "Timeline: ") + date_range + "\n        " + 
-                                     (telugu_mode ? te_get_gochar_text(i, from_mo, r_sav, tara_idx) : get_gochar_text(i, from_mo, r_sav, tara_idx));
+                                     (telugu_mode ? gochar_text_te : gochar_text_en);
                 }
                 
                 transit_triggers[i].push_back({"GOCHAR_RESULT", gochar_payload});

@@ -2982,9 +2982,13 @@ void print_dasha_web() {
             int md_idx = (lord_index + i) % 9;
             int md_p = d_map[md_idx];
             double md_dur = 120.0 * 365.2425 * (dasha_years[md_idx] / 120.0);
+            double md_end_jd = cur_start + md_dur;
             
-            string start_date = jd_to_string(cur_start).substr(0, 10);
-            string end_date = jd_to_string(cur_start + md_dur).substr(0, 10);
+            // --- NEW: CLAMP MAHADASHA START DATE TO BIRTH DATE ---
+            double display_md_start = (cur_start < tjd_ut) ? tjd_ut : cur_start;
+            
+            string start_date = jd_to_string(display_md_start).substr(0, 10);
+            string end_date = jd_to_string(md_end_jd).substr(0, 10);
             
             int score = natal_scores[md_p];
             int house = (planet_rashis[md_p] - planet_rashis[0] + 12) % 12 + 1;
@@ -3020,9 +3024,19 @@ void print_dasha_web() {
                 int ad_idx = (md_idx + j) % 9;
                 int ad_p = d_map[ad_idx];
                 double ad_dur = md_dur * (dasha_years[ad_idx] / 120.0);
+                double ad_end_jd = ad_start + ad_dur;
                 
-                string ad_start_str = jd_to_string(ad_start).substr(0, 10);
-                string ad_end_str = jd_to_string(ad_start + ad_dur).substr(0, 10);
+                // --- NEW: SKIP BHUKTIS THAT ENDED BEFORE BIRTH ---
+                if (ad_end_jd <= tjd_ut) {
+                    ad_start += ad_dur; // Advance the mathematical timeline
+                    continue;           // But do not print it
+                }
+                
+                // --- NEW: CLAMP BHUKTI START DATE TO BIRTH DATE ---
+                double display_ad_start = (ad_start < tjd_ut) ? tjd_ut : ad_start;
+                
+                string ad_start_str = jd_to_string(display_ad_start).substr(0, 10);
+                string ad_end_str = jd_to_string(ad_end_jd).substr(0, 10);
                 
                 int ad_score = natal_scores[ad_p];
                 int ad_house = (planet_rashis[ad_p] - planet_rashis[0] + 12) % 12 + 1;
@@ -3041,11 +3055,11 @@ void print_dasha_web() {
                     }
                 }
 
-                // 1. GET CLEAN BHUKTI TEXT (Cliffhanger permanently removed from headers)
+                // 1. GET CLEAN BHUKTI TEXT
                 string bhukti_desc_te = te_get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode);
                 string bhukti_desc_en = get_dynamic_bhukti(md_p, ad_p, ad_score, ad_house, ad_star_lord_idx, html_mode);
 
-                // 2. NEW: CONCRETE STAR LORD OUTCOME GENERATOR
+                // 2. CONCRETE STAR LORD OUTCOME GENERATOR
                 int sl_house = (planet_rashis[ad_star_lord_idx] - planet_rashis[0] + 12) % 12 + 1;
                 string sl_name_en = p_names_full[ad_star_lord_idx];
                 string sl_name_te = get_planet_name(ad_star_lord_idx);
@@ -3070,8 +3084,7 @@ void print_dasha_web() {
                 string sl_text_te_html = "<b>నక్షత్రాధిపతి ఫలితం (" + sl_name_te + "):</b> మీ జాతకంలో " + to_string(sl_house) + "వ భావంలో ఉన్నాడు. కాబట్టి ఈ కాలంలో అంతిమంగా " + sl_domain_te + " కి సంబంధించిన కచ్చితమైన ఫలితాలు సిద్ధిస్తాయి.";
                 
                 string sl_text_en_cli = "* Star Lord Reality (" + sl_name_en + "): Placed in House " + to_string(sl_house) + ". Final events manifest regarding " + sl_domain_en + ".";
-                string sl_text_te_cli = "* నక్షత్రాధిపతి ఫలితం (" + sl_name_te + "): " + to_string(sl_house) + "వ భావంలో ఉన్నాడు. " + sl_domain_te + " కి సంబంధించిన ఫలితాలు సిద్ధిస్తాయి.";
-
+                string sl_text_te_cli = "* నక్షత్రాధిపతి ఫలితం (" + sl_name_te + "): మీ జాతకంలో " + to_string(sl_house) + "వ భావంలో ఉన్నాడు. " + sl_domain_te + " కి సంబంధించిన ఫలితాలు సిద్ధిస్తాయి.";
 
                 // 3. Ashtakavarga Evaluation for Bhukti Lord
                 int eval_p = ad_p;
@@ -3149,23 +3162,18 @@ void print_dasha_web() {
                            telugu_mode ? get_planet_name(ad_p).c_str() : p_names_full[ad_p],
                            telugu_mode ? "భుక్తి" : "Bhukti", ad_start_str.c_str(), ad_end_str.c_str());
                     
-                    // Base Bhukti Text (with cliffhanger erased)
                     printf("<p style='margin:5px 0; font-size:14px; line-height:1.6; color:#ccc;'>%s</p>", 
                            telugu_mode ? bhukti_desc_te.c_str() : bhukti_desc_en.c_str());
                     
-                    // Ashtakavarga Box
                     printf("<p style='margin:10px 0 0 0; font-size:13px; line-height:1.5; color:#ccc; background:#1e1e24; padding:8px; border-radius:4px;'>%s</p>", 
                            telugu_mode ? av_text_te_html.c_str() : av_text_en_html.c_str());
 
-                    // Sthana / Workflow Box
                     printf("<p style='margin:10px 0 0 0; font-size:13px; line-height:1.5; color:#ccc; background:#1e1e24; padding:8px; border-radius:4px;'>%s</p>", 
                            telugu_mode ? sthana_te.c_str() : sthana_en.c_str());
 
-                    // Star Lord Reality Box
                     printf("<p style='margin:10px 0; font-size:13px; line-height:1.5; color:#ccc; background:#1e1e24; border-left: 2px solid #e67e22; padding:8px; border-radius:4px;'>%s</p>", 
                            telugu_mode ? sl_text_te_html.c_str() : sl_text_en_html.c_str());
 
-					// Key Events (House Lordships)
                     if (ad_p == 8 || ad_p == 9) {
                         printf("<p style='margin:10px 0 0 0; font-size:14px; color:var(--term-text);'><b>%s</b> %s</p>", 
                                telugu_mode ? "ముఖ్య సంఘటనలు:" : "Key Events:",
@@ -3176,8 +3184,8 @@ void print_dasha_web() {
                                telugu_mode ? te_get_lordship_bhukti_event(get_planet_name(ad_p), owned_houses, ad_score, html_mode).c_str() : get_lordship_bhukti_event(p_names_full[ad_p], owned_houses, ad_score, html_mode).c_str());
                     }
                     printf("</div>\n");
-                    fflush(stdout);
-					} else {
+                    fflush(stdout); 
+                } else {
                     if (telugu_mode) {
                         printf("     -> [ %s - %s ] : %s భుక్తి\n", ad_start_str.c_str(), ad_end_str.c_str(), get_planet_name(ad_p).c_str());
                         printf("        %s\n", bhukti_desc_te.c_str());
@@ -3197,15 +3205,14 @@ void print_dasha_web() {
                     }
                 }
                 ad_start += ad_dur;
-            } // END INNER LOOP
+            } 
             
             if (html_mode) printf("</div>\n"); 
             else printf("\n-----------------------------------------------------------------------------------------\n\n");
             
             cur_start += md_dur;
-        } // END OUTER LOOP
-    }
-	
+        } 
+    }	
 void print_dasha_tables_html(double target_jd) {
         if (!html_mode) return;
 

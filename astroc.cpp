@@ -1792,19 +1792,32 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                 return false;
             };
 
-            auto analyze_specific_child = [&](int child_num, int h_rashi, int l_idx, string title_en, string title_te) {
+				auto analyze_specific_child = [&](int child_num, int h_rashi, int l_idx, string title_en, string title_te) {
                 
                 // --- 1. HEALTH & DESTINY PROFILING ---
                 int lord_h = (planet_rashis[l_idx] - asc_rashi + 12) % 12 + 1;
                 int lord_score = local_scores[l_idx];
                 
                 int malefic_count = 0;
-                int mals[] = {1, 3, 7, 8, 9}; 
+                int mals[] = {1, 3, 7, 8, 9}; // Sun, Mars, Sat, Rahu, Ketu
                 for (int m : mals) {
                     if (planet_rashis[m] == h_rashi || check_aspect(m, h_rashi)) malefic_count++;
                 }
 
-                bool is_afflicted = (lord_h == 6 || lord_h == 8 || lord_h == 12 || lord_score <= -2 || malefic_count >= 2);
+                // --- NEW: CLASSICAL "BHAVA SHIELD" OVERRIDE ---
+                // If the Lord occupies its own house, or its dignity is extraordinarily high (Exalted), 
+                // it fiercely protects the house. It requires a much higher malefic threshold to break it.
+                bool lord_protects = (planet_rashis[l_idx] == h_rashi) || (lord_score >= 4);
+
+                bool is_afflicted = false;
+                if (lord_protects) {
+                    // Shield Active: Takes 3+ malefics to break a good house
+                    is_afflicted = (lord_h == 6 || lord_h == 8 || lord_h == 12) ? (malefic_count >= 2) : (malefic_count >= 3);
+                } else {
+                    // Standard Rules
+                    is_afflicted = (lord_h == 6 || lord_h == 8 || lord_h == 12 || lord_score <= -2 || malefic_count >= 2);
+                }
+
                 bool is_blessed = (!is_afflicted && (lord_h == 1 || lord_h == 5 || lord_h == 9 || lord_h == 10 || lord_score >= 3));
 
                 string status_en, status_te, color, icon;

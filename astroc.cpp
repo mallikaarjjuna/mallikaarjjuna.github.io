@@ -1446,7 +1446,7 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         return (int)(lon / (30.0 / varga)) % 12; 
     }
 
-void analyze_progeny(bool is_female = false, bool gender_provided = false) {
+	void analyze_progeny(bool is_female = false, bool gender_provided = false) {
         if (json_mode) return;
 
         if (html_mode) {
@@ -1481,7 +1481,7 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
         auto is_male_planet = [&](int p) { 
             if (p == 1 || p == 3 || p == 5 || p == 8) return true; // Sun, Mars, Jupiter, Rahu
             if (p == 2 || p == 6 || p == 9) return false; // Moon, Venus, Ketu
-            if (p == 7 || p == 4) return is_male_rashi(get_varga(1, planet_lons[p])); // Sat, Merc adapt
+            if (p == 7 || p == 4) return is_male_rashi(planet_rashis[p]); // Sat, Merc adapt
             return false; 
         }; 
         
@@ -1615,13 +1615,24 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
         string c1_n_en, c2_n_en, c3_n_en, c4_n_en, c5_n_en, c6_n_en;
         string c1_n_te, c2_n_te, c3_n_te, c4_n_te, c5_n_te, c6_n_te;
 
-		// --- STANDARD PARASHARI D1 SEQUENCE (Bhavat Bhavam: 3rd from previous) ---
-        c1_rashi = h5_rashi;  c1_lord = l5_idx;  c1_n_en = "First Child (5th House)";  c1_n_te = "మొదటి సంతానం (5వ భావం)";
-        c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
-        c3_rashi = h9_rashi;  c3_lord = l9_idx;  c3_n_en = "Third Child (9th House)";  c3_n_te = "మూడవ సంతానం (9వ భావం)";
-        c4_rashi = h11_rashi; c4_lord = l11_idx; c4_n_en = "Fourth Child (11th House)"; c4_n_te = "నాల్గవ సంతానం (11వ భావం)";
-        c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
-        c6_rashi = h3_rashi;  c6_lord = l3_idx;  c6_n_en = "Sixth Child (3rd House)";   c6_n_te = "ఆరవ సంతానం (3వ భావం)";
+        // --- SEQUENCE INITIATION (Restored Saptamsha D7 Lagna-based Manduka Gati) ---
+        if (d7_asc % 2 == 0) {
+            // ODD SAPTAMSHA LAGNA: Direct Clockwise Sequence (5th -> 7th -> 9th -> 11th -> 1st -> 3rd)
+            c1_rashi = h5_rashi;  c1_lord = l5_idx;  c1_n_en = "First Child (5th House)";  c1_n_te = "మొదటి సంతానం (5వ భావం)";
+            c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
+            c3_rashi = h9_rashi;  c3_lord = l9_idx;  c3_n_en = "Third Child (9th House)";  c3_n_te = "మూడవ సంతానం (9వ భావం)";
+            c4_rashi = h11_rashi; c4_lord = l11_idx; c4_n_en = "Fourth Child (11th House)"; c4_n_te = "నాల్గవ సంతానం (11వ భావం)";
+            c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
+            c6_rashi = h3_rashi;  c6_lord = l3_idx;  c6_n_en = "Sixth Child (3rd House)";   c6_n_te = "ఆరవ సంతానం (3వ భావం)";
+        } else {
+            // EVEN SAPTAMSHA LAGNA: Reverse Counter-Clockwise Sequence (9th -> 7th -> 5th -> 3rd -> 1st -> 11th)
+            c1_rashi = h9_rashi;  c1_lord = l9_idx;  c1_n_en = "First Child (9th House)";  c1_n_te = "మొదటి సంతానం (9వ భావం)";
+            c2_rashi = h7_rashi;  c2_lord = l7_idx;  c2_n_en = "Second Child (7th House)"; c2_n_te = "రెండవ సంతానం (7వ భావం)";
+            c3_rashi = h5_rashi;  c3_lord = l5_idx;  c3_n_en = "Third Child (5th House)";  c3_n_te = "మూడవ సంతానం (5వ భావం)";
+            c4_rashi = h3_rashi;  c4_lord = l3_idx;  c4_n_en = "Fourth Child (3rd House)"; c4_n_te = "నాల్గవ సంతానం (3వ భావం)";
+            c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
+            c6_rashi = h11_rashi; c6_lord = l11_idx; c6_n_en = "Sixth Child (11th House)"; c6_n_te = "ఆరవ సంతానం (11వ భావం)";
+        }
 		
         double beeja_sphuta = fmod(planet_lons[1] + planet_lons[6] + planet_lons[5], 360.0);
         double kshetra_sphuta = fmod(planet_lons[2] + planet_lons[3] + planet_lons[5], 360.0);
@@ -1792,7 +1803,7 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                 return false;
             };
 
-				auto analyze_specific_child = [&](int child_num, int h_rashi, int l_idx, string title_en, string title_te) {
+            auto predict_child = [&](int child_num, int h_rashi, int l_idx, string title_en, string title_te) {
                 
                 // --- 1. HEALTH & DESTINY PROFILING ---
                 int lord_h = (planet_rashis[l_idx] - asc_rashi + 12) % 12 + 1;
@@ -1894,10 +1905,22 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                     }
                 }
 
-                // --- Standard Forward D7 Projection ---
-                const int seq[] = {5, 7, 9, 11, 1, 3};
-                int house_num = seq[(child_num - 1) % 6];
-                int d7_house_rashi = (d7_asc + house_num - 1) % 12;
+                // --- RESTORED: D7 House Evaluation counted from Saptamsha Lagna (Manduka Gati) ---
+                int d7_house_num = 5;
+                if (d7_asc % 2 == 0) { // Odd Saptamsha Lagna
+                    const int odd_seq[] = {5, 7, 9, 11, 1, 3};
+                    d7_house_num = odd_seq[(child_num - 1) % 6];
+                } else { // Even Saptamsha Lagna
+                    const int even_seq[] = {9, 7, 5, 3, 1, 11};
+                    d7_house_num = even_seq[(child_num - 1) % 6];
+                }
+
+                int d7_house_rashi = 0;
+                if (d7_asc % 2 == 0) { // Odd Saptamsha Lagna -> Clockwise
+                    d7_house_rashi = (d7_asc + (d7_house_num - 1)) % 12;
+                } else { // Even Saptamsha Lagna -> Counter-clockwise
+                    d7_house_rashi = (d7_asc - (d7_house_num - 1) + 12) % 12;
+                }
 
                 if (is_male_rashi(d7_house_rashi)) male_points += 3; else female_points += 3;
                 
@@ -2011,12 +2034,12 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                 }
             };
 
-            if (base_children >= 1) analyze_specific_child(1, c1_rashi, c1_lord, c1_n_en, c1_n_te);
-            if (base_children >= 2) analyze_specific_child(2, c2_rashi, c2_lord, c2_n_en, c2_n_te);
-            if (base_children >= 3) analyze_specific_child(3, c3_rashi, c3_lord, c3_n_en, c3_n_te);
-            if (base_children >= 4) analyze_specific_child(4, c4_rashi, c4_lord, c4_n_en, c4_n_te);
-            if (base_children >= 5) analyze_specific_child(5, c5_rashi, c5_lord, c5_n_en, c5_n_te);
-            if (base_children >= 6) analyze_specific_child(6, c6_rashi, c6_lord, c6_n_en, c6_n_te);
+            if (base_children >= 1) predict_child(1, c1_rashi, c1_lord, c1_n_en, c1_n_te);
+            if (base_children >= 2) predict_child(2, c2_rashi, c2_lord, c2_n_en, c2_n_te);
+            if (base_children >= 3) predict_child(3, c3_rashi, c3_lord, c3_n_en, c3_n_te);
+            if (base_children >= 4) predict_child(4, c4_rashi, c4_lord, c4_n_en, c4_n_te);
+            if (base_children >= 5) predict_child(5, c5_rashi, c5_lord, c5_n_en, c5_n_te);
+            if (base_children >= 6) predict_child(6, c6_rashi, c6_lord, c6_n_en, c6_n_te);
 
             if (html_mode) printf("</div>\n");
         }
@@ -2067,6 +2090,7 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
             printf("=================================================================\n");
         }
     }
+	
 void analyze_placements(int* p_rasi, int lagna) {
         if (html_mode) {
             printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహ స్థానాలు & ఫలితాలు" : "Planetary Placements & Effects");

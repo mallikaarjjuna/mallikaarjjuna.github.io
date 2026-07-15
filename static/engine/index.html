@@ -184,6 +184,15 @@
     <form id="calc-form">
         <!-- 1. PERMANENT NATAL PARAMETERS -->
         <h2 style="font-size: 1.3em;">Natal Birth Parameters & Global Settings</h2>
+		<!-- SAVED PROFILES SECTION -->
+        <div style="background: #2a2a35; padding: 15px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <label style="margin: 0; color: #f1c40f;">Saved Profiles:</label>
+            <select id="profile-selector" onchange="loadProfile()" style="flex-grow: 1; max-width: 250px;">
+                <option value="">-- Select a Profile --</option>
+            </select>
+            <button type="button" onclick="saveProfile()" style="width: auto; padding: 8px 15px; font-size: 0.9em; background: #2ecc71; color: #111; border-radius: 4px;">💾 Save Current</button>
+            <button type="button" onclick="deleteProfile()" style="width: auto; padding: 8px 15px; font-size: 0.9em; background: #e74c3c; color: #fff; border-radius: 4px;">🗑️ Delete</button>
+        </div>
         <div class="form-grid">
             <div class="form-group"><label>Name</label><input type="text" name="user_name" value="Mallikarjuna" required></div>
             <div class="form-group">
@@ -518,6 +527,87 @@
         }
     }
 
+	// ==========================================
+    // LOCAL PROFILE MANAGER (No Server Required)
+    // ==========================================
+    function getProfiles() {
+        return JSON.parse(localStorage.getItem('saved_astrology_profiles')) || {};
+    }
+
+    function saveProfiles(profiles) {
+        localStorage.setItem('saved_astrology_profiles', JSON.stringify(profiles));
+    }
+
+    function updateProfileDropdown() {
+        const profiles = getProfiles();
+        const selector = document.getElementById('profile-selector');
+        selector.innerHTML = '<option value="">-- Select a Profile --</option>';
+        for (const name in profiles) {
+            selector.innerHTML += `<option value="${name}">${name}</option>`;
+        }
+    }
+
+    function saveProfile() {
+        const name = document.querySelector('input[name="user_name"]').value.trim();
+        if (!name) {
+            alert("Please enter a Name to save the profile.");
+            return;
+        }
+        const profiles = getProfiles();
+        profiles[name] = {
+            gender: document.querySelector('select[name="user_gender"]').value,
+            day: document.querySelector('input[name="birth_day"]').value,
+            month: document.querySelector('input[name="birth_month"]').value,
+            year: document.querySelector('input[name="birth_year"]').value,
+            hour: document.querySelector('input[name="birth_hour"]').value,
+            minute: document.querySelector('input[name="birth_minute"]').value,
+            second: document.querySelector('input[name="birth_second"]').value,
+            place: document.querySelector('select[name="birth_place"]').value
+        };
+        saveProfiles(profiles);
+        updateProfileDropdown();
+        document.getElementById('profile-selector').value = name;
+        alert(`Profile for '${name}' saved successfully to your browser!`);
+    }
+
+    function loadProfile() {
+        const name = document.getElementById('profile-selector').value;
+        if (!name) return;
+        const profiles = getProfiles();
+        const p = profiles[name];
+        if (p) {
+            document.querySelector('input[name="user_name"]').value = name;
+            document.querySelector('select[name="user_gender"]').value = p.gender;
+            document.querySelector('input[name="birth_day"]').value = p.day;
+            document.querySelector('input[name="birth_month"]').value = p.month;
+            document.querySelector('input[name="birth_year"]').value = p.year;
+            document.querySelector('input[name="birth_hour"]').value = p.hour;
+            document.querySelector('input[name="birth_minute"]').value = p.minute;
+            document.querySelector('input[name="birth_second"]').value = p.second;
+            document.querySelector('select[name="birth_place"]').value = p.place;
+        }
+    }
+
+    function deleteProfile() {
+        const name = document.getElementById('profile-selector').value;
+        if (!name) {
+            alert("Please select a profile to delete.");
+            return;
+        }
+        if (confirm(`Are you sure you want to delete the profile for '${name}'?`)) {
+            const profiles = getProfiles();
+            delete profiles[name];
+            saveProfiles(profiles);
+            updateProfileDropdown();
+            document.querySelector('input[name="user_name"]').value = "";
+        }
+    }
+
+    // Initialize the dropdown immediately when the page loads
+    window.addEventListener('DOMContentLoaded', (event) => {
+        updateProfileDropdown();
+    });
+	
     document.getElementById('calc-form').addEventListener('submit', function(e) {
         e.preventDefault();
         if (isEngineComputing) return;

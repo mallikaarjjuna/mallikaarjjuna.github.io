@@ -250,9 +250,37 @@ inline std::string get_gochar_text(int p_idx, int from_mo, int sav, int tara) {
             case 12: base = "12th House Shani (Start of Sade Sati): Wasteful expenses, hidden fears, and unexpected travels."; break;
         }
     }
-    else if (p_idx == 8 || p_idx == 9) { // RAHU & KETU
-        if (from_mo == 3 || from_mo == 6 || from_mo == 11) base = "Shadow Planet in Upachaya House: Highly favorable transit. Indicates sudden massive gains, foreign travels, and destruction of enemies.";
-        else base = "This shadow planet transit creates mental confusion, sudden changes, and karmic instability regarding the themes of this house.";
+    else if (p_idx == 8) { // RAHU
+        switch(from_mo) {
+            case 1: base = "Rahu in 1st House: Mental distress, unexpected travels, and health vulnerabilities. Avoid making impulsive life-altering decisions."; break;
+            case 2: base = "Rahu in 2nd House: Financial fluctuations and potential family disputes. Guard against harsh speech and risky financial investments."; break;
+            case 3: base = "Rahu in 3rd House: Highly Auspicious. Brings sudden courage, massive financial gains, and complete destruction of enemies."; break;
+            case 4: base = "Rahu in 4th House: Domestic unrest, unexpected changes in residence, or worries regarding the mother and property."; break;
+            case 5: base = "Rahu in 5th House: Mental confusion and worries regarding children or speculative investments. Avoid gambling."; break;
+            case 6: base = "Rahu in 6th House: Highly Auspicious. Complete victory over opponents, sudden wealth, and resolution of chronic health issues."; break;
+            case 7: base = "Rahu in 7th House: High friction in marriage and business partnerships. Potential for deceptive alliances and stressful travels."; break;
+            case 8: base = "Rahu in 8th House: Sudden, unpredictable changes. High risk of hidden health issues, anxiety, or unexpected financial losses."; break;
+            case 9: base = "Rahu in 9th House: Disagreements with mentors or father. Potential for foreign travel, but luck may fluctuate wildly."; break;
+            case 10: base = "Rahu in 10th House: Massive, obsessive drive for career growth, but accompanied by extreme stress, hidden enemies, and sudden changes in status."; break;
+            case 11: base = "Rahu in 11th House: Highly Auspicious. Sudden, massive financial windfalls, expansion of elite networks, and fulfillment of deep desires."; break;
+            case 12: base = "Rahu in 12th House: Uncontrollable expenses, sleep disturbances, and potential for foreign relocation. Focus shifts to the subconscious."; break;
+        }
+    }
+    else if (p_idx == 9) { // KETU
+        switch(from_mo) {
+            case 1: base = "Ketu in 1st House: Deep mental detachment, physical fatigue, and a feeling of wandering. Strong pull towards spiritual isolation."; break;
+            case 2: base = "Ketu in 2nd House: Sudden financial drains and detachment from family affairs. Speech may become blunt or highly cryptic."; break;
+            case 3: base = "Ketu in 3rd House: Highly Auspicious. Sharp intuition, sudden bursts of courage, and the effortless removal of immediate obstacles."; break;
+            case 4: base = "Ketu in 4th House: Loss of domestic peace, feeling detached from one's homeland or mother, and potential property-related stress."; break;
+            case 5: base = "Ketu in 5th House: Detachment from romance and children. Mental agitation, but excellent for deep, isolated research or spiritual study."; break;
+            case 6: base = "Ketu in 6th House: Highly Auspicious. Silent but absolute victory over enemies and debts. Excellent for medical/spiritual healing."; break;
+            case 7: base = "Ketu in 7th House: Karmic friction in marriage. A strong desire to detach from public life, business partnerships, or the spouse."; break;
+            case 8: base = "Ketu in 8th House: Sudden karmic events, fear of the unknown, but unmatched potential for occult mastery and deep spiritual awakening."; break;
+            case 9: base = "Ketu in 9th House: Rejection of orthodox religion in favor of deep, personal spiritual truth. Potential for long, isolating pilgrimages."; break;
+            case 10: base = "Ketu in 10th House: Total lack of interest in corporate ladders or public status. You may feel invisible or unappreciated at work."; break;
+            case 11: base = "Ketu in 11th House: Highly Auspicious. Effortless financial gains, though you will feel deeply indifferent to the wealth or social networking."; break;
+            case 12: base = "Ketu in 12th House: The ultimate transit for spiritual liberation (Moksha). High expenses, but profound inner peace and psychic intuition."; break;
+        }
     }
     else {
         base = "Standard transit results. May require routine effort or cause minor, short-term delays.";

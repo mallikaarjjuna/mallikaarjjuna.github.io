@@ -13,14 +13,16 @@ all: astroc
 libswe.a: $(SWE_OBJ)
 	ar r libswe.a $(SWE_OBJ)
 
-astroc: astroc.cpp libswe.a
+# Added header file dependencies here
+astroc: astroc.cpp texts.h texts_te.h libswe.a
 	g++ -std=c++17 -o astroc astroc.cpp libswe.a -lm
 
 # 2. WebAssembly Build
 %.wasm.o: %.c
 	$(EMCC) -O3 -c $< -o $@
 
-astroc.wasm.o: astroc.cpp
+# Added header file dependencies here
+astroc.wasm.o: astroc.cpp texts.h texts_te.h
 	$(EMCC) -std=c++17 -O3 -c astroc.cpp -o astroc.wasm.o
 
 # The Final Linker Step
@@ -48,6 +50,7 @@ deploy: wasm
 	@if [ -f astroc_part_aa.bin ]; then cp astroc_part_aa.bin $(HUGO_STATIC_DIR)/; fi
 	@if [ -f astroc_part_ab.bin ]; then cp astroc_part_ab.bin $(HUGO_STATIC_DIR)/; fi
 	@echo "Success! WebAssembly files compiled and placed in $(HUGO_STATIC_DIR)"
+
 # ==============================================================================
 # GIT AUTOMATION
 # ==============================================================================

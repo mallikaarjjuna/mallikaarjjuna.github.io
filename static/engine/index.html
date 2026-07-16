@@ -106,6 +106,7 @@
         // GLOBAL FEATURE TOGGLES
         // ==========================================
         const ENABLE_PDF_DOWNLOAD = false; // Change to 'true' to instantly reveal the PDF button on the UI
+		const ENABLE_DONATION_UI = false;   // Change to 'false' to hide the UPI card for future ad placement
 		
         var Module = {
             print: function(text) { terminalBuffer += text + "\n"; },
@@ -166,7 +167,7 @@
         </div>
         
         <!-- Right Side: UPI Donation Card -->
-        <div style="background: #2a2a35; padding: 15px 20px; border-radius: 8px; border-top: 4px solid #3498db; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: center; max-width: 280px; display: flex; flex-direction: column; align-items: center;">
+        <div id="donation-card" style="background: #2a2a35; padding: 15px 20px; border-radius: 8px; border-top: 4px solid #3498db; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: center; max-width: 280px; display: flex; flex-direction: column; align-items: center;">
             <h3 style="margin: 0 0 8px 0; color: #3498db; font-size: 15px; display: flex; align-items: center;">
                 <span style="font-size: 18px; margin-right: 8px;">☕</span> Support The Developer
             </h3>
@@ -730,12 +731,21 @@
     window.addEventListener('DOMContentLoaded', (event) => {
         updateProfileDropdown();
         
+        // ==========================================
         // Feature Toggle Execution
+        // ==========================================
         const pdfBtn = document.getElementById('pdf-download-btn');
         if (pdfBtn) {
             pdfBtn.style.display = ENABLE_PDF_DOWNLOAD ? 'block' : 'none';
         }
         
+        const donationCard = document.getElementById('donation-card');
+        if (donationCard) {
+            // We use 'flex' here instead of 'block' to preserve your internal alignments
+            donationCard.style.display = ENABLE_DONATION_UI ? 'flex' : 'none'; 
+        }
+        // ==========================================
+
         const defaultName = localStorage.getItem('default_astrology_profile');
         if (defaultName) {
             const profiles = getProfiles();

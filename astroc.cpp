@@ -34,7 +34,6 @@ const vector<City> city_db = {
     {"Chennai", 13.082680, 80.270718, 5.5},
     {"Bitragunta", 13.966700, 80.083300, 5.5},
     {"Krishna", 16.270300, 80.996700, 5.5},
-    // --- MAJOR METROPOLITAN ADDITIONS FOR WEB UI ---
     {"Bangalore", 12.971600, 77.594600, 5.5},
     {"Mumbai", 19.076000, 72.877700, 5.5},
     {"Delhi", 28.613900, 77.209000, 5.5},
@@ -43,13 +42,39 @@ const vector<City> city_db = {
     {"Jaipur", 26.9124, 75.7873, 5.5},
     {"Varanasi", 25.3176, 82.9739, 5.5},
     {"Ahmedabad", 23.0225, 72.5714, 5.5},
-	{"Prayagraj",  25.435800, 81.846300, 5.5}, // Amitabh Bachchan (formerly Allahabad)
-	{"Allahabad",  25.435800, 81.846300, 5.5}, // Amitabh Bachchan (Newly Prayagraj)
-	{"Mangalore",  12.914100, 74.856000, 5.5}, // Aishwarya Rai Bachchan
-	{"Indore",     22.719600, 75.857700, 5.5}, // Lata Mangeshkar
-	{"Rameswaram",  9.287600, 79.312900, 5.5},  // A. P. J. Abdul Kalam
-	{"Mogalthur", 16.409321, 81.595438, 5.5}  // High-precision center
-	
+	{"Prayagraj",  25.435800, 81.846300, 5.5}, 
+	{"Allahabad",  25.435800, 81.846300, 5.5}, 
+	{"Mangalore",  12.914100, 74.856000, 5.5}, 
+	{"Indore",     22.719600, 75.857700, 5.5}, 
+	{"Rameswaram",  9.287600, 79.312900, 5.5},
+	{"Mogalthur", 16.409321, 81.595438, 5.5},
+	    // North America
+    {"New York City", 40.712776, -74.005974, -5.0},
+    {"San Francisco", 37.774929, -122.419416, -8.0},
+    {"Los Angeles", 34.052234, -118.243685, -8.0},
+    {"Chicago", 41.878114, -87.629798, -6.0},
+    {"Washington, D.C.", 38.907192, -77.036871, -5.0},
+    {"Toronto", 43.653226, -79.383184, -5.0},
+    {"Vancouver", 49.282729, -123.120738, -8.0},
+
+    // Europe
+    {"London", 51.507351, -0.127758, 0.0},
+    {"Amsterdam", 52.367573, 4.904139, 1.0},
+    {"Berlin", 52.520007, 13.404954, 1.0},
+    {"Frankfurt", 50.110922, 8.682127, 1.0},
+    {"Paris", 48.856614, 2.352222, 1.0},
+
+    // Asia-Pacific & Middle East
+    {"Dubai", 25.204849, 55.270783, 4.0},
+    {"Singapore", 1.352083, 103.819836, 8.0},
+    {"Tokyo", 35.676192, 139.650327, 9.0},
+    {"Sydney", -33.868820, 151.209296, 10.0},
+    {"Melbourne", -37.813628, 144.963058, 10.0},
+	// South America & Africa
+    {"Sao Paulo", -23.550520, -46.633308, -3.0},
+    {"Johannesburg", -26.204103, 28.047305, 2.0},
+    // Extra US Tech Hub
+    {"Seattle", 47.606209, -122.332071, -8.0}
 };
 
 const char* en_short_p_names[] = {"Asc", "Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"};

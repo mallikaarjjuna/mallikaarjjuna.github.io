@@ -307,7 +307,10 @@
             </div>
         </div>
 
-        <button type="submit" id="main-calc-btn">Calculate Birth Chart</button>
+        <div style="display: flex; gap: 15px;">
+            <button type="submit" id="main-calc-btn" style="flex: 2;">Calculate Birth Chart</button>
+            <button type="button" onclick="generateFullPDF()" style="flex: 1; background: #e74c3c; color: #fff;">📄 Download Full PDF</button>
+        </div>
     </form>
 
     <h4 id="loading-msg" style="color: orange; text-align: center; margin-top: 20px;">
@@ -666,6 +669,62 @@
         
         fetchTabData(activeTabId);
     });
+	
+	// ==========================================
+    // PDF GENERATOR
+    // ==========================================
+    async function generateFullPDF() {
+        if (!isWasmReady) { alert("Please wait for the engine to load."); return; }
+        if (isEngineComputing) return;
+        
+        isEngineComputing = true;
+        const spinner = document.getElementById('loading-spinner');
+        spinner.innerText = "Compiling Comprehensive PDF Report...";
+        spinner.style.display = 'block';
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        try {
+            const y = getVal('birth_year', '1980');
+            const m = getVal('birth_month', '1');
+            const d = getVal('birth_day', '1');
+            const h = getVal('birth_hour', '12');
+            const min = getVal('birth_minute', '0');
+            const sec = getVal('birth_second', '0');
+            const city = document.querySelector('select[name="birth_place"]').value;
+            const lang = document.querySelector('select[name="ui_language"]').value;
+            const name = getVal('user_name', 'Guest');
+            const gender = document.querySelector('select[name="user_gender"]').value;
+            
+            let args = [];
+            if (lang === "telugu") args.push("telugu");
+            
+            // Call the new full_report command we added to C++
+            args.push(y, m, d, h, min, sec, city, "full_report", name, gender);
+            
+            terminalBuffer = ""; 
+            Module.callMain(args); 
+
+            // Create a temporary Blob and open it in a new tab for printing
+            const blob = new Blob([terminalBuffer], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            const printWindow = window.open(url, '_blank');
+            printWindow.onload = function() {
+                // Auto-trigger the print dialog once the window loads
+                setTimeout(() => {
+                    printWindow.print();
+                }, 500);
+            };
+
+        } catch (err) {
+            console.error("PDF Gen Failed:", err);
+            alert("Error compiling report.");
+        } finally {
+            isEngineComputing = false;
+            spinner.style.display = 'none';
+        }
+    }
 </script>
 </body>
 </html>

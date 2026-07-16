@@ -5413,12 +5413,16 @@ void print_help_menu() {
 
     printf("CORE WEB COMMANDS (Typically used by backend web wrappers):\n");
     printf("  json                  Runs Ashtakavarga, auspiciousness scan, and exports unified Web JSON.\n");
-    printf("  web_natal            Initializes engine and stops after parsing standard natal arrays.\n");
-    printf("  web_general          Computes Varsha-Masa, full Shadbala profiles, Ashtakavarga, and D1 trends.\n");
-    printf("  web_dasha            Processes Ashtakavarga profiles, balances, and executes web-formatted dasha outputs.\n");
-    printf("  web_dosha            Runs dedicated chart evaluation rules tracking key astrological doshas.\n");
+    printf("  web_natal             Initializes engine and stops after parsing standard natal arrays.\n");
+    printf("  web_general           Computes Varsha-Masa, full Shadbala profiles, Ashtakavarga, and D1 trends.\n");
+    printf("  web_dasha             Processes Ashtakavarga profiles, balances, and executes web-formatted dasha outputs.\n");
+    printf("  web_dosha             Runs dedicated chart evaluation rules tracking key astrological doshas.\n");
     printf("  web_transit <Y> <M> <D> [H:M:S]\n");
-    printf("                        Computes precise transit matrices for web frontend without complex phase logic.\n\n");
+    printf("                        Computes precise transit matrices for web frontend without complex phase logic.\n");
+    printf("  web_progeny / progeny [gender]\n");
+    printf("                        Evaluates classical Saptamsha (D7) and biological sphutas for children.\n");
+    printf("  full_report [name] [gender]\n");
+    printf("                        Generates a complete, print-ready HTML document (A4 PDF capable) of all tabs.\n\n");
 
     printf("ADVANCED CLI COMMANDS & ANALYSIS:\n");
     printf("  kp                    Calculates Krishnamurti Paddhati (KP System) cusps, lords, and significators.\n");
@@ -5442,10 +5446,11 @@ void print_help_menu() {
     printf("                        Without arguments: Launches an interactive command terminal dasha utility.\n");
     printf("  deha [Y M D] [H:M:S]  Evaluates subtle physical transition loops over target date vectors.\n");
     printf("  tithi <target_year>   Identifies exact timestamp when lunar phase matches target solar returns.\n");
-    printf("  annual <target_year>  Generates the Varshaphala (Annual Solar Return) chart and D1 matrix analysis.\n");
+    printf("  annual / web_annual / web_varshaphal <target_year>\n");
+    printf("                        Generates the Varshaphala (Annual Solar Return) chart and D1 matrix analysis.\n");
     printf("  predict <startY> <endY>\n");
     printf("                        Executes marriage calculation algorithms within target runtime window bounds.\n");
-    printf("  muhurat <event> <Y> <M>\n");
+    printf("  muhurat / web_muhurat <event> <Y> <M>\n");
     printf("                        Scans targeted calendars to identify optimal muhurat windows for specified actions.\n\n");
 
     printf("ASTROMETRIC SEARCH & SEARCH ALIGNMENT:\n");
@@ -5453,13 +5458,12 @@ void print_help_menu() {
     printf("                        Performs absolute backwards search to isolate point alignments.\n\n");
 
     printf("COMPATIBILITY & SYNASTRY:\n");
-    printf("  match <Y2> <M2> <D2> <H2> <Min2> <S2> <City2>\n");
+    printf("  match / match_predict / web_match / web_synastry <Y2> <M2> <D2> <H2> <Min2> <S2> <City2>\n");
     printf("                        Calculates relational synastry points against a second chart dataset.\n");
     printf("  match_predict <startY> <endY> <Y2> <M2> <D2> <H2> <Min2> <S2> <City2>\n");
     printf("                        Triggers dynamic relationship prediction over specific year frames.\n");
     printf("================================================================================\n\n");
 }
-
 // =========================================================================
 // MAIN COMMAND LINE PARSER
 // =========================================================================
@@ -5627,10 +5631,15 @@ int main(int argc, char *argv[]) {
             printf(".rasi-center { text-align: center; vertical-align: middle !important; color: #888; font-size: 1.5em; }\n");
             
             // Print styles (Light Mode for A4 PDF Generation)
+            // Print styles (Light Mode for A4 PDF Generation)
             printf("@media print {\n");
-            printf("  body { background: #fff; color: #000; padding: 0; }\n");
-            printf("  h1, h2, h3, h4 { color: #000; page-break-after: avoid; }\n");
-            printf("  .data-table th, .data-table td, .rasi-table td { border: 1px solid #000; }\n");
+            printf("  body { background: #fff; padding: 0; }\n");
+            
+            // --- THE FIX: Force all text tags to solid black to override inline dark-mode greys ---
+            printf("  body, p, span, div, td, th, h1, h2, h3, h4, b, i, ul, li { color: #000 !important; }\n");
+            
+            printf("  h1, h2, h3, h4 { page-break-after: avoid; }\n");
+            printf("  .data-table th, .data-table td, .rasi-table td { border: 1px solid #000 !important; }\n");
             printf("  .data-table th { background: #eee !important; -webkit-print-color-adjust: exact; }\n");
             printf("  div { page-break-inside: avoid; }\n");
             printf("}\n");

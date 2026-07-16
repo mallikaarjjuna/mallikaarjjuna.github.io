@@ -5,7 +5,7 @@
 // JYOTISHA ENGINE: EXTERNALIZED VOCABULARY & STRINGS
 // =========================================================================
 
-const char* const rashi_names[] = {"Mesh", "Vrish", "Mitu", "Kark", "Simh", "Kany", "Tula", "Vrishch", "Dhan", "Maka", "Kumb", "Meen"};
+const char* const rashi_names[] = {"Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya", "Tula", "Vrishchika", "Dhanu", "Makara", "Kumbha", "Meena"};
 const char* const short_rashi[] = {"Mes", "Vri", "Mit", "Kar", "Sim", "Kan", "Tul", "Vrc", "Dha", "Mak", "Kum", "Mee"};
 const char* const rashi_lords[] = {"Mangal", "Shukra", "Budha", "Chandra", "Surya", "Budha", "Shukra", "Mangal", "Guru", "Shani", "Shani", "Guru"};
 const char* const weekdays[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};

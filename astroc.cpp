@@ -308,7 +308,7 @@ public:
         int r_lord_idx = 1;
         for (int p = 1; p <= 7; p++) { if (string(p_names_full[p]) == rashi_lords[rashi_index]) r_lord_idx = p; }
         
-        if (!json_mode) {
+       if (!json_mode) {
             if (html_mode) {
                 if (telugu_mode) {
                     printf("<tr><td>%s</td><td>%02d° %s %02d'%02d\"</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
@@ -316,9 +316,10 @@ public:
                            get_rashi_name(d9_rashi_index).c_str(), nak_pada.c_str(), get_tara(tara_idx).c_str(), 
                            get_dasha_lord(nak_lord_index).c_str(), get_planet_name(r_lord_idx).c_str());
                 } else {
+                    // FIX: Use rashi_names instead of short_rashi to print the full English names
                     printf("<tr><td>%s</td><td>%02d° %s %02d'%02d\"</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
-                           p_names_full[p_idx], degrees, short_rashi[rashi_index], minutes, seconds, 
-                           short_rashi[d9_rashi_index], nak_pada.c_str(), tara_names[tara_idx], 
+                           p_names_full[p_idx], degrees, rashi_names[rashi_index], minutes, seconds, 
+                           rashi_names[d9_rashi_index], nak_pada.c_str(), tara_names[tara_idx], 
                            dasha_lords[nak_lord_index], p_names_full[r_lord_idx]);
                 }
             } else {
@@ -2117,7 +2118,7 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         }
     }
 	
-void analyze_placements(int* p_rasi, int lagna) {
+	void analyze_placements(int* p_rasi, int lagna) {
         if (html_mode) {
             printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహ స్థానాలు & ఫలితాలు" : "Planetary Placements & Effects");
             printf("<div style='display: grid; gap: 15px;'>");
@@ -2130,11 +2131,24 @@ void analyze_placements(int* p_rasi, int lagna) {
             int h = (p_rasi[i] - lagna + 12) % 12 + 1;
             
             if (html_mode) {
-                printf("<div style='background: #2a2a35; padding: 15px; border-radius: 6px; border-left: 4px solid var(--accent);'>");
-                printf("<h4 style='margin: 0 0 8px 0; color: #fff;'>%s</h4>", telugu_mode ? (get_planet_name(i) + " " + to_string(h) + "వ భావంలో (" + get_short_rashi(p_rasi[i]) + ")") .c_str() : (string(p_names_full[i]) + " is in House " + to_string(h) + " (" + short_rashi[p_rasi[i]] + ")").c_str());
-                printf("<p style='margin: 0; font-size: 14px; color: #ccc; line-height: 1.5;'>%s</p>", telugu_mode ? te_get_planet_in_house_text(i, h).c_str() : get_planet_in_house_text(i, h).c_str());
+                printf("<div style='margin-bottom: 15px; padding: 15px; background: #2a2a35; border-left: 4px solid var(--accent); border-radius: 4px;'>");
+                if (telugu_mode) {
+                    // INJECTING FULL TELUGU NAME: te_rashi_names[p_rasi[i]]
+                    printf("<h4 style='margin-top: 0; color: #e0e0e0; font-size: 16px;'>%s %dవ భావంలో (%s)</h4>", 
+                           get_planet_name(i).c_str(), h, te_rashi_names[p_rasi[i]]);
+                } else {
+                    // INJECTING FULL ENGLISH NAME: rashi_names[p_rasi[i]]
+                    printf("<h4 style='margin-top: 0; color: #e0e0e0; font-size: 16px;'>%s in %d House (%s)</h4>", 
+                           p_names_full[i], h, rashi_names[p_rasi[i]]);
+                }
+                
+                // Fetch correct texts using 'i' and 'h'
+                string p_text = telugu_mode ? te_get_planet_in_house_text(i, h) : get_planet_in_house_text(i, h);
                 string digbala = telugu_mode ? te_get_digbala_text(i, h) : get_digbala_text(i, h);
-                if (digbala != "") printf("<p style='margin: 8px 0 0 0; font-size: 13px; color: var(--term-text);'><i>%s</i></p>", digbala.c_str());
+                
+                printf("<p style='margin: 5px 0 0 0; font-size: 14px; line-height: 1.6; color: #ccc;'>%s</p>", p_text.c_str());
+                if (digbala != "") printf("<p style='margin: 5px 0 0 0; font-size: 14px; line-height: 1.6; color: #f1c40f;'>%s</p>", digbala.c_str());
+                
                 printf("</div>\n");
             } else {
                 if (telugu_mode) {
@@ -2151,8 +2165,7 @@ void analyze_placements(int* p_rasi, int lagna) {
             }
         }
         if (html_mode) printf("</div>\n");
-    }
-    
+    }    
 void analyze_conjunctions(int* p_rasi, int lagna) {
         if (html_mode) {
             printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహ కలయికలు (యుతి)" : "Planetary Conjunctions");
@@ -4527,22 +4540,26 @@ void print_birth_details_html() {
         snprintf(time_buf, sizeof(time_buf), "%d:%02d %s (%c%02d:%02d)", (th % 12 == 0 ? 12 : th % 12), tmin, (th >= 12 ? "PM" : "AM"), tz_sign, abs(tz_h), tz_m);
         snprintf(ay_buf, sizeof(ay_buf), "Lahiri (%02d° %02d' %02d\")", ay_d, ay_m, ay_s);
 
+        // --- NEW BILINGUAL TRANSLATION FOR THE ENTIRE TABLE ---
         printf("<br><div style='max-width: 700px; margin-bottom: 20px;'>");
-        printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 10px;'>All calculations & chart are based on the following input:</p>");
+        printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 10px;'>%s</p>", telugu_mode ? "జనన వివరాలు ఆధారంగా లెక్కించబడినవి:" : "All calculations & chart are based on the following input:");
         printf("<table class='data-table' style='margin-top: 0;'>");
-        printf("<tr><th style='width: 35%%;'>Name</th><td>%s</td></tr>", print_name.c_str());
-        printf("<tr><th>Gender</th><td>%s</td></tr>", print_gender.c_str());
-        printf("<tr><th>Birth Date</th><td>%s</td></tr>", date_buf);
-        printf("<tr><th>Birth Time</th><td>%s</td></tr>", time_buf);
-        printf("<tr><th>Place of Birth</th><td>%s</td></tr>", location.name.c_str());
-        printf("<tr><th><span style='color: #3498db;'>Nakshatra</span></th><td><span style='color: #3498db;'>%s</span></td></tr>", nak_names[mo_nak]);
-        printf("<tr><th>Rasi</th><td>%s</td></tr>", rashi_names[mo_rasi]);
-        printf("<tr><th>Ayanamsa</th><td>%s</td></tr>", ay_buf);
+        printf("<tr><th style='width: 35%%;'>%s</th><td>%s</td></tr>", telugu_mode ? "పేరు" : "Name", print_name.c_str());
+        printf("<tr><th>%s</th><td>%s</td></tr>", telugu_mode ? "లింగం" : "Gender", print_gender.c_str());
+        printf("<tr><th>%s</th><td>%s</td></tr>", telugu_mode ? "జనన తేదీ" : "Birth Date", date_buf);
+        printf("<tr><th>%s</th><td>%s</td></tr>", telugu_mode ? "జనన సమయం" : "Birth Time", time_buf);
+        printf("<tr><th>%s</th><td>%s</td></tr>", telugu_mode ? "జన్మస్థలం" : "Place of Birth", location.name.c_str());
+        
+        // Use get_nak_name and get_rashi_name for complete bilingual support!
+        printf("<tr><th><span style='color: #3498db;'>%s</span></th><td><span style='color: #3498db;'>%s</span></td></tr>", telugu_mode ? "నక్షత్రం" : "Nakshatra", get_nak_name(mo_nak).c_str());
+        printf("<tr><th>%s</th><td>%s</td></tr>", telugu_mode ? "రాశి" : "Rasi", get_rashi_name(mo_rasi).c_str());
+        
+        printf("<tr><th>%s</th><td>%s</td></tr>", telugu_mode ? "అయనాంశ" : "Ayanamsa", ay_buf);
         printf("</table>");
-        printf("<h2 style='margin-top: 25px; margin-bottom: 5px; color: var(--accent);'>Planet Positions</h2>");
-        printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 10px;'>The table below shows the position of planets at the date, time and place of birth.</p>");
+        printf("<h2 style='margin-top: 25px; margin-bottom: 5px; color: var(--accent);'>%s</h2>", telugu_mode ? "గ్రహ స్థానాలు (Planet Positions)" : "Planet Positions");
+        printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 10px;'>%s</p>", telugu_mode ? "జనన తేదీ, సమయం మరియు ప్రదేశం ఆధారంగా గ్రహాల స్థానాలు క్రింది పట్టికలో ఉన్నాయి." : "The table below shows the position of planets at the date, time and place of birth.");
         printf("</div>");
-		fflush(stdout); // <--- FORCES DATA TO JAVASCRIPT IMMEDIATELY
+        fflush(stdout); // <--- FORCES DATA TO JAVASCRIPT IMMEDIATELY
     }
 	
 };

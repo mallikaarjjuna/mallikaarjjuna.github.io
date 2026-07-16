@@ -102,6 +102,11 @@
         let isEngineComputing = false;
         let isWasmReady = false;
 
+		// ==========================================
+        // GLOBAL FEATURE TOGGLES
+        // ==========================================
+        const ENABLE_PDF_DOWNLOAD = false; // Change to 'true' to instantly reveal the PDF button on the UI
+		
         var Module = {
             print: function(text) { terminalBuffer += text + "\n"; },
             printErr: function(text) { console.error(text); },
@@ -309,7 +314,7 @@
 
         <div style="display: flex; gap: 15px;">
             <button type="submit" id="main-calc-btn" style="flex: 2;">Calculate Birth Chart</button>
-            <button type="button" onclick="generateFullPDF()" style="flex: 1; background: #e74c3c; color: #fff;">📄 Download Full PDF</button>
+            <button type="button" id="pdf-download-btn" onclick="generateFullPDF()" style="flex: 1; background: #e74c3c; color: #fff;">📄 Download Full PDF</button>
         </div>
     </form>
 
@@ -635,9 +640,15 @@
         }
     }
 
-    // Initialize dropdown and auto-load default profile on startup
+	// Initialize dropdown, auto-load default profile, and check UI flags on startup
     window.addEventListener('DOMContentLoaded', (event) => {
         updateProfileDropdown();
+        
+        // Feature Toggle Execution
+        const pdfBtn = document.getElementById('pdf-download-btn');
+        if (pdfBtn) {
+            pdfBtn.style.display = ENABLE_PDF_DOWNLOAD ? 'block' : 'none';
+        }
         
         const defaultName = localStorage.getItem('default_astrology_profile');
         if (defaultName) {
@@ -646,7 +657,6 @@
                 document.getElementById('profile-selector').value = defaultName;
                 loadProfile();
             } else {
-                // Cleanup if the default profile was somehow wiped from localStorage
                 localStorage.removeItem('default_astrology_profile');
             }
         }

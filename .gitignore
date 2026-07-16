@@ -11,6 +11,7 @@ libswe.so
 libswe.dylib
 synastry
 dup
+report.html
 
 # --- Ignore Large Source/Data Folders ---
 /ephe/

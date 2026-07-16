@@ -5505,7 +5505,7 @@ int main(int argc, char *argv[]) {
     // We run calculate_chart() here because 99% of commands rely on the Natal arrays being populated!
     engine.calculate_chart(); 
 
-// ========================================================
+    // ========================================================
     // 5. COMMAND ROUTING
     // ========================================================
     if (clean_argc >= 9) {
@@ -5534,7 +5534,7 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-		else if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
+        else if (strcasecmp(cmd.c_str(), "web_natal") == 0) {
             engine.user_name = (clean_argc > 9) ? clean_argv[9] : "Guest";
             engine.user_gender = (clean_argc > 10) ? clean_argv[10] : "Not Specified";
             engine.html_mode = html_ui; 
@@ -5604,9 +5604,65 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
+        // =========================================================================
+        // NEW: FULL REPORT GENERATOR (PRINT-TO-PDF CAPABLE)
+        // =========================================================================
+        else if (strcasecmp(cmd.c_str(), "full_report") == 0) {
+            engine.html_mode = true;
+            engine.user_name = (clean_argc > 9) ? clean_argv[9] : "User";
+            string gender = (clean_argc > 10) ? clean_argv[10] : "Male";
+            bool is_female = (strcasecmp(gender.c_str(), "Female") == 0 || strcasecmp(gender.c_str(), "F") == 0);
+
+            printf("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n");
+            printf("<title>Astrology Report - %s</title>\n", engine.user_name.c_str());
+            printf("<style>\n");
+            // Screen styles (Dark Mode)
+            printf("body { background: #121212; color: #e0e0e0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; max-width: 1000px; margin: auto; }\n");
+            printf("h1, h2, h3, h4 { color: #f39c12; }\n");
+            printf(".data-table { width: 100%%; border-collapse: collapse; margin-bottom: 20px; }\n");
+            printf(".data-table th, .data-table td { border: 1px solid #444; padding: 10px; text-align: left; }\n");
+            printf(".data-table th { background: #2a2a35; }\n");
+            printf(".rasi-table { width: 100%%; border-collapse: collapse; margin-bottom: 20px; }\n");
+            printf(".rasi-table td { border: 1px solid #444; width: 25%%; height: 100px; padding: 5px; vertical-align: top; }\n");
+            printf(".rasi-center { text-align: center; vertical-align: middle !important; color: #888; font-size: 1.5em; }\n");
+            
+            // Print styles (Light Mode for A4 PDF Generation)
+            printf("@media print {\n");
+            printf("  body { background: #fff; color: #000; padding: 0; }\n");
+            printf("  h1, h2, h3, h4 { color: #000; page-break-after: avoid; }\n");
+            printf("  .data-table th, .data-table td, .rasi-table td { border: 1px solid #000; }\n");
+            printf("  .data-table th { background: #eee !important; -webkit-print-color-adjust: exact; }\n");
+            printf("  div { page-break-inside: avoid; }\n");
+            printf("}\n");
+            printf("</style>\n</head>\n<body>\n");
+
+            if (engine.telugu_mode) {
+                printf("<h1 style='text-align:center; border-bottom:2px solid #f39c12; padding-bottom:10px;'>సంపూర్ణ జ్యోతిష్య నివేదిక</h1>\n");
+                printf("<h3 style='text-align:center; color:#888; margin-top:-15px;'>జాతకుడు/జాతకురాలు: %s</h3>\n", engine.user_name.c_str());
+            } else {
+                printf("<h1 style='text-align:center; border-bottom:2px solid #f39c12; padding-bottom:10px;'>Vedic Astrology Comprehensive Report</h1>\n");
+                printf("<h3 style='text-align:center; color:#888; margin-top:-15px;'>Generated for: %s</h3>\n", engine.user_name.c_str());
+            }
+
+            // Run all tabs sequentially
+            engine.print_birth_chart_ui(); 
+            engine.analyze_chart("D1"); 
+            
+            engine.calculate_dasha_balance();
+            engine.print_dasha_web();
+            
+            time_t t = time(nullptr); tm* now = gmtime(&t);
+            engine.calculate_transits(now->tm_year + 1900, now->tm_mon + 1, now->tm_mday, 12, 0, 0, true, true);
+            
+            engine.analyze_doshas(engine.planet_rashis, engine.planet_rashis[0]);
+            engine.analyze_progeny(is_female, true);
+
+            printf("</body>\n</html>\n");
+            fflush(stdout); 
+            return 0;
+        }
 
         // --- RESTORED ORIGINAL CLI COMMANDS & WEB ALIASES ---
-        
         else if (strcasecmp(cmd.c_str(), "kp") == 0) {
             engine.calculate_kp(); 
             printf("\n"); fflush(stdout); 
@@ -5726,7 +5782,7 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-		else if (strcasecmp(cmd.c_str(), "annual") == 0 || strcasecmp(cmd.c_str(), "web_annual") == 0 || strcasecmp(cmd.c_str(), "web_varshaphal") == 0) {
+        else if (strcasecmp(cmd.c_str(), "annual") == 0 || strcasecmp(cmd.c_str(), "web_annual") == 0 || strcasecmp(cmd.c_str(), "web_varshaphal") == 0) {
             if (clean_argc >= 10) {
                 int annual_year = stoi(clean_argv[9]);
                 double tithi_jd = engine.calculate_tithi_return(annual_year);

@@ -832,7 +832,21 @@
         }
     }
 </script>
-<script>(function(s){s.dataset.zone='11338900',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
-<script>(function(s){s.dataset.zone='11338965',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+
+<script>
+  // Only execute the ad injections if running live on the Cloudflare Pages domain
+  if (window.location.hostname.includes('pages.dev')) {
+      
+      // Monetag Vignette Banner
+      (function(s){s.dataset.zone='11338900',s.src='https://n6wxm.com/vignette.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
+
+      // Monetag In-Page Push Banner
+      (function(s){s.dataset.zone='11338965',s.src='https://nap5k.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')));
+      
+  } else {
+      console.log("Local development environment detected. Monetag ads are suppressed.");
+  }
+</script>
+
 </body>
 </html>

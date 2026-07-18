@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://mallikaarjjuna-github-io.pages.dev/engine/sitemap.xml
+Sitemap: https://pages.dev

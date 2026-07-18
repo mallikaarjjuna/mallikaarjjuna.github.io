@@ -665,8 +665,8 @@
             selector.value = currentValue;
         }
     }
-
-    function saveProfile() {
+	
+	function saveProfile() {
         const name = document.querySelector('input[name="user_name"]').value.trim();
         if (!name) {
             alert("Please enter a Name to save the profile.");
@@ -681,15 +681,16 @@
             hour: document.querySelector('input[name="birth_hour"]').value,
             minute: document.querySelector('input[name="birth_minute"]').value,
             second: document.querySelector('input[name="birth_second"]').value,
-            place: document.querySelector('select[name="birth_place"]').value
+            place: document.querySelector('select[name="birth_place"]').value,
+            language: document.querySelector('select[name="ui_language"]').value // ADDED THIS LINE
         };
         saveProfiles(profiles);
         updateProfileDropdown();
         document.getElementById('profile-selector').value = name;
         alert(`Profile for '${name}' saved successfully to your browser!`);
     }
-
-    function loadProfile() {
+	
+	function loadProfile() {
         const name = document.getElementById('profile-selector').value;
         if (!name) return;
         const profiles = getProfiles();
@@ -704,10 +705,15 @@
             document.querySelector('input[name="birth_minute"]').value = p.minute;
             document.querySelector('input[name="birth_second"]').value = p.second;
             document.querySelector('select[name="birth_place"]').value = p.place;
+            
+            // ADDED THIS BLOCK to load language safely
+            if (p.language) {
+                document.querySelector('select[name="ui_language"]').value = p.language;
+            }
         }
     }
-
-    function setDefaultProfile() {
+    
+	function setDefaultProfile() {
         const name = document.getElementById('profile-selector').value;
         if (!name) {
             alert("Please select a saved profile from the dropdown first to set it as default.");

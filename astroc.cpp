@@ -4531,13 +4531,23 @@ void print_birth_details_html() {
 
         int th = (int)local_hour_decimal;
         int tmin = (int)((local_hour_decimal - th) * 60.0);
+        int tsec = (int)round((((local_hour_decimal - th) * 60.0) - tmin) * 60.0);
+        
+        // Safely cascade fractions so 59.99 rolls over to the next minute
+        if (tsec >= 60) { tsec -= 60; tmin += 1; } 
+        if (tmin >= 60) { tmin -= 60; th += 1; }
+        if (th >= 24) { th -= 24; }
+
         int tz_h = (int)location.tz_offset;
         int tz_m = (int)(abs(location.tz_offset - tz_h) * 60);
         char tz_sign = (location.tz_offset >= 0) ? '+' : '-';
 
         char date_buf[64], time_buf[64], ay_buf[64];
         snprintf(date_buf, sizeof(date_buf), "%s %02d, %04d %s", months[m], d, y, weekdays[calc_weekday]);
-        snprintf(time_buf, sizeof(time_buf), "%d:%02d %s (%c%02d:%02d)", (th % 12 == 0 ? 12 : th % 12), tmin, (th >= 12 ? "PM" : "AM"), tz_sign, abs(tz_h), tz_m);
+        
+        // Added :%02d to inject the exact seconds into the display
+        snprintf(time_buf, sizeof(time_buf), "%d:%02d:%02d %s (%c%02d:%02d)", 
+                 (th % 12 == 0 ? 12 : th % 12), tmin, tsec, (th >= 12 ? "PM" : "AM"), tz_sign, abs(tz_h), tz_m);
         snprintf(ay_buf, sizeof(ay_buf), "Lahiri (%02d° %02d' %02d\")", ay_d, ay_m, ay_s);
 
         // --- NEW BILINGUAL TRANSLATION FOR THE ENTIRE TABLE ---

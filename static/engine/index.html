@@ -3,45 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Jyotisha WebAssembly Engine</title>
+    
+    <!-- UPDATED SEO TITLE AND DESCRIPTION -->
+    <title>Free Vedic Astrology Birth Chart Calculator | Jyotisha Engine</title>
     <link rel="icon" type="image/png" href="favicon.png?v=2">
+    <link rel="canonical" href="https://mallikaarjjuna-github-io.pages.dev/engine/">
+    <meta name="description" content="Generate a free Vedic astrology birth chart (Janam Kundli), planetary positions, Nakshatra, Ascendant, and horoscope calculations online using the Swiss Ephemeris.">
+    <meta name="robots" content="index,follow"> 
 
-	<link rel="canonical" href="https://mallikaarjjuna-github-io.pages.dev/engine/">
-	<meta name="description"
-      content="Free Vedic Astrology (Jyotisha) WebAssembly engine for horoscope, planetary positions, and chart calculations.">
-	<meta name="robots" content="index,follow"> 
+    <!-- UPDATED OPEN GRAPH TAGS -->
+    <meta property="og:title" content="Free Vedic Astrology Birth Chart Calculator | Jyotisha Engine">
+    <meta property="og:description" content="Generate a free Vedic astrology birth chart (Janam Kundli), planetary positions, Nakshatra, Ascendant, and horoscope calculations online using the Swiss Ephemeris.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mallikaarjjuna-github-io.pages.dev/engine/">
+    <meta property="og:image" content="https://mallikaarjjuna-github-io.pages.dev/engine/logo-header.png">
 
-	<meta property="og:title" content="Jyotisha WebAssembly Engine">
-	<meta property="og:description"
-		  content="Free Vedic Astrology (Jyotisha) WebAssembly engine for horoscope, planetary positions and birth chart calculations.">
-	<meta property="og:type" content="website">
-	<meta property="og:url"
-		  content="https://mallikaarjjuna-github-io.pages.dev/engine/">
-	<meta property="og:image"
-		  content="https://mallikaarjjuna-github-io.pages.dev/engine/logo-header.png">
-
-	<meta name="twitter:card" content="summary_large_image">
-	<meta name="twitter:title" content="Jyotisha WebAssembly Engine">
-	<meta name="twitter:description"
-		  content="Free Vedic Astrology WebAssembly engine.">
-	<meta name="twitter:image"
-		  content="https://mallikaarjjuna-github-io.pages.dev/engine/logo-header.png">
-	<script type="application/ld+json">
-	{
-	  "@context": "https://schema.org",
-	  "@type": "WebApplication",
-	  "name": "Jyotisha WebAssembly Engine",
-	  "url": "https://mallikaarjjuna-github-io.pages.dev/engine/",
-	  "applicationCategory": "UtilitiesApplication",
-	  "operatingSystem": "Web",
-	  "description": "Free Vedic Astrology WebAssembly engine for horoscope and planetary calculations.",
-	  "offers": {
-		"@type": "Offer",
-		"price": "0",
-		"priceCurrency": "USD"
-	  }
-	}
-	</script>
+    <!-- UPDATED TWITTER TAGS -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Free Vedic Astrology Birth Chart Calculator">
+    <meta name="twitter:description" content="Generate a free Vedic astrology birth chart online.">
+    <meta name="twitter:image" content="https://mallikaarjjuna-github-io.pages.dev/engine/logo-header.png">
+    
+    <!-- SCHEMA MARKUP -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Jyotisha WebAssembly Engine",
+      "url": "https://mallikaarjjuna-github-io.pages.dev/engine/",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Web",
+      "description": "Free Vedic Astrology WebAssembly engine for horoscope and planetary calculations.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
 
     <style>
         :root {
@@ -140,12 +139,12 @@
         let isEngineComputing = false;
         let isWasmReady = false;
 
-		// ==========================================
+        // ==========================================
         // GLOBAL FEATURE TOGGLES
         // ==========================================
         const ENABLE_PDF_DOWNLOAD = false; // Change to 'true' to instantly reveal the PDF button on the UI
-		const ENABLE_DONATION_UI = true;   // Change to 'false' to hide the UPI card for future ad placement
-		
+        const ENABLE_DONATION_UI = true;   // Change to 'false' to hide the UPI card for future ad placement
+        
         var Module = {
             print: function(text) { terminalBuffer += text + "\n"; },
             printErr: function(text) { console.error(text); },
@@ -185,17 +184,20 @@
         };
     </script>
     <script src="astroc.js"></script>
-	
-	<!-- Google tag (gtag.js) -->
-	<script async src="https://www.googletagmanager.com/gtag/js?id=G-ZNQLNY403B"></script>
-	<script>
-	  window.dataLayer = window.dataLayer || [];
-	  function gtag(){dataLayer.push(arguments);}
-	  gtag('js', new Date());
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZNQLNY403B"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
 
-	  gtag('config', 'G-ZNQLNY403B');
-	</script>
-	<meta name="google-site-verification" content="uhk1eAtcndLH-0bQkhErxvQbrmZrA8_RAewtA-J3umU" />
+      gtag('config', 'G-ZNQLNY403B');
+    </script>
+    <meta name="google-site-verification" content="uhk1eAtcndLH-0bQkhErxvQbrmZrA8_RAewtA-J3umU" />
+
+    <!-- DYNAMIC MENU SCRIPT LOADED HERE -->
+    <script src="/menu.js" defer></script>
 
 </head>
 <body>
@@ -205,6 +207,9 @@
             Jyotisha <span style="color: var(--accent);">Engine</span>
         </h1>
     </header>
+
+    <!-- INJECT THE MENU HERE (Directly under the header) -->
+    <div id="nav-placeholder"></div>
 
 <div class="container">
     <!-- TOP HEADER ROW: Title on Left, Donation on Right -->
@@ -240,7 +245,7 @@
     <form id="calc-form">
         <!-- 1. PERMANENT NATAL PARAMETERS -->
         <h2 style="font-size: 1.3em;">Natal Birth Parameters & Global Settings</h2>
-		<!-- SAVED PROFILES SECTION -->
+        <!-- SAVED PROFILES SECTION -->
         <div style="background: #2a2a35; padding: 15px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
             <label style="margin: 0; color: #f1c40f; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px;">Saved Profiles:</label>
             <select id="profile-selector" onchange="loadProfile()" style="flex-grow: 1; max-width: 250px;">
@@ -673,7 +678,7 @@
         }
     }
 
-	// ==========================================
+    // ==========================================
     // LOCAL PROFILE MANAGER (No Server Required)
     // ==========================================
     function getProfiles() {
@@ -703,8 +708,8 @@
             selector.value = currentValue;
         }
     }
-	
-	function saveProfile() {
+    
+    function saveProfile() {
         const name = document.querySelector('input[name="user_name"]').value.trim();
         if (!name) {
             alert("Please enter a Name to save the profile.");
@@ -727,8 +732,8 @@
         document.getElementById('profile-selector').value = name;
         alert(`Profile for '${name}' saved successfully to your browser!`);
     }
-	
-	function loadProfile() {
+    
+    function loadProfile() {
         const name = document.getElementById('profile-selector').value;
         if (!name) return;
         const profiles = getProfiles();
@@ -751,7 +756,7 @@
         }
     }
     
-	function setDefaultProfile() {
+    function setDefaultProfile() {
         const name = document.getElementById('profile-selector').value;
         if (!name) {
             alert("Please select a saved profile from the dropdown first to set it as default.");
@@ -783,7 +788,7 @@
         }
     }
 
-	// Initialize dropdown, auto-load default profile, and check UI flags on startup
+    // Initialize dropdown, auto-load default profile, and check UI flags on startup
     window.addEventListener('DOMContentLoaded', (event) => {
         updateProfileDropdown();
         
@@ -813,7 +818,7 @@
             }
         }
     });
-	
+    
     document.getElementById('calc-form').addEventListener('submit', function(e) {
         e.preventDefault();
         if (isEngineComputing) return;
@@ -831,8 +836,8 @@
         
         fetchTabData(activeTabId);
     });
-	
-	// ==========================================
+    
+    // ==========================================
     // PDF GENERATOR
     // ==========================================
     async function generateFullPDF() {

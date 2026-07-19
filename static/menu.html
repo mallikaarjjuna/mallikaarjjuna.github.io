@@ -1,7 +1,17 @@
 <!-- File: static/menu.html -->
-<nav class="main-navigation">
-    <ul>
-        <!-- Updated to point to /engine/ -->
+<nav class="hamburger-nav">
+    <!-- The hidden checkbox controls the toggle state via CSS -->
+    <input type="checkbox" id="menu-toggle" class="menu-toggle-checkbox">
+    
+    <!-- The hamburger icon -->
+    <label for="menu-toggle" class="menu-toggle-label" title="Main menu">
+        <svg viewBox="0 0 24 24" width="28" height="28" focusable="false">
+            <path fill="currentColor" d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"></path>
+        </svg>
+    </label>
+
+    <!-- The dropdown menu list -->
+    <ul class="menu-list">
         <li><a href="/engine/">Home (Calculator)</a></li>
         <li><a href="/learn/janam-kundli/">What is Janam Kundli?</a></li>
         <li><a href="/learn/nakshatra/">Nakshatra Finder</a></li>
@@ -9,22 +19,63 @@
 </nav>
 
 <style>
-    .main-navigation ul {
+    .hamburger-nav {
+        position: relative;
+        font-family: sans-serif;
+        z-index: 9999;
+        margin-bottom: 20px;
+        padding: 10px 15px;
+    }
+    
+    .menu-toggle-checkbox {
+        display: none;
+    }
+    
+    .menu-toggle-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 8px;
+        border-radius: 50%;
+        transition: background-color 0.2s ease;
+        color: inherit; /* Inherits text color of the current page */
+    }
+    
+    .menu-toggle-label:hover {
+        background-color: rgba(128, 128, 128, 0.2);
+    }
+    
+    .menu-list {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 15px;
+        background-color: #2b2b2b;
         list-style-type: none;
-        padding: 0;
+        padding: 10px 0;
         margin: 0;
-        display: flex;
-        gap: 20px;
-        background-color: #f4f4f4;
-        padding: 15px;
-        border-radius: 5px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        min-width: 220px;
     }
-    .main-navigation a {
+
+    /* When checkbox is checked, show the menu */
+    .menu-toggle-checkbox:checked ~ .menu-list {
+        display: block;
+    }
+
+    .menu-list li a {
+        display: block;
+        padding: 12px 20px;
+        color: #e0e0e0;
         text-decoration: none;
-        color: #333;
-        font-weight: bold;
+        font-weight: 500;
+        transition: background-color 0.2s;
     }
-    .main-navigation a:hover {
-        color: #0056b3;
+
+    .menu-list li a:hover {
+        background-color: #3a3a3a;
+        color: #ffffff;
     }
 </style>

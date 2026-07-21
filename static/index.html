@@ -1,10 +1,935 @@
-<!-- File: static/index.html (in the root) -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta http-equiv="refresh" content="0; url=/engine/">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- UPDATED SEO TITLE AND DESCRIPTION -->
+    <title>Free Vedic Astrology Birth Chart Calculator | Jyotisha Engine</title>
+    <link rel="icon" type="image/png" href="/engine/favicon.png?v=2">
+    <link rel="canonical" href="https://mallikaarjjuna-github-io.pages.dev/engine/">
+    <meta name="description" content="Generate a free Vedic astrology birth chart (Janam Kundli), planetary positions, Nakshatra, Ascendant, and horoscope calculations online using the Swiss Ephemeris.">
+    <meta name="robots" content="index,follow"> 
+
+    <!-- UPDATED OPEN GRAPH TAGS -->
+    <meta property="og:title" content="Free Vedic Astrology Birth Chart Calculator | Jyotisha Engine">
+    <meta property="og:description" content="Generate a free Vedic astrology birth chart (Janam Kundli), planetary positions, Nakshatra, Ascendant, and horoscope calculations online using the Swiss Ephemeris.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://mallikaarjjuna-github-io.pages.dev/engine/">
+    <meta property="og:image" content="https://mallikaarjjuna-github-io.pages.dev/engine/logo-header.png">
+
+    <!-- UPDATED TWITTER TAGS -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Free Vedic Astrology Birth Chart Calculator">
+    <meta name="twitter:description" content="Generate a free Vedic astrology birth chart online.">
+    <meta name="twitter:image" content="https://mallikaarjjuna-github-io.pages.dev/engine/logo-header.png">
+    
+    <!-- SCHEMA MARKUP -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Jyotisha WebAssembly Engine",
+      "url": "https://mallikaarjjuna-github-io.pages.dev/engine/",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Web",
+      "description": "Free Vedic Astrology WebAssembly engine for horoscope and planetary calculations.",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --panel-bg: #1e1e24;
+            --text-main: #e0e0e0;
+            --accent: #f39c12;
+            --term-bg: #000000;
+            --term-text: #4af626;
+            --border: #333;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0; padding: 20px;
+        }
+
+        .header-layout {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap; /* Ensures it stacks cleanly on mobile phones */
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .header-titles {
+            flex: 1; /* Takes up remaining space on the left */
+        }
+
+        .header-upi {
+            flex-shrink: 0; /* Prevents the banner from getting squished */
+            /* Add max-width here if the banner is rendering too wide */
+        }
+
+        .container {
+            max-width: 1200px; margin: auto; background: var(--panel-bg);
+            padding: 30px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h1, h2, h3 { color: var(--accent); margin-top: 0; }
+        .form-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; margin-bottom: 20px;
+        }
+        .form-group { display: flex; flex-direction: column; }
+        label { font-size: 0.85em; text-transform: uppercase; color: #888; margin-bottom: 5px; letter-spacing: 1px;}
+        input, select {
+            background: #2a2a35; border: 1px solid var(--border); color: #fff;
+            padding: 10px; border-radius: 4px; font-size: 1em;
+        }
+        button {
+            background: var(--accent); color: #111; border: none; padding: 15px;
+            font-size: 1.1em; font-weight: bold; border-radius: 4px; cursor: pointer;
+            width: 100%; transition: background 0.2s;
+        }
+        button:hover { background: #e67e22; }
+        
+        /* Tabs */
+        .tabs { border-bottom: 2px solid var(--border); display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; padding-bottom: 10px;}
+        .tab-btn {
+            background: transparent; color: var(--text-main); border: none; padding: 10px 15px;
+            cursor: pointer; font-size: 1em; opacity: 0.7; width: auto; font-weight: normal;
+        }
+        .tab-btn.active { opacity: 1; border-bottom: 3px solid var(--accent); font-weight: bold; color: var(--accent); }
+        .tab-content { display: none; padding: 20px 0; }
+        .tab-content.active { display: block; }
+        
+        /* Dynamic Panels */
+        .dynamic-panel {
+            display: none; background: #2a2a35; padding: 20px; border-radius: 6px; 
+            margin-bottom: 20px; border-left: 4px solid var(--accent); box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+        }
+        
+        /* Terminal */
+        .terminal-view {
+            background: var(--term-bg); 
+            color: var(--term-text); 
+            font-family: 'Consolas', 'Courier New', monospace;
+            padding: 20px; 
+            border-radius: 5px; 
+            overflow-x: auto; 
+            white-space: pre-wrap;       
+            word-wrap: break-word;       
+            line-height: 1.5;            
+            font-size: 14px;
+        }
+        
+        /* Native HTML Tables from C++ */
+        .data-table {
+            width: 100%; border-collapse: collapse; margin: 20px 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px;
+            background: #1e1e24; color: #e0e0e0;
+        }
+        .data-table th, .data-table td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; }
+        .data-table th { background: #2a2a35; color: var(--accent); font-weight: bold; }
+        
+        .rasi-table {
+            width: 100%; max-width: 700px; border-collapse: collapse; margin: 20px 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px;
+            background: #1e1e24; color: var(--accent);
+        }
+        .rasi-table td {
+            border: 1px solid var(--border); width: 25%; height: 110px;
+            vertical-align: top; padding: 10px; font-weight: bold;
+        }
+        .rasi-center {
+            text-align: center; vertical-align: middle !important;
+            font-size: 1.5em; letter-spacing: 2px; color: #888;
+        }
+        .p-text { color: var(--term-text); font-weight: normal; display: block; margin-top: 8px; line-height: 1.6; }
+    </style>
+
+    <script>
+        let terminalBuffer = "";
+        let isEngineComputing = false;
+        let isWasmReady = false;
+
+        // ==========================================
+        // GLOBAL FEATURE TOGGLES
+        // ==========================================
+        const ENABLE_PDF_DOWNLOAD = false; // Change to 'true' to instantly reveal the PDF button on the UI
+        const ENABLE_DONATION_UI = true;   // Change to 'false' to hide the UPI card for future ad placement
+        
+        var Module = {
+            // Tells WebAssembly to look for the .wasm file in the engine directory
+            locateFile: function(path) {
+                return '/engine/' + path;
+            },
+            print: function(text) { terminalBuffer += text + "\n"; },
+            printErr: function(text) { console.error(text); },
+            onRuntimeInitialized: async function() {
+                try {
+                    console.log("Fetching split ephemeris data chunks locally from Cloudflare...");
+                    
+                    // Updated to root-relative paths
+                    const [resA, resB] = await Promise.all([
+                        fetch('/engine/astroc_part_aa.bin'),
+                        fetch('/engine/astroc_part_ab.bin')
+                    ]);
+
+                    if (!resA.ok || !resB.ok) throw new Error("Failed to load data chunks");
+
+                    const bufferA = await resA.arrayBuffer();
+                    const bufferB = await resB.arrayBuffer();
+
+                    const totalLength = bufferA.byteLength + bufferB.byteLength;
+                    const combinedData = new Uint8Array(totalLength);
+                    combinedData.set(new Uint8Array(bufferA), 0);
+                    combinedData.set(new Uint8Array(bufferB), bufferA.byteLength);
+
+                    FS.mkdir('/ephe');
+                    FS.writeFile('/ephe/astroc.data', combinedData, { encoding: 'binary' });
+
+                    console.log("Engine initialized. Ready to calculate.");
+                    
+                    const loadingEl = document.getElementById('loading-msg');
+                    if (loadingEl) loadingEl.style.display = 'none';
+                    isWasmReady = true; 
+                } catch (err) {
+                    console.error("Data loading error:", err);
+                    const loadingEl = document.getElementById('loading-msg');
+                    if (loadingEl) loadingEl.innerText = "Error loading Ephemeris Data.";
+                }
+            }
+        };
+    </script>
+    <!-- Updated to root-relative path -->
+    <script src="/engine/astroc.js"></script>
+    
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZNQLNY403B"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-ZNQLNY403B');
+    </script>
+    <meta name="google-site-verification" content="uhk1eAtcndLH-0bQkhErxvQbrmZrA8_RAewtA-J3umU" />
+
+    <!-- DYNAMIC MENU SCRIPT LOADED HERE -->
+    <script src="/menu.js" defer></script>
+
 </head>
 <body>
-    <p>Redirecting to calculator...</p>
+    <header style="display: flex; align-items: center; padding: 15px 20px; background-color: #1e1e2e; border-bottom: 2px solid var(--accent); margin-bottom: 25px;">
+        <!-- Updated to root-relative path -->
+        <img src="/engine/logo-header.png" alt="Astro Coder Logo" style="height: 45px; margin-right: 15px; border-radius: 4px;">
+        <h1 style="color: #e0e0e0; margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 1px;">
+            Jyotisha <span style="color: var(--accent);">Engine</span>
+        </h1>
+    </header>
+
+    <!-- INJECT THE MENU HERE (Directly under the header) -->
+    <div id="nav-placeholder"></div>
+
+<div class="container">
+    <!-- TOP HEADER ROW: Title on Left, Donation on Right -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px;">
+        
+        <!-- Left Side: Title & Subtitle -->
+        <div>
+            <h1>Free Janam Kundali & Birth Chart</h1>
+            <p style="color: #888; font-size: 0.9em; margin-top: -10px; margin-bottom: 20px;">Generate highly accurate Vedic astrolgy charts instantly</p>
+        </div>
+        
+        <!-- Right Side: UPI Donation Card -->
+        <div id="donation-card" style="background: #2a2a35; padding: 15px 20px; border-radius: 8px; border-top: 4px solid #3498db; box-shadow: 0 4px 10px rgba(0,0,0,0.4); text-align: center; max-width: 280px; display: flex; flex-direction: column; align-items: center;">
+            <h3 style="margin: 0 0 8px 0; color: #3498db; font-size: 15px; display: flex; align-items: center;">
+                <span style="font-size: 18px; margin-right: 8px;">☕</span> Support The Developer
+            </h3>
+            <p style="margin: 0 0 12px 0; font-size: 12px; color: #bbb; line-height: 1.4;">
+                If this free engine provided value to your life, consider buying me a coffee!
+            </p>
+            
+            <!-- Updated to root-relative path -->
+            <img src="/engine/upi-qr.jpeg" alt="Scan to Donate via UPI" style="width: 170px; height: 170px; border-radius: 6px; margin-bottom: 15px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+            
+            <!-- Mobile Deep Link with URL Encoded Space -->
+            <a href="upi://pay?pa=8309136205@ptsbi&pn=Mallikarjuna%20Munagapati&cu=INR" style="text-decoration: none; width: 100%;">
+                <button type="button" style="background: #3498db; color: #fff; border: none; padding: 10px 12px; font-size: 13px; font-weight: bold; border-radius: 4px; cursor: pointer; width: 100%; transition: background 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                    Open UPI App (Mobile)
+                </button>
+            </a>
+        </div>        
+    </div>
+
+    <form id="calc-form">
+        <!-- 1. PERMANENT NATAL PARAMETERS -->
+        <h2 style="font-size: 1.3em;">Natal Birth Parameters & Global Settings</h2>
+        <!-- SAVED PROFILES SECTION -->
+        <div style="background: #2a2a35; padding: 15px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <label style="margin: 0; color: #f1c40f; font-size: 0.85em; text-transform: uppercase; letter-spacing: 1px;">Saved Profiles:</label>
+            <select id="profile-selector" onchange="loadProfile()" style="flex-grow: 1; max-width: 250px;">
+                <option value="">-- Select a Profile --</option>
+            </select>
+            <button type="button" onclick="saveProfile()" style="width: auto; padding: 8px 15px; font-size: 0.9em; background: #2ecc71; color: #111; border-radius: 4px;">💾 Save Current</button>
+            <button type="button" onclick="setDefaultProfile()" style="width: auto; padding: 8px 15px; font-size: 0.9em; background: #f39c12; color: #111; border-radius: 4px;">⭐ Set Default</button>
+            <button type="button" onclick="deleteProfile()" style="width: auto; padding: 8px 15px; font-size: 0.9em; background: #e74c3c; color: #fff; border-radius: 4px;">🗑️ Delete</button>
+        </div>
+        <div class="form-grid">
+            <div class="form-group"><label>Name</label><input type="text" name="user_name" value="Mallikarjuna" required></div>
+            <div class="form-group">
+                <label>Gender</label>
+                <select name="user_gender">
+                    <option value="Male" selected>Male</option>
+                    <option value="Female">Female</option>
+                </select>
+            </div>
+            <div class="form-group"><label>Day</label><input type="number" name="birth_day" value="29" required></div>
+            <div class="form-group"><label>Month</label><input type="number" name="birth_month" value="7" required></div>
+            <div class="form-group"><label>Year</label><input type="number" name="birth_year" value="1981" required></div>
+            <div class="form-group"><label>Hour</label><input type="number" name="birth_hour" value="13" required></div>
+            <div class="form-group"><label>Minute</label><input type="number" name="birth_minute" value="5" required></div>
+            <div class="form-group"><label>Second</label><input type="number" name="birth_second" value="55" required></div>
+            <div class="form-group">
+                <label>City Matrix</label>
+                <select name="birth_place">
+                    <optgroup label="Andhra Pradesh & Telangana">
+                        <option value="Hyderabad">Hyderabad</option>
+                        <option value="Nellore">Nellore</option>
+                        <option value="Kavali">Kavali</option>
+                        <option value="Kovur">Kovur</option>
+                        <option value="Bitragunta" selected>Bitragunta</option>
+                        <option value="Mogalthur">Mogalthur</option>
+                        <option value="Krishna">Krishna</option>
+                    </optgroup>
+                    <optgroup label="Major Indian Metros">
+                        <option value="Bangalore">Bangalore</option>
+                        <option value="Chennai">Chennai</option>
+                        <option value="Mumbai">Mumbai</option>
+                        <option value="Delhi">New Delhi</option>
+                        <option value="Kolkata">Kolkata</option>
+                        <option value="Pune">Pune</option>
+                        <option value="Ahmedabad">Ahmedabad</option>
+                        <option value="Jaipur">Jaipur</option>
+                        <option value="Indore">Indore</option>
+                        <option value="Mangalore">Mangalore</option>
+                        <option value="Varanasi">Varanasi</option>
+                        <option value="Prayagraj">Prayagraj (Allahabad)</option>
+                        <option value="Rameswaram">Rameswaram</option>
+                    </optgroup>
+                    <optgroup label="North America">
+                        <option value="New York City">New York City, USA</option>
+                        <option value="San Francisco">San Francisco, USA</option>
+                        <option value="Los Angeles">Los Angeles, USA</option>
+                        <option value="Seattle">Seattle, USA</option>
+                        <option value="Chicago">Chicago, USA</option>
+                        <option value="Washington, D.C.">Washington, D.C., USA</option>
+                        <option value="Toronto">Toronto, Canada</option>
+                        <option value="Vancouver">Vancouver, Canada</option>
+                    </optgroup>
+                    <optgroup label="Europe">
+                        <option value="London">London, UK</option>
+                        <option value="Paris">Paris, France</option>
+                        <option value="Berlin">Berlin, Germany</option>
+                        <option value="Frankfurt">Frankfurt, Germany</option>
+                        <option value="Amsterdam">Amsterdam, Netherlands</option>
+                    </optgroup>
+                    <optgroup label="Asia, Middle East & Aus">
+                        <option value="Dubai">Dubai, UAE</option>
+                        <option value="Singapore">Singapore</option>
+                        <option value="Tokyo">Tokyo, Japan</option>
+                        <option value="Sydney">Sydney, Australia</option>
+                        <option value="Melbourne">Melbourne, Australia</option>
+                    </optgroup>
+                    <optgroup label="South America & Africa">
+                        <option value="Sao Paulo">São Paulo, Brazil</option>
+                        <option value="Johannesburg">Johannesburg, SA</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Language Output</label>
+                <select name="ui_language">
+                    <option value="english" selected>English</option>
+                    <option value="telugu">Telugu (తెలుగు)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 2. NAVIGATION TABS (Moved Above Dynamic Panels) -->
+        <div class="tabs">
+            <!-- IMPORTANT: type="button" prevents accidental form submission when clicking tabs -->
+            <button type="button" class="tab-btn active" onclick="openTab(event, 'tab-birth')">Birth Chart</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-general')">General Prediction</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-dasha')">Dasha Analysis</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-gochar')">Gochar (Transit)</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-dosha')">Mangal Dosha</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-varsh')">Year (Varshaphal)</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-progeny')">Children (Progeny)</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-soulmate')">Soul Mate (Synastry)</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-muhurat')">Event Muhurat</button> 
+            
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-about')">About</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-contact')">Contact Us</button>
+            <button type="button" class="tab-btn" onclick="openTab(event, 'tab-legal')">Terms & Privacy</button>
+        </div>
+
+        <!-- 3. DYNAMIC INPUT PANELS (Revealed by JavaScript) -->
+        
+        <!-- Transit Panel -->
+        <div id="panel-transit" class="dynamic-panel">
+            <h3 style="font-size: 1.1em; color: #fff; margin-bottom: 15px;">Transit / Target Horizon Parameters</h3>
+            <div class="form-grid" style="margin-bottom: 0;">
+                <div class="form-group"><label>Transit Day</label><input type="number" name="transit_day" value="26"></div>
+                <div class="form-group"><label>Transit Month</label><input type="number" name="transit_month" value="3"></div>
+                <div class="form-group"><label>Transit Year</label><input type="number" name="transit_year" value="2010"></div>
+                <div class="form-group"><label>Hour</label><input type="number" name="transit_hour" value="12"></div>
+                <div class="form-group"><label>Minute</label><input type="number" name="transit_minute" value="0"></div>
+                <div class="form-group"><label>Second</label><input type="number" name="transit_second" value="0"></div>
+            </div>
+        </div>
+        
+        <!-- Synastry Panel -->
+        <div id="panel-partner" class="dynamic-panel">
+            <h3 style="font-size: 1.1em; color: #fff; margin-bottom: 15px;">Partner Birth Parameters (For Synastry)</h3>
+            <div class="form-grid" style="margin-bottom: 0;">
+                <div class="form-group"><label>Partner Day</label><input type="number" name="p2_day" value="1"></div>
+                <div class="form-group"><label>Partner Month</label><input type="number" name="p2_month" value="1"></div>
+                <div class="form-group"><label>Partner Year</label><input type="number" name="p2_year" value="1985"></div>
+                <div class="form-group"><label>Hour</label><input type="number" name="p2_hour" value="12"></div>
+                <div class="form-group"><label>Minute</label><input type="number" name="p2_minute" value="0"></div>
+                <div class="form-group"><label>Second</label><input type="number" name="p2_second" value="0"></div>
+                <div class="form-group">
+                    <label>Partner City</label>
+                    <select name="p2_place">
+                        <optgroup label="Andhra Pradesh & Telangana">
+                            <option value="Hyderabad" selected>Hyderabad</option>
+                            <option value="Nellore">Nellore</option>
+                            <option value="Kavali">Kavali</option>
+                            <option value="Kovur">Kovur</option>
+                            <option value="Bitragunta">Bitragunta</option>
+                            <option value="Mogalthur">Mogalthur</option>
+                            <option value="Krishna">Krishna</option>
+                        </optgroup>
+                        <optgroup label="Major Indian Metros">
+                            <option value="Bangalore">Bangalore</option>
+                            <option value="Chennai">Chennai</option>
+                            <option value="Mumbai">Mumbai</option>
+                            <option value="Delhi">New Delhi</option>
+                            <option value="Kolkata">Kolkata</option>
+                            <option value="Pune">Pune</option>
+                            <option value="Ahmedabad">Ahmedabad</option>
+                            <option value="Jaipur">Jaipur</option>
+                            <option value="Indore">Indore</option>
+                            <option value="Mangalore">Mangalore</option>
+                            <option value="Varanasi">Varanasi</option>
+                            <option value="Prayagraj">Prayagraj (Allahabad)</option>
+                            <option value="Rameswaram">Rameswaram</option>
+                        </optgroup>
+                        <optgroup label="North America">
+                            <option value="New York City">New York City, USA</option>
+                            <option value="San Francisco">San Francisco, USA</option>
+                            <option value="Los Angeles">Los Angeles, USA</option>
+                            <option value="Seattle">Seattle, USA</option>
+                            <option value="Chicago">Chicago, USA</option>
+                            <option value="Washington, D.C.">Washington, D.C., USA</option>
+                            <option value="Toronto">Toronto, Canada</option>
+                            <option value="Vancouver">Vancouver, Canada</option>
+                        </optgroup>
+                        <optgroup label="Europe">
+                            <option value="London">London, UK</option>
+                            <option value="Paris">Paris, France</option>
+                            <option value="Berlin">Berlin, Germany</option>
+                            <option value="Frankfurt">Frankfurt, Germany</option>
+                            <option value="Amsterdam">Amsterdam, Netherlands</option>
+                        </optgroup>
+                        <optgroup label="Asia, Middle East & Aus">
+                            <option value="Dubai">Dubai, UAE</option>
+                            <option value="Singapore">Singapore</option>
+                            <option value="Tokyo">Tokyo, Japan</option>
+                            <option value="Sydney">Sydney, Australia</option>
+                            <option value="Melbourne">Melbourne, Australia</option>
+                        </optgroup>
+                        <optgroup label="South America & Africa">
+                            <option value="Sao Paulo">São Paulo, Brazil</option>
+                            <option value="Johannesburg">Johannesburg, SA</option>
+                        </optgroup>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Muhurat Panel -->
+        <div id="panel-muhurat" class="dynamic-panel">
+            <h3 style="font-size: 1.1em; color: #fff; margin-bottom: 15px;">Event Muhurat Selection</h3>
+            <div class="form-group" style="max-width: 350px;">
+                <label>Muhurat Event Type</label>
+                <select name="muhurat_event">
+                    <option value="marriage" selected>Marriage / Vivaha</option>
+                    <option value="house">House Warming (Griha Pravesh)</option>
+                    <option value="vehicle">Vehicle Purchase</option>
+                    <option value="electronics">Electronics / TV / Appliances</option>
+                    <option value="gold">Gold / Jewelry Purchase</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 15px;">
+            <button type="submit" id="main-calc-btn" style="flex: 2;">Calculate Birth Chart</button>
+            <button type="button" id="pdf-download-btn" onclick="generateFullPDF()" style="flex: 1; background: #e74c3c; color: #fff;">📄 Download Full PDF</button>
+        </div>
+    </form>
+
+    <!-- h4 id="loading-msg" style="color: orange; text-align: center; margin-top: 20px;">
+        Downloading Astronomical Ephemeris Virtual Memory... Please Wait.
+    </h4 -->
+
+    <div id="loading-spinner" style="display:none; text-align: center; color: var(--accent); font-weight: bold; margin: 20px 0;">
+        Computing High-Precision Orbital Mechanics...
+    </div>
+
+    <!-- 4. RESULTS CONTAINER (Now visible by default so static tabs can be read immediately) -->
+    <div id="results-container">
+        <div id="tab-birth" class="tab-content active"></div>
+        <div id="tab-general" class="tab-content"></div>
+        <div id="tab-dasha" class="tab-content"></div>
+        <div id="tab-gochar" class="tab-content"></div>
+        <div id="tab-dosha" class="tab-content"></div>
+        <div id="tab-varsh" class="tab-content"></div>
+        <div id="tab-progeny" class="tab-content"></div>
+        <div id="tab-soulmate" class="tab-content"></div>
+        <div id="tab-muhurat" class="tab-content"></div>
+    
+        <div id="tab-about" class="tab-content">
+            <div class="terminal-view">
+                <h2>About Our Jyotisha Engine</h2>
+                <p>Welcome to a next-generation Vedic Astrology portal. Unlike standard commercial calculators, this platform is powered by a high-precision, custom-built C++ astronomical engine operating directly inside your browser via WebAssembly (Wasm).</p>
+                
+                <p><strong>The Core Architecture</strong><br>
+                At the heart of this software lies the NASA-grade Swiss Ephemeris library, ensuring the planetary longitude calculations are exact down to the arcsecond. The predictive matrices are strictly coded according to the authentic, classical principles of the <em>Brihat Parashara Hora Shastra (BPHS)</em>.</p>
+                
+                <p><strong>Advanced Capabilities</strong><br>
+                This engine dynamically calculates over 100 mathematical data points in milliseconds—including Shadbala (planetary strength), Ashtakavarga (transit filtering), Jaimini Karakas, and the highly specialized Phase 4 Vulnerability Matrix (tracking Mrityu Bhagas, Sahams, and Graha Yuddha war zones).</p>
+
+                <p><strong>Lead Architect</strong><br>
+                Architected and engineered by Mallikarjuna Munagapati (Malli), this platform was designed to bridge the gap between hardcore astronomical mathematics and dynamic, AI-like narrative storytelling, delivering an unparalleled astrological experience.</p>
+            </div>
+        </div>
+
+        <div id="tab-contact" class="tab-content">
+            <div class="terminal-view">
+                <h2>Contact Us</h2>
+                <p>We are constantly evolving and enhancing our astrological engine to provide the most accurate and insightful readings possible.</p>
+                
+                <p>Whether you have technical feedback, feature requests, or questions regarding the astrological calculations, we would love to hear from you.</p>
+                
+                <p><strong>Email:</strong> <a href="mailto:mallikaarjjuna@gmail.com" style="color: #4CAF50; text-decoration: none;">mallikaarjjuna@gmail.com</a></p>
+                
+                <br>
+                <p><em>Note: Because this engine runs entirely offline within your browser via WebAssembly, no personal birth data is ever transmitted to or stored on our servers. Your privacy is 100% secure.</em></p>
+            </div>
+        </div>
+        
+        <div id="tab-legal" class="tab-content">
+            <div class="terminal-view">
+                <h2>Privacy Policy & Terms of Service</h2>
+                
+                <h3 style="color: #4CAF50;">1. Privacy Policy (Data Security)</h3>
+                <p><strong>Zero Server Processing:</strong> This application represents a breakthrough in data privacy. The entire astronomical engine operates locally on your device via WebAssembly. Absolutely no personal birth details (dates, times, locations) are transmitted to, saved on, or collected by our servers. Once you close your browser, your data is gone.</p>
+                <p><strong>Cookies & Advertising:</strong> To support the hosting of this free tool, third-party vendors, including Google, may use cookies to serve ads based on a user's prior visits to this website. Google's use of advertising cookies enables it and partners to serve ads based on your visit to this site and/or other sites on the Internet.</p>
+                
+                <br>
+                <h3 style="color: #4CAF50;">2. Terms of Service & Legal Disclaimer</h3>
+                <p><strong>Educational & Entertainment Purposes Only:</strong> The astrological calculations, dynamic predictions, Dasha timelines, and Synastry reports provided by this engine are generated via classical algorithmic texts (BPHS). They are intended strictly for educational, spiritual, and entertainment purposes. </p>
+                <p>They do not constitute, and should not be used as a replacement for, professional financial, medical, psychological, or legal advice. The developers and architects of this software assume no liability for any life decisions made by users based on these algorithmic readings.</p>
+
+                <br>
+                <h3 style="color: #4CAF50;">3. Software Licensing & Acknowledgements</h3>
+                <p><strong>Swiss Ephemeris:</strong> The core planetary longitude and ephemeris mathematics are powered by the Swiss Ephemeris (created by Astrodienst AG). The custom C++ predictive matrices, WebAssembly integrations, dynamic translation layers, and UI wrappers are proprietary to the developer. <br><br>
+                <a href="LICENSE.txt" target="_blank" style="color: #f39c12; text-decoration: underline;">View Full Software License & Disclaimer (LICENSE.txt)</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const getVal = (name, def) => document.querySelector(`input[name="${name}"]`).value || def;
+
+    async function fetchTabData(tabId) {
+        if (!isWasmReady) {
+            alert("Please wait. The astronomical data is still downloading.");
+            return;
+        }
+        if (isEngineComputing) return;
+        
+        isEngineComputing = true;
+        const spinner = document.getElementById('loading-spinner');
+        spinner.innerText = "Computing High-Precision Orbital Mechanics...";
+        spinner.style.display = 'block';
+        document.querySelector('.tabs').style.opacity = '0.5';
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        try {
+            const commandMap = {
+                'tab-birth': 'web_natal',
+                'tab-general': 'web_general',
+                'tab-dasha': 'web_dasha',
+                'tab-gochar': 'web_transit',
+                'tab-dosha': 'web_dosha',
+                'tab-varsh': 'annual',
+                'tab-progeny': 'web_progeny',
+                'tab-soulmate': 'match',
+                'tab-muhurat': 'muhurat'
+            };
+            
+            const cmdType = commandMap[tabId] || 'web_natal';
+
+            const y = getVal('birth_year', '1980');
+            const m = getVal('birth_month', '1');
+            const d = getVal('birth_day', '1');
+            const h = getVal('birth_hour', '12');
+            const min = getVal('birth_minute', '0');
+            const sec = getVal('birth_second', '0');
+            const city = document.querySelector('select[name="birth_place"]').value;
+            const lang = document.querySelector('select[name="ui_language"]').value;
+            
+            let args = [];
+            
+            if (lang === "telugu") args.push("telugu");
+            args.push("html"); 
+            args.push(y, m, d, h, min, sec, city, cmdType);
+            
+            if (tabId === 'tab-birth') {
+                args.push(getVal('user_name', 'Guest'), document.querySelector('select[name="user_gender"]').value);
+            } else if (tabId === 'tab-gochar') {
+                args.push(
+                    getVal('transit_year', new Date().getFullYear().toString()),
+                    getVal('transit_month', (new Date().getMonth() + 1).toString()),
+                    getVal('transit_day', new Date().getDate().toString()),
+                    getVal('transit_hour', '12'),
+                    getVal('transit_minute', '0'),
+                    getVal('transit_second', '0')
+                );
+            } else if (tabId === 'tab-varsh') {
+                args.push(getVal('transit_year', new Date().getFullYear().toString()));
+            } else if (tabId === 'tab-soulmate') {
+                args.push(
+                    getVal('p2_year', '1985'),
+                    getVal('p2_month', '1'),
+                    getVal('p2_day', '1'),
+                    getVal('p2_hour', '12'),
+                    getVal('p2_minute', '0'),
+                    getVal('p2_second', '0'),
+                    document.querySelector('select[name="p2_place"]').value
+                );
+            } else if (tabId === 'tab-muhurat') {
+                args.push(
+                    document.querySelector('select[name="muhurat_event"]').value,
+                    getVal('transit_year', new Date().getFullYear().toString()),
+                    getVal('transit_month', (new Date().getMonth() + 1).toString())
+                );
+            }
+
+            terminalBuffer = ""; 
+            console.log("Calling WebAssembly with args:", args);
+            Module.callMain(args); 
+
+            const targetDiv = document.getElementById(tabId);
+            if (targetDiv) {
+                targetDiv.innerHTML = `<pre class="terminal-view">${terminalBuffer}</pre>`;
+            }
+
+        } catch (err) {
+            console.error("WASM Execution Failed:", err);
+            alert("The WebAssembly engine encountered an error. Check the F12 console.");
+        } finally {
+            isEngineComputing = false;
+            spinner.style.display = 'none';
+            document.querySelector('.tabs').style.opacity = '1';
+        }
+    }
+
+    function openTab(evt, tabId) {
+        if (isEngineComputing) {
+            alert("Engine is currently processing data...");
+            return;
+        }
+
+        // 1. Highlight Correct Tab & Reveal Tab Content
+        let tabContents = document.getElementsByClassName("tab-content");
+        for (let i = 0; i < tabContents.length; i++) tabContents[i].classList.remove("active");
+        
+        let tabBtns = document.getElementsByClassName("tab-btn");
+        for (let i = 0; i < tabBtns.length; i++) tabBtns[i].classList.remove("active");
+        
+        document.getElementById(tabId).classList.add("active");
+        evt.currentTarget.classList.add("active");
+
+        // 2. Hide all Dynamic Input Panels by default
+        document.getElementById('panel-transit').style.display = 'none';
+        document.getElementById('panel-partner').style.display = 'none';
+        document.getElementById('panel-muhurat').style.display = 'none';
+
+        const btn = document.getElementById('main-calc-btn');
+        btn.style.display = 'block'; // Make sure the button is visible
+
+        // 3. Reveal Dynamic Input Panels based on the selected Tab
+        if (tabId === 'tab-gochar' || tabId === 'tab-varsh') {
+            document.getElementById('panel-transit').style.display = 'block';
+            btn.innerText = `Calculate ${evt.currentTarget.innerText}`;
+        } else if (tabId === 'tab-soulmate') {
+            document.getElementById('panel-partner').style.display = 'block';
+            btn.innerText = "Calculate Soul Mate (Synastry)";
+        } else if (tabId === 'tab-muhurat') {
+            document.getElementById('panel-transit').style.display = 'block';
+            document.getElementById('panel-muhurat').style.display = 'block';
+            btn.innerText = "Scan Event Muhurat";
+        } else if (tabId === 'tab-about' || tabId === 'tab-contact' || tabId === 'tab-legal') {
+            btn.style.display = 'none'; // Hide the calculate button for static information tabs
+        } else {
+            btn.innerText = `Calculate ${evt.currentTarget.innerText}`;
+        }
+
+        // 4. Auto-Fetch Data if the tab hasn't been computed yet
+        const targetDiv = document.getElementById(tabId);
+        if (targetDiv && targetDiv.innerHTML.trim() === "") {
+            fetchTabData(tabId);
+        }
+    }
+
+    // ==========================================
+    // LOCAL PROFILE MANAGER (No Server Required)
+    // ==========================================
+    function getProfiles() {
+        return JSON.parse(localStorage.getItem('saved_astrology_profiles')) || {};
+    }
+
+    function saveProfiles(profiles) {
+        localStorage.setItem('saved_astrology_profiles', JSON.stringify(profiles));
+    }
+
+    function updateProfileDropdown() {
+        const profiles = getProfiles();
+        const defaultName = localStorage.getItem('default_astrology_profile');
+        const selector = document.getElementById('profile-selector');
+        
+        // Preserve currently selected value
+        const currentValue = selector.value;
+        
+        selector.innerHTML = '<option value="">-- Select a Profile --</option>';
+        for (const name in profiles) {
+            const isDefault = (name === defaultName) ? " (Default)" : "";
+            selector.innerHTML += `<option value="${name}">${name}${isDefault}</option>`;
+        }
+        
+        // Restore selection if it still exists
+        if (profiles[currentValue]) {
+            selector.value = currentValue;
+        }
+    }
+    
+    function saveProfile() {
+        const name = document.querySelector('input[name="user_name"]').value.trim();
+        if (!name) {
+            alert("Please enter a Name to save the profile.");
+            return;
+        }
+        const profiles = getProfiles();
+        profiles[name] = {
+            gender: document.querySelector('select[name="user_gender"]').value,
+            day: document.querySelector('input[name="birth_day"]').value,
+            month: document.querySelector('input[name="birth_month"]').value,
+            year: document.querySelector('input[name="birth_year"]').value,
+            hour: document.querySelector('input[name="birth_hour"]').value,
+            minute: document.querySelector('input[name="birth_minute"]').value,
+            second: document.querySelector('input[name="birth_second"]').value,
+            place: document.querySelector('select[name="birth_place"]').value,
+            language: document.querySelector('select[name="ui_language"]').value // ADDED THIS LINE
+        };
+        saveProfiles(profiles);
+        updateProfileDropdown();
+        document.getElementById('profile-selector').value = name;
+        alert(`Profile for '${name}' saved successfully to your browser!`);
+    }
+    
+    function loadProfile() {
+        const name = document.getElementById('profile-selector').value;
+        if (!name) return;
+        const profiles = getProfiles();
+        const p = profiles[name];
+        if (p) {
+            document.querySelector('input[name="user_name"]').value = name;
+            document.querySelector('select[name="user_gender"]').value = p.gender;
+            document.querySelector('input[name="birth_day"]').value = p.day;
+            document.querySelector('input[name="birth_month"]').value = p.month;
+            document.querySelector('input[name="birth_year"]').value = p.year;
+            document.querySelector('input[name="birth_hour"]').value = p.hour;
+            document.querySelector('input[name="birth_minute"]').value = p.minute;
+            document.querySelector('input[name="birth_second"]').value = p.second;
+            document.querySelector('select[name="birth_place"]').value = p.place;
+            
+            // ADDED THIS BLOCK to load language safely
+            if (p.language) {
+                document.querySelector('select[name="ui_language"]').value = p.language;
+            }
+        }
+    }
+    
+    function setDefaultProfile() {
+        const name = document.getElementById('profile-selector').value;
+        if (!name) {
+            alert("Please select a saved profile from the dropdown first to set it as default.");
+            return;
+        }
+        localStorage.setItem('default_astrology_profile', name);
+        updateProfileDropdown();
+        alert(`'${name}' is now your default profile! It will load automatically when you open the app.`);
+    }
+
+    function deleteProfile() {
+        const name = document.getElementById('profile-selector').value;
+        if (!name) {
+            alert("Please select a profile to delete.");
+            return;
+        }
+        if (confirm(`Are you sure you want to delete the profile for '${name}'?`)) {
+            const profiles = getProfiles();
+            delete profiles[name];
+            saveProfiles(profiles);
+            
+            // If they delete the default profile, remove the default setting
+            if (localStorage.getItem('default_astrology_profile') === name) {
+                localStorage.removeItem('default_astrology_profile');
+            }
+            
+            updateProfileDropdown();
+            document.querySelector('input[name="user_name"]').value = "";
+        }
+    }
+
+    // Initialize dropdown, auto-load default profile, and check UI flags on startup
+    window.addEventListener('DOMContentLoaded', (event) => {
+        updateProfileDropdown();
+        
+        // ==========================================
+        // Feature Toggle Execution
+        // ==========================================
+        const pdfBtn = document.getElementById('pdf-download-btn');
+        if (pdfBtn) {
+            pdfBtn.style.display = ENABLE_PDF_DOWNLOAD ? 'block' : 'none';
+        }
+        
+        const donationCard = document.getElementById('donation-card');
+        if (donationCard) {
+            // We use 'flex' here instead of 'block' to preserve your internal alignments
+            donationCard.style.display = ENABLE_DONATION_UI ? 'flex' : 'none'; 
+        }
+        // ==========================================
+
+        const defaultName = localStorage.getItem('default_astrology_profile');
+        if (defaultName) {
+            const profiles = getProfiles();
+            if (profiles[defaultName]) {
+                document.getElementById('profile-selector').value = defaultName;
+                loadProfile();
+            } else {
+                localStorage.removeItem('default_astrology_profile');
+            }
+        }
+    });
+    
+    document.getElementById('calc-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (isEngineComputing) return;
+        
+        // Clear all computed tabs so they pull the fresh data next time they are clicked
+        const tabsToClear = ['tab-birth', 'tab-general', 'tab-dasha', 'tab-gochar', 'tab-dosha', 'tab-varsh', 'tab-progeny', 'tab-soulmate', 'tab-muhurat'];
+        tabsToClear.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.innerHTML = ""; 
+        });
+
+        // Immediately fetch data for the currently active tab
+        const activeTabBtn = document.querySelector('.tab-btn.active');
+        const activeTabId = activeTabBtn.getAttribute('onclick').match(/'([^']+)'/)[1];
+        
+        fetchTabData(activeTabId);
+    });
+    
+    // ==========================================
+    // PDF GENERATOR
+    // ==========================================
+    async function generateFullPDF() {
+        if (!isWasmReady) { alert("Please wait for the engine to load."); return; }
+        if (isEngineComputing) return;
+        
+        isEngineComputing = true;
+        const spinner = document.getElementById('loading-spinner');
+        spinner.innerText = "Compiling Comprehensive PDF Report...";
+        spinner.style.display = 'block';
+
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        try {
+            const y = getVal('birth_year', '1980');
+            const m = getVal('birth_month', '1');
+            const d = getVal('birth_day', '1');
+            const h = getVal('birth_hour', '12');
+            const min = getVal('birth_minute', '0');
+            const sec = getVal('birth_second', '0');
+            const city = document.querySelector('select[name="birth_place"]').value;
+            const lang = document.querySelector('select[name="ui_language"]').value;
+            const name = getVal('user_name', 'Guest');
+            const gender = document.querySelector('select[name="user_gender"]').value;
+            
+            let args = [];
+            if (lang === "telugu") args.push("telugu");
+            
+            // Call the new full_report command we added to C++
+            args.push(y, m, d, h, min, sec, city, "full_report", name, gender);
+            
+            terminalBuffer = ""; 
+            Module.callMain(args); 
+
+            // Create a temporary Blob and open it in a new tab for printing
+            const blob = new Blob([terminalBuffer], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            const printWindow = window.open(url, '_blank');
+            printWindow.onload = function() {
+                // Auto-trigger the print dialog once the window loads
+                setTimeout(() => {
+                    printWindow.print();
+                }, 500);
+            };
+
+        } catch (err) {
+            console.error("PDF Gen Failed:", err);
+            alert("Error compiling report.");
+        } finally {
+            isEngineComputing = false;
+            spinner.style.display = 'none';
+        }
+    }
+</script>
+
+<script>
+  atOptions = {
+    'key' : '5fcda9147bc8ca0457ec7a5b463d65f9',
+    'format' : 'iframe',
+    'height' : 50,
+    'width' : 320,
+    'params' : {}
+  };
+</script>
+<script src="https://www.highperformanceformat.com/5fcda9147bc8ca0457ec7a5b463d65f9/invoke.js"></script>
+
 </body>
 </html>

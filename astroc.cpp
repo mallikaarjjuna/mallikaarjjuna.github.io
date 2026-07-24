@@ -685,6 +685,7 @@ void print_birth_chart_ui() {
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
         }
     }
+	
 	// =========================================================================
     // PHASE 1: INTERPRETATION ENGINE (D1 OUTCOMES + VARGA FATE)
     // =========================================================================
@@ -707,7 +708,6 @@ void print_birth_chart_ui() {
         
 		if (v_num == 1) {
 			analyze_general_personality();
-            analyze_functional_nature(v_lagn_rasi);
             analyze_yogas(v_planets, v_lagn_rasi);
             analyze_doshas(v_planets, v_lagn_rasi);
             analyze_placements(v_planets, v_lagn_rasi);
@@ -764,7 +764,7 @@ void analyze_lordships(int lagna_rasi, int* p_rasi) {
     }
 	
 void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
-		if (!json_mode) {
+        if (!json_mode) {
             if (html_mode) {
                 printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_mode ? "సమగ్ర గ్రహ శుభ/అశుభ విశ్లేషణ" : "Comprehensive Planetary Auspiciousness");
                 printf("<table class='data-table' style='margin-top: 0;'><tr>");
@@ -799,6 +799,23 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
         int yogi_planet = lord_map[y_nak_idx % 9];
         int avayogi_planet = lord_map[ay_nak_idx % 9];
         int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0));
+        
+        auto get_lord = [](int rashi) {
+            const int lords[] = {3, 6, 4, 2, 1, 4, 6, 3, 5, 7, 7, 5}; 
+            return lords[rashi % 12];
+        };
+
+        // Naisargika Maitri (Natural Friendship Array: 1=Friend, -1=Enemy, 0=Neutral)
+        int maitri[8][8] = {
+            {0, 0, 0, 0, 0, 0, 0, 0},
+            {0, 0, 1, 1, 0, 1,-1,-1}, // Sun
+            {0, 1, 0, 0, 1, 0, 0, 0}, // Moon
+            {0, 1, 1, 0,-1, 1, 0, 0}, // Mars
+            {0, 1,-1, 0, 0, 0, 1, 0}, // Merc
+            {0, 1, 1, 1,-1, 0,-1, 0}, // Jup
+            {0,-1,-1, 0, 1,-1, 0, 1}, // Ven
+            {0,-1,-1,-1, 1, 0, 1, 0}  // Sat
+        };
 
         for (int p = 1; p <= 9; p++) {
             int score = 0; string breakdown = "";
@@ -808,14 +825,20 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
             int own_signs2[] = {0, -1, -1, 7, 5, 11, 6, 10, -1, -1};
             
             if (p <= 7) {
-                if (p_rasi[p] == exaltation_signs[p]) { score += 4; breakdown += telugu_mode ? "ఉచ్ఛ(+4) " : "Exalted(+4) "; }
-                else if (p_rasi[p] == debilitation_signs[p]) { score -= 3; breakdown += telugu_mode ? "నీచ(-3) " : "Debilitated(-3) "; }
-                else if (p_rasi[p] == own_signs1[p] || p_rasi[p] == own_signs2[p]) { score += 3; breakdown += telugu_mode ? "స్వక్షేత్రం(+3) " : "Own Sign(+3) "; }
-            }
-            // Add fallback safe checks for rvs_bad_placements if needed, assuming array exists.
-            if (p_rasi[p] != exaltation_signs[p] && p_rasi[p] != own_signs1[p] && p_rasi[p] != own_signs2[p]) { score += 1; breakdown += telugu_mode ? "మిత్ర స్థానం(+1) " : "Friendly Rasi(+1) "; }
+                bool is_exalt_own_deb = false;
+                if (p_rasi[p] == exaltation_signs[p]) { score += 4; breakdown += telugu_mode ? "ఉచ్ఛ(+4) " : "Exalted(+4) "; is_exalt_own_deb = true; }
+                else if (p_rasi[p] == debilitation_signs[p]) { score -= 3; breakdown += telugu_mode ? "నీచ(-3) " : "Debilitated(-3) "; is_exalt_own_deb = true; }
+                else if (p_rasi[p] == own_signs1[p] || p_rasi[p] == own_signs2[p]) { score += 3; breakdown += telugu_mode ? "స్వక్షేత్రం(+3) " : "Own Sign(+3) "; is_exalt_own_deb = true; }
+                
+                // Advanced Naisargika Maitri check (No more generic "+1" for everything)
+                if (!is_exalt_own_deb) {
+                    int r_lord_idx = get_lord(p_rasi[p]);
+                    int relationship = maitri[p][r_lord_idx];
+                    if (relationship == 1) { score += 1; breakdown += telugu_mode ? "మిత్ర స్థానం(+1) " : "Friendly Rasi(+1) "; }
+                    else if (relationship == -1) { score -= 1; breakdown += telugu_mode ? "శత్రు స్థానం(-1) " : "Enemy Rasi(-1) "; }
+                    else { breakdown += telugu_mode ? "తటస్థ స్థానం(0) " : "Neutral Rasi(0) "; }
+                }
 
-            if (p <= 7) {
                 bool rules_trikona = false, rules_dusthana = false, rules_kendra = false;
                 for (int h = 1; h <= 12; h++) {
                     int rashi_of_house = (lagna_rasi + h - 1) % 12;
@@ -835,8 +858,14 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
 
             int h = (p_rasi[p] - lagna_rasi + 12) % 12 + 1;
             if (h == 1 || h == 5 || h == 9 || h == 4 || h == 7 || h == 10) { score += 2; breakdown += telugu_mode ? "శుభ భావ స్థితి(+2) " : "Good Placement(+2) "; }
-            else if (h == 6 || h == 8 || h == 12) { score -= 3; breakdown += telugu_mode ? "దుస్థాన స్థితి(-3) " : "Dusthana Placement(-3) "; }
-            else if (h == 3 || h == 10 || h == 11) { if (p == 1 || p == 3 || p == 7 || p == 8 || p == 9) { score += 1; breakdown += telugu_mode ? "ఉపచయంలో పాపి(+1) " : "Malefic in Upachaya(+1) "; } }
+            else if (h == 8 || h == 12) { score -= 3; breakdown += telugu_mode ? "దుస్థాన స్థితి(-3) " : "Dusthana Placement(-3) "; }
+            
+            if (h == 3 || h == 6 || h == 10 || h == 11) { 
+                if (p == 1 || p == 3 || p == 7 || p == 8 || p == 9) { 
+                    score += 2; breakdown += telugu_mode ? "ఉపచయంలో పాపి(+2) " : "Malefic in Upachaya(+2) "; 
+                } 
+            }
+            if (h == 6) { score -= 3; breakdown += telugu_mode ? "దుస్థాన స్థితి(-3) " : "Dusthana Placement(-3) "; } // Apply dusthana penalty separately to 6th
             
             int d9_h = (d9_rashis[p] - d9_rashis[0] + 12) % 12 + 1;
             if (d9_h == 6 || d9_h == 8 || d9_h == 12) { score -= 1; breakdown += telugu_mode ? "D9 దుస్థానం(-1) " : "D9 Dusthana(-1) "; }
@@ -899,7 +928,7 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
             }
         }
         
-		if (!json_mode) {
+        if (!json_mode) {
             if (html_mode) {
                 printf("</table>");
                 printf("<p style='color: #888; font-size: 14px; margin-top: 10px;'>%s</p>", 
@@ -911,12 +940,13 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
                     printf(" * గమనిక: 'ప్రతికూల/ప్రమాదకర' అని ఉన్న గ్రహాలకు జపాలు/దానాలు వంటి నిర్దిష్ట పరిహారాలు అవసరం.\n");
                     printf(" * గమనిక: 'ఉపయోగపడని శక్తి' అని ఉన్న గ్రహాలకు రత్నధారణ/యంత్రాల ద్వారా బలాన్ని పెంచాలి.\n");
                 } else {
-                    printf(" * NOTE: Planets marked 'BAD/DESTRUCTION' require specific Remedies (Mantras/Daanams).\n");
-                    printf(" * NOTE: Planets marked 'UNREALIZED POTENTIAL' require Strengthening (Gemstones/Metals).\n");
+                    printf(" * NOTE: Planets marked 'HIGH FRICTION' require specific Remedies (Mantras/Daanams).\n");
+                    printf(" * NOTE: Planets marked 'AVERAGE' require Strengthening (Gemstones/Metals).\n");
                 }
             }
         }
-	}
+    }
+	
 void search_exact_degree(string planet_name, string sign_name, int deg, int min, int sec, int search_year, int search_month) {
         // 1. Resolve Planet Index
         string p_lower = planet_name;
@@ -1247,56 +1277,6 @@ void analyze_general_personality() {
         }
     }	
 
-void analyze_functional_nature(int lagna_rasi) {
-        if (html_mode) {
-            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? ("నైసర్గిక స్వభావం (" + get_rashi_name(lagna_rasi) + " లగ్నం ఆధారంగా)").c_str() : ("Functional Nature (Based on " + string(rashi_names[lagna_rasi]) + " Lagna)").c_str());
-            printf("<table class='data-table'><tr><th>%s</th><th>%s</th></tr>", telugu_mode ? "గ్రహం" : "Graha", telugu_mode ? "స్వభావం (Functional Nature)" : "Functional Nature");
-        } else {
-            if (telugu_mode) printf("\n[నైసర్గిక స్వభావం (%s లగ్నం ఆధారంగా)]\n", get_rashi_name(lagna_rasi).c_str());
-            else printf("\n[FUNCTIONAL NATURE (Based on %s Lagna Lordship)]\n", rashi_names[lagna_rasi]);
-        }
-        
-        for (int p=1; p<=7; p++) {
-            bool is_benefic = false, is_malefic = false, is_kendra = false;
-            for (int h=1; h<=12; h++) {
-                int rashi_of_house = (lagna_rasi + h - 1) % 12;
-                if (rashi_lords[rashi_of_house] == string(p_names_full[p])) {
-                    if (h==1 || h==5 || h==9) is_benefic = true;
-                    if (h==3 || h==6 || h==11) is_malefic = true;
-                    if (h==4 || h==7 || h==10) is_kendra = true;
-                }
-            }
-            string status = telugu_mode ? "తటస్థ / మిశ్రమ" : "Neutral / Mixed";
-            if (is_benefic && !is_malefic) status = telugu_mode ? "నైసర్గిక <b style='color:#2ecc71;'>శుభ గ్రహం</b> (అత్యంత అనుకూలం)" : "<b style='color:#2ecc71;'>Functional Benefic</b> (Auspicious)";
-            if (!is_benefic && is_malefic) status = telugu_mode ? "నైసర్గిక <b style='color:#e74c3c;'>పాప గ్రహం</b> (ప్రతికూలం)" : "<b style='color:#e74c3c;'>Functional Malefic</b> (Challenging)";
-            if (is_benefic && is_kendra) status = telugu_mode ? "<b style='color:#f1c40f;'>రాజయోగ కారకుడు</b> (అత్యంత శుభకరం)" : "<b style='color:#f1c40f;'>Yogakaraka</b> (Highly Auspicious)";
-            
-            if (html_mode) {
-                printf("<tr><td><b>%s</b></td><td>%s</td></tr>", telugu_mode ? get_planet_name(p).c_str() : p_names_full[p], status.c_str());
-            } else {
-                if (telugu_mode) printf("  - %-10s: %s\n", get_planet_name(p).c_str(), status.c_str());
-                else printf("  - %-8s: %s\n", p_names_full[p], status.c_str());
-            }
-        }
-        
-        int r_rahu = planet_rashis[8]; int r_ketu = planet_rashis[9];
-        auto get_lord_te = [&](string en_name) { for(int i=1; i<=7; i++) { if(en_name == p_names_full[i]) return string(te_p_names_full[i]); } return en_name; };
-
-        if (html_mode) {
-            printf("<tr><td><b>%s</b></td><td>%s</td></tr>", telugu_mode?"రాహువు":"Rahu", telugu_mode ? ("ఛాయా గ్రహం (రాహువు <b>" + get_lord_te(rashi_lords[r_rahu]) + "</b> నియంత్రణలో ఉన్నాడు)").c_str() : ("Shadow Node (Governed by <b>" + string(rashi_lords[r_rahu]) + "</b>)").c_str());
-            printf("<tr><td><b>%s</b></td><td>%s</td></tr>", telugu_mode?"కేతువు":"Ketu", telugu_mode ? ("ఛాయా గ్రహం (కేతువు <b>" + get_lord_te(rashi_lords[r_ketu]) + "</b> నియంత్రణలో ఉన్నాడు)").c_str() : ("Shadow Node (Governed by <b>" + string(rashi_lords[r_ketu]) + "</b>)").c_str());
-            printf("</table>\n");
-        } else {
-            if (telugu_mode) {
-                printf("  - రాహువు    : ఛాయా గ్రహాలు తమ అధిపతుల ద్వారా పనిచేస్తాయి. రాహువు %s నియంత్రణలో ఉన్నాడు.\n", get_lord_te(rashi_lords[r_rahu]).c_str());
-                printf("  - కేతువు     : ఛాయా గ్రహాలు తమ అధిపతుల ద్వారా పనిచేస్తాయి. కేతువు %s నియంత్రణలో ఉన్నాడు.\n", get_lord_te(rashi_lords[r_ketu]).c_str());
-            } else {
-                printf("  - %-8s: Shadow Nodes operate via their dispositors. Rahu is governed by %s.\n", "Rahu", rashi_lords[r_rahu]);
-                printf("  - %-8s: Shadow Nodes operate via their dispositors. Ketu is governed by %s.\n", "Ketu", rashi_lords[r_ketu]);
-            }
-        }
-    }	
-	
 void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         if (html_mode) {
             printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహాల తుది ఫలితం (దశ/అంతర్దశలలో జరిగేవి)" : "Synthesized Final Outcome of Planets (D1 Fate)");
@@ -1370,14 +1350,23 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         auto in_kendra = [&](int r, int l) { int h = (r - l + 12) % 12 + 1; return (h==1 || h==4 || h==7 || h==10); };
         auto is_own_exalt = [&](int r, int ex, int own1, int own2) { return (r==ex || r==own1 || r==own2); };
 
-        auto print_yoga = [&](string y_name, string en_text) {
+        auto print_yoga = [&](string name, string desc, string color = "#3498db") {
             if (html_mode) {
-                printf("<li style='margin-bottom: 10px;'>%s</li>", telugu_mode ? te_get_yoga_text(y_name).c_str() : en_text.c_str());
+                printf("<li style='margin-bottom:8px;'><b style='color:%s;'>%s:</b> %s</li>\n", color.c_str(), name.c_str(), desc.c_str());
             } else {
-                if (telugu_mode) printf("  - %s\n", te_get_yoga_text(y_name).c_str());
-                else printf("  - %s\n", en_text.c_str());
+                // Instantly strip injected HTML tags if we are in CLI Mode
+                string clean_name = name;
+                string clean_desc = desc;
+                
+                size_t pos;
+                while ((pos = clean_name.find("<b>")) != string::npos) clean_name.replace(pos, 3, "");
+                while ((pos = clean_name.find("</b>")) != string::npos) clean_name.replace(pos, 4, "");
+                
+                while ((pos = clean_desc.find("<b>")) != string::npos) clean_desc.replace(pos, 3, "");
+                while ((pos = clean_desc.find("</b>")) != string::npos) clean_desc.replace(pos, 4, "");
+                
+                printf("  - %s: %s\n", clean_name.c_str(), clean_desc.c_str());
             }
-            yoga_found = true;
         };
 
         if (in_kendra(p_rasi[3], lagna) && is_own_exalt(p_rasi[3], 9, 0, 7)) print_yoga("Ruchaka", "<b>Ruchaka Yoga:</b> Mars is powerfully placed in a Kendra in its own or exalted sign. This grants profound courage, natural leadership, and heavy success in real estate or technical domains.");
@@ -2164,54 +2153,89 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
             printf("=================================================================\n");
         }
     }	
-	void analyze_placements(int* p_rasi, int lagna) {
+
+void analyze_placements(int p_rashis[10], int asc) {
+        if (json_mode) return;
+
+        auto get_lord = [](int rashi) {
+            const int lords[] = {3, 6, 4, 2, 1, 4, 6, 3, 5, 7, 7, 5}; 
+            return lords[rashi % 12];
+        };
+
         if (html_mode) {
-            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహ స్థానాలు & ఫలితాలు" : "Planetary Placements & Effects");
-            printf("<div style='display: grid; gap: 15px;'>");
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహాల కార్యకత్వాలు (Functional Nature)" : ("FUNCTIONAL NATURE (Based on " + string(rashi_names[asc]) + " Lagna Lordship)").c_str());
+            printf("<ul style='background: #1e1e24; padding: 20px 20px 20px 40px; border-radius: 6px; line-height: 1.6;'>");
         } else {
-            if (telugu_mode) printf("\n[గ్రహ స్థానాలు & ఫలితాలు]\n");
-            else printf("\n[PLANETARY PLACEMENTS & EFFECTS]\n");
+            printf("\n[%s]\n", telugu_mode ? "గ్రహాల కార్యకత్వాలు (Functional Nature)" : ("FUNCTIONAL NATURE (Based on " + string(rashi_names[asc]) + " Lagna Lordship)").c_str());
         }
-        
-        for (int i=1; i<=9; i++) {
-            int h = (p_rasi[i] - lagna + 12) % 12 + 1;
-            
-            if (html_mode) {
-                printf("<div style='margin-bottom: 15px; padding: 15px; background: #2a2a35; border-left: 4px solid var(--accent); border-radius: 4px;'>");
-                if (telugu_mode) {
-                    // INJECTING FULL TELUGU NAME: te_rashi_names[p_rasi[i]]
-                    printf("<h4 style='margin-top: 0; color: #e0e0e0; font-size: 16px;'>%s %dవ భావంలో (%s)</h4>", 
-                           get_planet_name(i).c_str(), h, te_rashi_names[p_rasi[i]]);
+
+        for (int p = 1; p <= 9; p++) {
+            if (p == 8 || p == 9) {
+                int disp = get_lord(p_rashis[p]);
+                string disp_name = telugu_mode ? get_planet_name(disp) : p_names_full[disp];
+                if (html_mode) {
+                    printf("<li style='margin-bottom:5px; color:#aaa;'><b>%s</b> : %s <b>%s</b>.</li>\n", 
+                           telugu_mode ? get_planet_name(p).c_str() : p_names_full[p], 
+                           telugu_mode ? "ఛాయా గ్రహం. అధిపతి:" : "Shadow Nodes operate via their dispositors. Node is governed by:", disp_name.c_str());
                 } else {
-                    // INJECTING FULL ENGLISH NAME: rashi_names[p_rasi[i]]
-                    printf("<h4 style='margin-top: 0; color: #e0e0e0; font-size: 16px;'>%s in %d House (%s)</h4>", 
-                           p_names_full[i], h, rashi_names[p_rasi[i]]);
+                    printf("  - %-7s : %s %s.\n", telugu_mode ? get_planet_name(p).c_str() : p_names_full[p], telugu_mode ? "ఛాయా గ్రహం. అధిపతి:" : "Shadow Nodes operate via their dispositors. Node is governed by:", disp_name.c_str());
                 }
-                
-                // Fetch correct texts using 'i' and 'h'
-                string p_text = telugu_mode ? te_get_planet_in_house_text(i, h) : get_planet_in_house_text(i, h);
-                string digbala = telugu_mode ? te_get_digbala_text(i, h) : get_digbala_text(i, h);
-                
-                printf("<p style='margin: 5px 0 0 0; font-size: 14px; line-height: 1.6; color: #ccc;'>%s</p>", p_text.c_str());
-                if (digbala != "") printf("<p style='margin: 5px 0 0 0; font-size: 14px; line-height: 1.6; color: #f1c40f;'>%s</p>", digbala.c_str());
-                
-                printf("</div>\n");
-            } else {
-                if (telugu_mode) {
-                    printf("  - %s %dవ భావంలో (%s) ఉంది:\n", get_planet_name(i).c_str(), h, get_short_rashi(p_rasi[i]).c_str());
-                    printf("    * విశ్లేషణ: %s\n", te_get_planet_in_house_text(i, h).c_str());
-                    string digbala = te_get_digbala_text(i, h);
-                    if (digbala != "") printf("   %s\n", digbala.c_str());
-                } else {
-                    printf("  - %s is located in House %d (%s):\n", p_names_full[i], h, short_rashi[p_rasi[i]]);
-                    printf("    * Synthesis: %s\n", get_planet_in_house_text(i, h).c_str());
-                    string digbala = get_digbala_text(i, h);
-                    if (digbala != "") printf("   %s\n", digbala.c_str());
+                continue;
+            }
+
+            int h1 = -1, h2 = -1;
+            for (int r = 0; r < 12; r++) {
+                if (get_lord(r) == p) {
+                    int house = (r - asc + 12) % 12 + 1;
+                    if (h1 == -1) h1 = house; else h2 = house;
                 }
             }
+
+            bool is_benefic = false, is_malefic = false, is_yogakaraka = false;
+            
+            auto is_trikona = [](int h) { return h == 1 || h == 5 || h == 9; };
+            auto is_kendra = [](int h) { return h == 1 || h == 4 || h == 7 || h == 10; };
+            auto is_trishadaya = [](int h) { return h == 3 || h == 6 || h == 11; }; 
+
+            // Lagna Lord is always an auspicious benefic (exempt from 8th house dosha)
+            if (p == get_lord(asc)) {
+                is_benefic = true;
+            }
+
+            // Yogakaraka (Rules Kendra + Trikona)
+            if ((is_trikona(h1) && is_kendra(h2)) || (is_trikona(h2) && is_kendra(h1))) {
+                is_yogakaraka = true;
+            } 
+            // Trikona Lords are Benefics
+            else if (is_trikona(h1) || is_trikona(h2)) {
+                is_benefic = true; 
+            } 
+            // Trishadaya Lords (3, 6, 11) are Functional Malefics
+            else if (is_trishadaya(h1) || is_trishadaya(h2)) {
+                is_malefic = true; 
+            } 
+            // 8th Lord is malefic (unless it is the Lagna lord)
+            else if (h1 == 8 || h2 == 8) {
+                if (p != get_lord(asc)) is_malefic = true; 
+            }
+            
+            string nature_en, nature_te, desc_en, desc_te, color;
+            if (is_yogakaraka) { nature_en="Yogakaraka"; nature_te="యోగకారక"; desc_en="Highly Auspicious"; desc_te="అత్యంత శుభకరం"; color="#f1c40f"; }
+            else if (is_benefic) { nature_en="Functional Benefic"; nature_te="శుభ గ్రహం"; desc_en="Auspicious"; desc_te="శుభకరం"; color="#2ecc71"; }
+            else if (is_malefic) { nature_en="Functional Malefic"; nature_te="పాప గ్రహం"; desc_en="Challenging"; desc_te="ప్రతికూలం"; color="#e74c3c"; }
+            else { nature_en="Neutral / Mixed"; nature_te="సాధారణం"; desc_en="Depends on placement"; desc_te="స్థితిపై ఆధారపడి ఉంటుంది"; color="#bdc3c7"; }
+
+            string p_name = telugu_mode ? get_planet_name(p) : p_names_full[p];
+            if (html_mode) {
+                printf("<li style='margin-bottom:5px;'><b>%s</b> : <b style='color:%s;'>%s</b> (%s)</li>\n", 
+                       p_name.c_str(), color.c_str(), telugu_mode ? nature_te.c_str() : nature_en.c_str(), telugu_mode ? desc_te.c_str() : desc_en.c_str());
+            } else {
+                printf("  - %-7s : %s (%s)\n", p_name.c_str(), telugu_mode ? nature_te.c_str() : nature_en.c_str(), telugu_mode ? desc_te.c_str() : desc_en.c_str());
+            }
         }
-        if (html_mode) printf("</div>\n");
-    }    
+        if (html_mode) printf("</ul>\n");
+    }
+	
 void analyze_conjunctions(int* p_rasi, int lagna) {
         if (html_mode) {
             printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "గ్రహ కలయికలు (యుతి)" : "Planetary Conjunctions");
@@ -6350,7 +6374,6 @@ int main(int argc, char *argv[]) {
                     // --- FIX: Print the actual Rasi Chart Grid so it doesn't look empty! ---
                     annual_engine.print_birth_chart_ui(); 
                     
-                    annual_engine.analyze_functional_nature(annual_engine.planet_rashis[0]);
                     annual_engine.analyze_placements(annual_engine.planet_rashis, annual_engine.planet_rashis[0]);
                     annual_engine.analyze_lordships(annual_engine.planet_rashis[0], annual_engine.planet_rashis);
                     annual_engine.analyze_conjunctions(annual_engine.planet_rashis, annual_engine.planet_rashis[0]);

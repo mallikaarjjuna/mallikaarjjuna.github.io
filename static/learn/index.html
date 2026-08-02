@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learn Vedic Astrology | Jyotisha Engine FAQs</title>
+    
+    <!-- Using the same icon and theme variables as the main engine -->
+    <link rel="icon" type="image/png" href="/engine/favicon.png?v=2">
+    
+    <style>
+        /* Reusing your global CSS variables for perfect consistency */
+        :root {
+            --bg-dark: #121212;
+            --panel-bg: #1e1e24;
+            --text-main: #e0e0e0;
+            --accent: #f39c12;
+            --term-bg: #000000;
+            --term-text: #4af626;
+            --border: #333;
+        }
+        
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0; 
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px; /* Slightly narrower for reading comfort */
+            margin: auto; 
+            background: var(--panel-bg);
+            padding: 30px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        h1, h2 { color: var(--accent); margin-top: 0; }
+
+        /* ==========================================
+           MODERN ACCORDION STYLES (NO JS REQUIRED)
+           ========================================== */
+        details {
+            background: #2a2a35;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* The clickable question header */
+        summary {
+            padding: 18px 20px;
+            font-size: 1.1em;
+            font-weight: bold;
+            color: var(--text-main);
+            cursor: pointer;
+            list-style: none; /* Hides default triangle in most browsers */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #23232d;
+        }
+
+        summary::-webkit-details-marker {
+            display: none; /* Hides default triangle in WebKit */
+        }
+
+        summary:hover {
+            background: #2e2e3a;
+            color: var(--accent);
+        }
+
+        /* Custom Dropdown Indicator */
+        summary::after {
+            content: '+';
+            font-size: 1.5em;
+            color: var(--accent);
+            line-height: 0;
+            transition: transform 0.2s ease;
+        }
+
+        /* Change '+' to '-' when open */
+        details[open] summary::after {
+            content: '-';
+            transform: rotate(180deg);
+        }
+
+        /* The hidden answer content */
+        .faq-content {
+            padding: 20px;
+            border-top: 1px solid var(--border);
+            line-height: 1.6;
+            font-size: 0.95em;
+            background: #2a2a35;
+        }
+
+        .faq-content h3 {
+            color: #4CAF50;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+
+        .faq-content p {
+            margin-bottom: 15px;
+        }
+    </style>
+
+    <!-- INJECT THE SAME MENU SCRIPT YOU USE GLOBALLY -->
+    <script src="/menu.js" defer></script>
+
+</head>
+<body>
+
+    <!-- Header matching the main index.html -->
+    <header style="display: flex; align-items: center; padding: 15px 20px; background-color: #1e1e2e; border-bottom: 2px solid var(--accent); margin-bottom: 25px;">
+        <img src="/engine/logo-header.png" alt="Astro Coder Logo" style="height: 45px; margin-right: 15px; border-radius: 4px;">
+        <h1 style="color: #e0e0e0; margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 1px;">
+            Jyotisha <span style="color: var(--accent);">Learn</span>
+        </h1>
+    </header>
+
+    <div id="nav-placeholder"></div>
+
+    <div class="container">
+        <h1>Vedic Astrology Knowledge Base</h1>
+        <p style="color: #888; font-size: 0.95em; margin-top: -10px; margin-bottom: 30px;">
+            Expand a topic below to learn about the classical principles powering the Jyotisha Engine.
+        </p>
+
+        <!-- FAQ ITEM 1 -->
+        <details>
+            <summary>What is a Janam Kundli (Birth Chart)?</summary>
+            <div class="faq-content">
+                <p>A Janam Kundli, or birth chart, is a precise snapshot of the celestial sky at the exact moment and geographic location of your birth. It maps out the positions of the 9 Grahas (planets) across the 12 Rashis (zodiac signs) and 12 Bhavas (houses).</p>
+                <p>In Vedic astrology, this chart acts as a cosmic blueprint, outlining your karmic potential, life path, strengths, and challenges based on the principles of the Brihat Parashara Hora Shastra.</p>
+            </div>
+        </details>
+
+        <!-- FAQ ITEM 2 -->
+        <details>
+            <summary>How is the Janma Nakshatra calculated?</summary>
+            <div class="faq-content">
+                <p>The Janma Nakshatra is the specific lunar mansion (out of 27 possible Nakshatras) that the Moon was transiting through at the time of your birth. Each Nakshatra spans exactly 13 degrees and 20 minutes of the zodiac.</p>
+                <h3>Why is it important?</h3>
+                <p>The Nakshatra determines your starting Dasha (planetary period) and plays a critical role in mental temperament, emotional compatibility (Synastry), and determining the auspicious Nama-Akshara (starting letter) for naming a child.</p>
+            </div>
+        </details>
+
+        <!-- FAQ ITEM 3 -->
+        <details>
+            <summary>What is the significance of the Lagna (Ascendant)?</summary>
+            <div class="faq-content">
+                <p>The Lagna is the specific degree of the zodiac that was rising on the eastern horizon at the moment of birth. Because the Earth rotates rapidly (roughly 1 degree every 4 minutes), an accurate birth time is crucial for determining the Lagna.</p>
+                <p>The Lagna represents the self, the physical body, and the overarching perspective through which you experience the world. It sets the baseline for the entire house system in your chart.</p>
+            </div>
+        </details>
+
+        <!-- Add as many <details> blocks as you need here! -->
+
+    </div>
+</body>
+</html>

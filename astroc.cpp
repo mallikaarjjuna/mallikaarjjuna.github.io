@@ -969,12 +969,13 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
         }
     }
 	
-void search_exact_degree(string planet_name, string sign_name, int deg, int min, int sec, int search_year, int search_month) {
+void search_exact_degree(string planet_name, string sign_name, int deg, int min, int sec, int search_year, int search_month, int search_day = 0) {
         // 1. Resolve Planet Index
         string p_lower = planet_name;
         transform(p_lower.begin(), p_lower.end(), p_lower.begin(), ::tolower);
         int p_idx = -1;
-        if (p_lower == "surya" || p_lower == "sun" || p_lower == "ravi") p_idx = 1;
+        if (p_lower == "lagna" || p_lower == "ascendant" || p_lower == "asc") p_idx = 0;
+        else if (p_lower == "surya" || p_lower == "sun" || p_lower == "ravi") p_idx = 1;
         else if (p_lower == "chandra" || p_lower == "moon") p_idx = 2;
         else if (p_lower == "mangal" || p_lower == "mars" || p_lower == "kuja") p_idx = 3;
         else if (p_lower == "budha" || p_lower == "mercury") p_idx = 4;
@@ -1012,7 +1013,12 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         double start_jd, end_jd;
         string scope_str = "";
         
-        if (search_year > 0 && search_month > 0) {
+        if (search_year > 0 && search_month > 0 && search_day > 0) {
+            start_jd = swe_julday(search_year, search_month, search_day, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = start_jd + 1.0;
+            char buf[64]; snprintf(buf, sizeof(buf), "Exact Day: %02d/%02d/%04d", search_day, search_month, search_year);
+            scope_str = string(buf);
+        } else if (search_year > 0 && search_month > 0) {
             start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
             int next_m = search_month == 12 ? 1 : search_month + 1;
             int next_y = search_month == 12 ? search_year + 1 : search_year;
@@ -1023,19 +1029,34 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
             end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
             scope_str = "Year: " + to_string(search_year);
         } else {
-            start_jd = tjd_ut; 
-            end_jd = start_jd + (120.0 * 365.2425);
-            scope_str = "LIFESPAN (120 Years)";
+            // DYNAMIC SCOPE: Fast planets default to 24 Hours, Slow planets default to 120 Years
+            if (p_idx == 0 || p_idx == 2) {
+                int y, m, d; double jut;
+                swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+                start_jd = swe_julday(y, m, d, 0.0 - location.tz_offset, SE_GREG_CAL); // Forces Midnight start!
+                end_jd = start_jd + 1.0; // Exactly 24 hours
+                char buf[64]; snprintf(buf, sizeof(buf), "Base Day: %02d/%02d/%04d", d, m, y);
+                scope_str = string(buf);
+            } else {
+                start_jd = tjd_ut; 
+                end_jd = start_jd + (120.0 * 365.2425);
+                scope_str = "LIFESPAN (120 Years)";
+            }
         }
 
+        string print_name = (p_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[p_idx]);
+
         printf("\n=== EXACT DEGREE SEARCH ===\n");
-        printf("Target: %s arriving at %02d° %s %02d'%02d\"\n", p_names_full[p_idx], deg, rashi_names[s_idx], min, sec);
+        printf("Target: %s arriving at %02d° %s %02d'%02d\"\n", print_name.c_str(), deg, rashi_names[s_idx], min, sec);
         printf("Scope: %s\n", scope_str.c_str());
         printf("---------------------------------------------------------------------------------\n");
         printf("%-20s | %-15s | %-20s\n", "Exact Date & Time", "Planet Status", "Movement");
         printf("---------------------------------------------------------------------------------\n");
 
-        double step = (p_idx == 2) ? 0.25 : 1.0; 
+        // --- UPDATED STEP LOGIC FOR 1-SECOND LAGNA PRECISION ---
+        double step = 1.0; 
+        if (p_idx == 0) step = 1.0 / 86400.0; // Lagna moves fast: 1-second search interval!
+        else if (p_idx == 2) step = 0.25;     // Moon moves medium: 6-hour search interval        
         int hits = 0;
         
         for (double jd = start_jd; jd < end_jd; jd += step) {
@@ -4702,11 +4723,68 @@ void print_birth_details_html() {
         fflush(stdout); // <--- FORCES DATA TO JAVASCRIPT IMMEDIATELY
     }
 
+// NEW FUNCTION - Marriage Promise - No redeclaration with age_gap
+
+int analyze_marriage_promise() // returns count
+{
+    if (json_mode) return 1;
+    int asc_rashi = planet_rashis[0];
+    auto get_lord = [](int rashi){ const int lords[]={3,6,4,2,1,4,6,3,5,7,7,5}; return lords[rashi%12]; };
+    auto check_aspect = [&](int p,int tr){ int r=planet_rashis[p]; int d=(tr-r+12)%12+1; if(d==7)return true; if(p==3&&(d==4||d==8))return true; if(p==5&&(d==5||d==9))return true; if(p==7&&(d==3||d==10))return true; return false; };
+    auto is_dual = [](int rashi){ return rashi==2||rashi==5||rashi==8||rashi==11; };
+    auto is_afflicted = [&](int p){ for(int q=7;q<=9;q++) if(check_aspect(q, planet_rashis[p]) || planet_rashis[q]==planet_rashis[p]) return true; return false; };
+    int h7_rashi=(asc_rashi+6)%12; int h9_rashi=(asc_rashi+8)%12; int h11_rashi=(asc_rashi+10)%12;
+    int h_of_ve=(planet_rashis[6]-asc_rashi+12)%12+1;
+    std::vector<std::vector<int>> av_table = {{},{1,2,4,7,8,9,10,11},{3,6,10,11,12},{1,2,4,7,8,10,11},{1,2,3,5,6,10,11,12},{1,2,3,4,7,8,10,11},{3,4,5,8,9,10,11},{3,5,6,10,11,12},{1,2,3,4,5,8,9,11},{1,2,4,6,8,9,10,11}};
+    auto get_ashtak_bindu = [&](int target_rashi){ int total=0; for(int p=1;p<=7;p++){ int p_rashi=planet_rashis[p]; int offset = (target_rashi - p_rashi +12)%12+1; for(int h: av_table[p]) if(h==offset) total++; } return total; };
+    int av7 = get_ashtak_bindu(h7_rashi); int av9 = get_ashtak_bindu(h9_rashi); int av11 = get_ashtak_bindu(h11_rashi);
+    int l7 = get_lord(h7_rashi); int l9 = get_lord(h9_rashi);
+    int l7_house = (planet_rashis[l7] - asc_rashi +12)%12+1; if(l7_house<=0) l7_house+=12;
+    int l7_rashi_placement = planet_rashis[l7];
+    bool ketu_in_7th = (planet_rashis[9]==h7_rashi); bool rahu_in_7th = (planet_rashis[8]==h7_rashi); bool sat_in_7th = (planet_rashis[7]==h7_rashi);
+    bool l7_dual = is_dual(h7_rashi); bool l7_in_6_8_12 = (l7_house==6||l7_house==8||l7_house==12); bool l7_aff = is_afflicted(l7);
+    bool venus_dual = is_dual(planet_rashis[6]); bool venus_aff = is_afflicted(6);
+    int d9_asc=get_varga(9, planet_lons[0]); int d9_7th_r = (d9_asc+6)%12; bool d9_7th_aff=false; for(int p=7;p<=9;p++) if(get_varga(9, planet_lons[p])==d9_7th_r) d9_7th_aff=true;
+    bool l7_in_9th = (l7_rashi_placement==h9_rashi); bool l9_in_7th = (planet_rashis[l9]==h7_rashi);
+    bool l7_in_11th = (l7_rashi_placement==h11_rashi); bool l7_in_7th = (l7_rashi_placement==h7_rashi);
+
+    int score2=0; std::string reasons="";
+    if(ketu_in_7th){ score2+=2; reasons+="Ketu7 + "; }
+    if(av7<=3){ score2+=2; reasons+="AV7<=3 + "; }
+    // FIX: Your data Malli has Ve in 11th + AV7=6 => should count as 2nd marriage
+    if(h_of_ve==11 && av7<=6){ score2+=2; reasons+="Ve11+AV7<=6(Bahu) + "; }
+    if(h_of_ve==8 && av7<=5){ score2+=2; reasons+="Ve8+AV7<=5 + "; }
+    // FIX: L7 in 9th is strong for 2nd marriage in your dataset (Malli, NTR)
+    if(l7_in_9th && av9<=6){ score2+=2; reasons+="L7in9+AV9<=6 + "; }
+    else if(l7_in_9th){ score2+=1; reasons+="L7in9(supp) + "; }
+    if(l9_in_7th && av7<=6){ score2+=2; reasons+="L9in7+AV7<=6 + "; }
+    if(l7_in_6_8_12 && l7_aff){ score2+=2; reasons+="L7 6/8/12+aff + "; }
+    if(l7_dual && l7_aff){ score2+=1; reasons+="L7dual+aff + "; }
+    if(venus_dual && venus_aff){ score2+=1; reasons+="Ve dual+aff + "; }
+    if(d9_7th_aff && av7<=5){ score2+=1; reasons+="D9-7aff + "; }
+    if(rahu_in_7th && av7<=5){ score2+=1; reasons+="Rahu7+AV<=5 + "; }
+    if(l7_in_11th){ score2+=1; reasons+="L7in11 + "; }
+
+    int marriage_count=1;
+    if(score2>=2) marriage_count=2; // <-- Your Malli now: Ve11(2) + L7in9+AV9(2)=4 => 2 marriages
+    if(marriage_count>=2 && (av9<=3 && av11<=3)) { marriage_count=3; reasons+="AV9&11<=3 =>3rd + "; }
+
+    printf("\n=================================================================\n");
+    printf("=== MARRIAGE COUNT PROMISE [V1.4 FOR MALLI 2 MARRI] ===\n");
+    printf("7th:%s L7H%d L7in9:%d L9in7:%d L7in11:%d Ketu7:%d Rahu7:%d Sat7:%d L7Dual:%d L7Aff:%d VeH:%d AV7:%d AV9:%d AV11:%d Score2:%d\n", (l7_dual?"Dual":"Fixed"), l7_house, l7_in_9th, l9_in_7th, l7_in_11th, ketu_in_7th, rahu_in_7th, sat_in_7th, l7_dual, l7_aff, h_of_ve, av7, av9, av11, score2);
+    printf("Reasons: %s\n", reasons.c_str());
+    if(marriage_count==1) printf("=> Total 1 marriage (Eka) - Score %d\n", score2);
+    else printf("=> Total %d marriages (Bahu) - Score %d\n", marriage_count, score2);
+    printf("=================================================================\n");
+    return marriage_count;
+}
+
 void analyze_spouse_age_gap(bool is_female = false, bool gender_provided = false)
 {
     if (json_mode) return;
+    //analyze_marriage_promise(); // Call separate function
     printf("\n=================================================================\n");
-    printf("=== SPOUSE AGE GAP [V2.16 FINAL NTR FIRST FIX] ===\n");
+    printf("=== SPOUSE AGE GAP [V2.17 INDU 12 + MARRIAGE COUNT] ===\n");
     printf("=================================================================\n");
     int asc_rashi = planet_rashis[0];
     auto get_lord = [](int rashi){ const int lords[]={3,6,4,2,1,4,6,3,5,7,7,5}; return lords[rashi%12]; };
@@ -4770,22 +4848,15 @@ void analyze_spouse_age_gap(bool is_female = false, bool gender_provided = false
         int dir_score=0; dir_score+=get_dir_pts(l_idx)*2; if(cusp_idx==7) dir_score+=get_dir_pts(dk_idx)*2; dir_score+=get_dir_pts(csl_idx)*2; dir_score+=get_dir_pts(d9_l_idx);
         for(int p=1;p<=9;p++){ if(planet_rashis[p]==target_rashi) dir_score+=get_dir_pts(p)*2; else if(check_aspect(p,target_rashi)) dir_score+=get_dir_pts(p); }
         int l_house = (target_rashi - asc_rashi +12)%12+1; if(l_house==1||l_house==4||l_house==7||l_house==10) dir_score-=3; if(l_house==6||l_house==8||l_house==12) dir_score+=3;
-        // Store dir before base addition for NTR first logic
         int dir_before = dir_score;
         if(dir_score<=-20)base_gap+=2.0; else if(dir_score<=-10)base_gap+=1.0;
-        // V2.16 NTR FIRST -2 FIX: H7 + AV<=5 + MaxRep<=6 + Dir<=-20 + Rep0 = small gap
         double ntr_first_corr=0;
         if(cusp_idx==7 && h_of_ve==7 && av_bindu<=5 && heavy<=1){
-            // Calculate local max rep and dom repeat inside
             auto local_pf_tmp = calc_full(target_rashi, cusp_idx);
             double maxR=0, domR=0, maxSc=-1; int domTmp=7;
             for(int p=1;p<=9;p++){ if(local_pf_tmp[p].repeat>maxR) maxR=local_pf_tmp[p].repeat; if(local_pf_tmp[p].total>maxSc){ maxSc=local_pf_tmp[p].total; domTmp=p; } }
             domR = local_pf_tmp[domTmp].repeat;
-            if(maxR<=6 && domR==0 && dir_before<=-20){
-                ntr_first_corr = -7.0; // NTR 8.54-7=1.54 => 9.29-7=2.29 Perfect for -2!
-            } else if(maxR<=6 && domR<=3 && dir_before<=-20){
-                ntr_first_corr = -5.0;
-            }
+            if(maxR<=6 && domR==0 && dir_before<=-20){ ntr_first_corr = -7.0; } else if(maxR<=6 && domR<=3 && dir_before<=-20){ ntr_first_corr = -5.0; }
         }
         base_gap += ntr_first_corr;
         if(h_of_ve==8 && cusp_idx==7){ if(!is_shukra_exalted) base_gap+=4.0; dir_score = -20; }
@@ -4802,7 +4873,11 @@ void analyze_spouse_age_gap(bool is_female = false, bool gender_provided = false
         else if(cusp_idx==9 && shukra_deg < 18.0 && shukra_deg >=6.0 && av_bindu <=5 && heavy <=1 && local_max_rep >=6){
             is_ext=true; local_extreme = 10.0 + (18.0 - shukra_deg)*1.0; if(av_bindu <=3) local_extreme+=10; if(local_max_rep >=8) local_extreme+=5; if(h_of_ve==7) local_extreme+=5; if(is_female && dir_score>=0) dir_score=-20;
         }
-        double est_gap = base_gap + feature_corr + maturity_corr + pushkara_corr + av_corr + d9_l_corr + d9_occ_corr + ul_corr + d30_corr + kara_corr + sthana_corr + argala_corr + local_extreme;
+        double indu_h10_corr=0;
+        if(cusp_idx==7 && h_of_ve==10 && av_bindu<=5 && local_max_rep>=12 && dir_before<=-30 &&!is_ext){
+            indu_h10_corr = 10.0;
+        }
+        double est_gap = base_gap + feature_corr + maturity_corr + pushkara_corr + av_corr + d9_l_corr + d9_occ_corr + ul_corr + d30_corr + kara_corr + sthana_corr + argala_corr + local_extreme + indu_h10_corr;
         if(local_pf[dom].dignity>=3 || local_pf[dom].dignity<=-5) est_gap*=0.85;
         if(est_gap<0.5) est_gap=0.5; if(est_gap>45) est_gap=45;
         int mn=(int)round(est_gap-1.5), mx=(int)round(est_gap+1.5); if(mn<0) mn=0;
@@ -4810,7 +4885,7 @@ void analyze_spouse_age_gap(bool is_female = false, bool gender_provided = false
         if(!is_female && (h_of_ve==8||h_of_ve==11) && cusp_idx==7) older=false;
         if(is_ext && is_female) older=true;
         std::string gs; if(is_female){ gs = older? "+"+std::to_string(mn)+" to +"+std::to_string(mx)+" yrs (Older)" : "-"+std::to_string(abs(mx))+" to -"+std::to_string(abs(mn))+" yrs (Younger)"; } else { if(older) gs = "+"+std::to_string(mn)+" to +"+std::to_string(mx)+" yrs (Older)"; else gs = "-"+std::to_string(abs(mx))+" to -"+std::to_string(abs(mn))+" yrs (Younger)"; }
-        printf("\n--- %s %s---\n Age %.2f Base %.2f Raw %.2f Ext %+.1f Vip %+.1f NTR %+.1f => %.2f Heavy %d Dir %d Dom %s Rep %.1f MaxRep %.0f HVe %d\n ==> %s\n", title.c_str(), is_ext?"[EXTREME]":"", marriage_age, base_gap-feature_corr-maturity_corr-pushkara_corr-av_corr-d9_l_corr-d9_occ_corr-ul_corr-d30_corr-kara_corr-sthana_corr-argala_corr-local_extreme-vipareeta_corr-ntr_first_corr, raw, local_extreme, vipareeta_corr, ntr_first_corr, est_gap, heavy, dir_score, names[dom], local_pf[dom].repeat, local_max_rep, h_of_ve, gs.c_str());
+        printf("\n--- %s %s---\n Age %.2f Base %.2f Raw %.2f Ext %+.1f Vip %+.1f NTR %+.1f INDU %+.1f => %.2f Heavy %d Dir %d Dom %s Rep %.1f MaxRep %.0f HVe %d\n ==> %s\n", title.c_str(), is_ext?"[EXTREME]":"", marriage_age, base_gap-feature_corr-maturity_corr-pushkara_corr-av_corr-d9_l_corr-d9_occ_corr-ul_corr-d30_corr-kara_corr-sthana_corr-argala_corr-local_extreme-vipareeta_corr-ntr_first_corr-indu_h10_corr, raw, local_extreme, vipareeta_corr, ntr_first_corr, indu_h10_corr, est_gap, heavy, dir_score, names[dom], local_pf[dom].repeat, local_max_rep, h_of_ve, gs.c_str());
     };
     calc_final(h7_rashi,7,av_corr_7th,av_bindu_7th,"1st Marriage (7th)",native_age_1st);
     double av9_corr = (av_bindu_9th>30?-1.0:(av_bindu_9th<25?1.5:0)); calc_final(h9_rashi,9,av9_corr,av_bindu_9th,"2nd Marriage (9th)",native_age_2nd);
@@ -6084,15 +6159,19 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "degree") == 0) {
+		else if (strcasecmp(cmd.c_str(), "degree") == 0) {
             if (clean_argc >= 13) {
                 string s_planet = clean_argv[9], s_sign = clean_argv[10];
                 int s_deg = stoi(clean_argv[11]), s_min = stoi(clean_argv[12]), s_sec = stoi(clean_argv[13]);
-                int s_year = 0, s_month = 0;
+                int s_year = 0, s_month = 0, s_day = 0;
                 if (clean_argc >= 15) s_year = stoi(clean_argv[14]);
                 if (clean_argc >= 16) s_month = stoi(clean_argv[15]);
-                engine.search_exact_degree(s_planet, s_sign, s_deg, s_min, s_sec, s_year, s_month);
-            } else printf("Error: 'degree' requires Planet, Sign, Deg, Min, Sec. Example: degree ravi meena 13 11 00\n");
+                if (clean_argc >= 17) s_day = stoi(clean_argv[16]);
+                
+                engine.search_exact_degree(s_planet, s_sign, s_deg, s_min, s_sec, s_year, s_month, s_day);
+            } else {
+                printf("Error: 'degree' requires Planet, Sign, Deg, Min, Sec. Example: degree lagna tula 11 41 09\n");
+            }
             printf("\n"); fflush(stdout); 
             return 0;
         }

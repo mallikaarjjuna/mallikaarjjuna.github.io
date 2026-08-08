@@ -280,6 +280,32 @@ public:
         } return s;
     }
 
+	double get_varga_absolute_lon(int v_num, double lon) {
+        if (v_num == 1) return fmod(lon + 360.0, 360.0);
+        int rashi = get_varga(v_num, lon);
+        double deg = 0.0;
+        if (v_num == 30) {
+            int base_rashi = (int)(lon / 30.0);
+            double deg_in_d1 = fmod(lon, 30.0);
+            if (base_rashi % 2 == 0) { 
+                if (deg_in_d1 < 5.0) deg = (deg_in_d1 / 5.0) * 30.0;
+                else if (deg_in_d1 < 10.0) deg = ((deg_in_d1 - 5.0) / 5.0) * 30.0;
+                else if (deg_in_d1 < 18.0) deg = ((deg_in_d1 - 10.0) / 8.0) * 30.0;
+                else if (deg_in_d1 < 25.0) deg = ((deg_in_d1 - 18.0) / 7.0) * 30.0;
+                else deg = ((deg_in_d1 - 25.0) / 5.0) * 30.0;
+            } else { 
+                if (deg_in_d1 < 5.0) deg = (deg_in_d1 / 5.0) * 30.0;
+                else if (deg_in_d1 < 12.0) deg = ((deg_in_d1 - 5.0) / 7.0) * 30.0;
+                else if (deg_in_d1 < 20.0) deg = ((deg_in_d1 - 12.0) / 8.0) * 30.0;
+                else if (deg_in_d1 < 25.0) deg = ((deg_in_d1 - 20.0) / 5.0) * 30.0;
+                else deg = ((deg_in_d1 - 25.0) / 5.0) * 30.0;
+            }
+        } else {
+            deg = fmod(lon * v_num, 30.0);
+        }
+        return (rashi * 30.0) + deg;
+    }
+	
 	void calculate_chart() {
         double ascmc[10];
         if (swe_houses_ex(tjd_ut, iflag, location.lat, location.lon, 'P', house_cusps, ascmc) >= 0) {
@@ -414,117 +440,118 @@ void draw_south_indian_chart() {
         return d;
     }
 
-    // Unified helper function to guarantee 0-minute discrepancy
-    void refine_bubble(int p_idx, double target_lon, double approx_jd, double orb, double &e_in, double &e_peak, double &e_out) {
-        // 1. Find exact entry (walk backwards until out of orb)
+// =========================================================================
+    // COLLISION SWEEPER (UPGRADED: VARGA GOCHARA SUPPORT)
+    // =========================================================================
+
+    void refine_bubble(int p_idx, double target_lon, double approx_jd, double orb, double &e_in, double &e_peak, double &e_out, int v_num = 1) {
+        double step = (1.0 / 1440.0) / v_num; // Scale resolution by Varga multiplier
         double cur = approx_jd;
-        while(get_dist(get_planet_lon_on_jd(p_idx, cur), target_lon) <= orb) { cur -= (1.0/1440.0); }
-        e_in = cur + (1.0/1440.0);
+        int safeguard = 0;
         
-        // 2. Find exact exit (walk forwards until out of orb)
-        cur = approx_jd;
-        while(get_dist(get_planet_lon_on_jd(p_idx, cur), target_lon) <= orb) { cur += (1.0/1440.0); }
-        e_out = cur - (1.0/1440.0);
+        while(get_dist(get_varga_absolute_lon(v_num, get_planet_lon_on_jd(p_idx, cur)), target_lon) <= orb && safeguard++ < 50000) { cur -= step; }
+        e_in = cur + step;
         
-        // 3. Find exact peak between e_in and e_out
+        cur = approx_jd; safeguard = 0;
+        while(get_dist(get_varga_absolute_lon(v_num, get_planet_lon_on_jd(p_idx, cur)), target_lon) <= orb && safeguard++ < 50000) { cur += step; }
+        e_out = cur - step;
+        
         e_peak = e_in;
         double min_d = 999.0;
-        for (double d = e_in; d <= e_out; d += (1.0/1440.0)) {
-            double dist = get_dist(get_planet_lon_on_jd(p_idx, d), target_lon);
+        for (double d = e_in; d <= e_out; d += step) {
+            double dist = get_dist(get_varga_absolute_lon(v_num, get_planet_lon_on_jd(p_idx, d)), target_lon);
             if (dist < min_d) { min_d = dist; e_peak = d; }
         }
     }
 
-	void sweep_collisions(int p_idx, double start_jd, double end_jd) {
-		double target_lon = planet_lons[p_idx];
-		int natal_rashi = (int)(target_lon / 30.0); // Sign Gatekeeper
-		const double orb = 2.0;
-		
-		printf("\n=== TRANSIT COLLISION SWEEP: %s (Sign: %s) ===\n", p_names_full[p_idx], rashi_names[natal_rashi]);
-		printf("Target Natal Degree: %s\n", format_dms(target_lon).c_str());
-		
-		if (p_idx == 0) {
-			printf("Search Window: %s to %s\n", jd_to_string(start_jd).c_str(), jd_to_string(end_jd).c_str());
-		}
-		printf("-----------------------------------------------------------------------------------------------------------------\n");
+    void sweep_collisions(int p_idx, double start_jd, double end_jd, int v_num = 1) {
+        double target_lon = get_varga_absolute_lon(v_num, planet_lons[p_idx]);
+        int natal_rashi = (int)(target_lon / 30.0); // Sign Gatekeeper
+        const double orb = 2.0;
+        
+        string varga_prefix = (v_num == 1) ? "D1" : "D" + to_string(v_num);
+        
+        printf("\n=== %s TRANSIT COLLISION SWEEP: %s (Sign: %s) ===\n", varga_prefix.c_str(), p_names_full[p_idx], rashi_names[natal_rashi]);
+        printf("Target Natal Degree: %s\n", format_dms(target_lon).c_str());
+        
+        if (p_idx == 0) {
+            printf("Search Window: %s to %s\n", jd_to_string(start_jd).c_str(), jd_to_string(end_jd).c_str());
+        }
+        printf("-----------------------------------------------------------------------------------------------------------------\n");
 
-		double step = 4.0 / 24.0; 
-		if (p_idx == 0) step = 5.0 / 1440.0; 
-		else if (p_idx == 2) step = 1.0 / 24.0; 
-		
-		int hit_count = 0;
-		double scan_start = start_jd - 30.0;
-		double scan_end = end_jd + 30.0;
-		if (p_idx == 0) { scan_start = start_jd - 1.0; scan_end = end_jd + 1.0; }
-		if (p_idx == 2) { scan_start = start_jd - 5.0; scan_end = end_jd + 5.0; }
+        double step = (4.0 / 24.0) / v_num; 
+        if (p_idx == 0) step = (5.0 / 1440.0) / v_num; 
+        else if (p_idx == 2) step = (1.0 / 24.0) / v_num; 
+        
+        int hit_count = 0;
+        double scan_start = start_jd - (30.0 / v_num);
+        double scan_end = end_jd + (30.0 / v_num);
+        if (p_idx == 0) { scan_start = start_jd - (1.0 / v_num); scan_end = end_jd + (1.0 / v_num); }
+        if (p_idx == 2) { scan_start = start_jd - (5.0 / v_num); scan_end = end_jd + (5.0 / v_num); }
 
-		for (double jd = scan_start; jd <= scan_end; jd += step) {
-			double trans_lon = get_planet_lon_on_jd(p_idx, jd);
-			int trans_rashi = (int)(trans_lon / 30.0); // Check Transit Sign
-			
-			// --- STRICT RASHI GATE ---
-			if (trans_rashi != natal_rashi) continue; 
-			
-			double dist = get_dist(trans_lon, target_lon);
+        for (double jd = scan_start; jd <= scan_end; jd += step) {
+            double trans_lon = get_varga_absolute_lon(v_num, get_planet_lon_on_jd(p_idx, jd));
+            int trans_rashi = (int)(trans_lon / 30.0); 
+            
+            if (trans_rashi != natal_rashi) continue; 
+            
+            double dist = get_dist(trans_lon, target_lon);
 
-			if (dist <= orb) {
-				double e_in, e_peak, e_out;
-				refine_bubble(p_idx, target_lon, jd, orb, e_in, e_peak, e_out);
+            if (dist <= orb) {
+                double e_in, e_peak, e_out;
+                refine_bubble(p_idx, target_lon, jd, orb, e_in, e_peak, e_out, v_num);
 
-				if (e_peak >= start_jd && e_peak <= end_jd) {
-					printf("Hit %d:  ENTER => %-20s | EXACT PEAK => %-20s | EXIT => %-20s\n", 
-						   ++hit_count, jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str());
-				}
-				jd = e_out; // Fast-forward
-			}
-		}
+                if (e_peak >= start_jd && e_peak <= end_jd) {
+                    printf("Hit %d:  ENTER => %-20s | EXACT PEAK => %-20s | EXIT => %-20s\n", 
+                           ++hit_count, jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str());
+                }
+                jd = e_out; 
+            }
+        }
 
-		// Fallback Search
-		if (hit_count == 0) {
-			printf("No exact peak collisions occurred within the requested timeframe.\n");
-			printf("Scanning to find the True Past and Future peaks...\n\n");
-			
-			double search_limit = 30.0 * 365.25;
-			if (p_idx == 0) search_limit = 2.0;
-			if (p_idx == 2) search_limit = 40.0;
-			
-			// Search Past
-			double search_jd = start_jd; bool found_past = false;
-			while (search_jd >= start_jd - search_limit) { 
-				search_jd -= step; 
-				double trans_lon = get_planet_lon_on_jd(p_idx, search_jd);
-				if ((int)(trans_lon / 30.0) == natal_rashi && get_dist(trans_lon, target_lon) <= orb) {
-					double e_in, e_peak, e_out;
-					refine_bubble(p_idx, target_lon, search_jd, orb, e_in, e_peak, e_out);
-					printf("Closest Past Hit   : ENTER => %-20s | EXACT PEAK => %-20s | EXIT => %-20s\n", 
-						   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str());
-					found_past = true; break;
-				}
-			}
-			if (!found_past) printf("No past hit found within limit.\n");
+        if (hit_count == 0) {
+            printf("No exact peak collisions occurred within the requested timeframe.\n");
+            printf("Scanning to find the True Past and Future peaks...\n\n");
+            
+            double search_limit = (30.0 * 365.25) / v_num;
+            if (p_idx == 0) search_limit = 2.0 / v_num;
+            if (p_idx == 2) search_limit = 40.0 / v_num;
+            
+            double search_jd = start_jd; bool found_past = false;
+            while (search_jd >= start_jd - search_limit) { 
+                search_jd -= step; 
+                double trans_lon = get_varga_absolute_lon(v_num, get_planet_lon_on_jd(p_idx, search_jd));
+                if ((int)(trans_lon / 30.0) == natal_rashi && get_dist(trans_lon, target_lon) <= orb) {
+                    double e_in, e_peak, e_out;
+                    refine_bubble(p_idx, target_lon, search_jd, orb, e_in, e_peak, e_out, v_num);
+                    printf("Closest Past Hit   : ENTER => %-20s | EXACT PEAK => %-20s | EXIT => %-20s\n", 
+                           jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str());
+                    found_past = true; break;
+                }
+            }
+            if (!found_past) printf("No past hit found within limit.\n");
 
-			// Search Future
-			search_jd = end_jd; bool found_future = false;
-			while (search_jd <= end_jd + search_limit) { 
-				search_jd += step;
-				double trans_lon = get_planet_lon_on_jd(p_idx, search_jd);
-				if ((int)(trans_lon / 30.0) == natal_rashi && get_dist(trans_lon, target_lon) <= orb) {
-					double e_in, e_peak, e_out;
-					refine_bubble(p_idx, target_lon, search_jd, orb, e_in, e_peak, e_out);
-					printf("Closest Future Hit : ENTER => %-20s | EXACT PEAK => %-20s | EXIT => %-20s\n", 
-						   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str());
-					found_future = true; break;
-				}
-			}
-		}
-		printf("-----------------------------------------------------------------------------------------------------------------\n");
-	}
-    void calculate_collisions(string p_name, int t_year, int t_month, int t_day, bool is_year_only, bool is_month_only) {
+            search_jd = end_jd; bool found_future = false;
+            while (search_jd <= end_jd + search_limit) { 
+                search_jd += step;
+                double trans_lon = get_varga_absolute_lon(v_num, get_planet_lon_on_jd(p_idx, search_jd));
+                if ((int)(trans_lon / 30.0) == natal_rashi && get_dist(trans_lon, target_lon) <= orb) {
+                    double e_in, e_peak, e_out;
+                    refine_bubble(p_idx, target_lon, search_jd, orb, e_in, e_peak, e_out, v_num);
+                    printf("Closest Future Hit : ENTER => %-20s | EXACT PEAK => %-20s | EXIT => %-20s\n", 
+                           jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str());
+                    found_future = true; break;
+                }
+            }
+        }
+        printf("-----------------------------------------------------------------------------------------------------------------\n");
+    }
+
+    void calculate_collisions(string p_name, int t_year, int t_month, int t_day, bool is_year_only, bool is_month_only, int v_num = 1) {
         string p_lower = p_name;
         transform(p_lower.begin(), p_lower.end(), p_lower.begin(), ::tolower);
         
         vector<int> targets;
-        
         if (p_lower == "all") {
             for (int i = 0; i <= 9; i++) targets.push_back(i);
         } else {
@@ -559,15 +586,144 @@ void draw_south_indian_chart() {
         }
 
         if (p_lower == "all") {
-            printf("\n=== GLOBAL COLLISION SWEEP ===\n");
+            string varga_prefix = (v_num == 1) ? "D1" : "D" + to_string(v_num);
+            printf("\n=== GLOBAL COLLISION SWEEP [%s] ===\n", varga_prefix.c_str());
             printf("Search Window: %s to %s\n", jd_to_string(start_jd).c_str(), jd_to_string(end_jd).c_str());
         }
 
         for (int p_idx : targets) {
-            sweep_collisions(p_idx, start_jd, end_jd);
+            sweep_collisions(p_idx, start_jd, end_jd, v_num);
         }
     }
 
+    void scan_planetary_collisions(string target_planet, int start_year, int start_month, int start_day, int v_num = 1) {
+        vector<int> t_targets;
+        string p_lower = target_planet;
+        transform(p_lower.begin(), p_lower.end(), p_lower.begin(), ::tolower);
+        
+        if (p_lower == "all" || p_lower == "") {
+            for (int i = 1; i <= 9; i++) t_targets.push_back(i);
+        } else {
+            int p_idx = -1;
+            if (p_lower == "surya" || p_lower == "sun" || p_lower == "ravi") p_idx = 1;
+            else if (p_lower == "chandra" || p_lower == "moon") p_idx = 2;
+            else if (p_lower == "mangal" || p_lower == "mars" || p_lower == "kuja") p_idx = 3;
+            else if (p_lower == "budha" || p_lower == "mercury") p_idx = 4;
+            else if (p_lower == "guru" || p_lower == "jupiter" || p_lower == "brihaspati") p_idx = 5;
+            else if (p_lower == "shukra" || p_lower == "venus" || p_lower == "sukra") p_idx = 6;
+            else if (p_lower == "shani" || p_lower == "saturn") p_idx = 7;
+            else if (p_lower == "rahu") p_idx = 8;
+            else if (p_lower == "ketu") p_idx = 9;
+            
+            if (p_idx == -1) { printf("Error: Planet '%s' not recognized.\n", target_planet.c_str()); return; }
+            t_targets.push_back(p_idx);
+        }
+
+        double start_jd, end_jd;
+        string scope_desc;
+        
+        if (start_year > 0 && start_month > 0 && start_day > 0) {
+            start_jd = swe_julday(start_year, start_month, start_day, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = start_jd + 1.0; 
+            char buf[64]; sprintf(buf, "%02d/%02d/%04d", start_day, start_month, start_year);
+            scope_desc = "Exact Day: " + string(buf);
+        } 
+        else if (start_year > 0 && start_month > 0) {
+            start_jd = swe_julday(start_year, start_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = (start_month == 12) ? 1 : start_month + 1;
+            int next_y = (start_month == 12) ? start_year + 1 : start_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            char buf[64]; sprintf(buf, "%02d/%04d", start_month, start_year);
+            scope_desc = "Month: " + string(buf);
+        } 
+        else {
+            int y = (start_year > 0) ? start_year : 2026;
+            start_jd = swe_julday(y, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = swe_julday(y + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_desc = "Year: " + to_string(y);
+        }
+
+        string varga_prefix = (v_num == 1) ? "D1" : "D" + to_string(v_num);
+        printf("\n=== GLOBAL PRECISION %s TRANSIT SCANNER (YUTI & VEDIC DRISHTI) ===\n", varga_prefix.c_str());
+        printf("Scope: %s | Target: %s\n", scope_desc.c_str(), (p_lower == "all" || p_lower == "") ? "All Planets" : p_names_full[t_targets[0]]);
+        printf("%-10s | %-10s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
+               "Transit", "Natal", "Aspect Type", "Enter Time", "Peak Time", "Exit Time", "Status & Reason");
+        printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+
+        const double orb = 2.0;
+        struct AspectTarget { double lon; string name; };
+
+        for (int t : t_targets) {
+            for (int n = 0; n <= 9; n++) {
+                
+                vector<AspectTarget> targets;
+                double n_lon = get_varga_absolute_lon(v_num, planet_lons[n]);
+                
+                targets.push_back({n_lon, "1st (Yuti)"});
+                targets.push_back({fmod(n_lon + 180.0, 360.0), "7th Aspect"});
+                
+                if (t == 3) { 
+                    targets.push_back({fmod(n_lon + 270.0, 360.0), "4th Aspect"}); 
+                    targets.push_back({fmod(n_lon + 150.0, 360.0), "8th Aspect"}); 
+                }
+                else if (t == 5) { 
+                    targets.push_back({fmod(n_lon + 240.0, 360.0), "5th Aspect"}); 
+                    targets.push_back({fmod(n_lon + 120.0, 360.0), "9th Aspect"}); 
+                }
+                else if (t == 7) { 
+                    targets.push_back({fmod(n_lon + 300.0, 360.0), "3rd Aspect"}); 
+                    targets.push_back({fmod(n_lon + 90.0, 360.0),  "10th Aspect"}); 
+                }
+                else if (t == 8 || t == 9) { 
+                    targets.push_back({fmod(n_lon + 240.0, 360.0), "5th Aspect"});
+                    targets.push_back({fmod(n_lon + 120.0, 360.0), "9th Aspect"});
+                }
+
+                for (const auto& tgt : targets) {
+                    int target_rashi = (int)(tgt.lon / 30.0);
+                    double step = ((t == 2) ? 1.0 / 24.0 : 4.0 / 24.0) / v_num; 
+                    
+                    for (double jd = start_jd; jd < end_jd; jd += step) {
+                        
+                        double trans_lon = get_varga_absolute_lon(v_num, get_planet_lon_on_jd(t, jd));
+                        if ((int)(trans_lon / 30.0) != target_rashi) continue; 
+                        
+                        double dist = std::abs(fmod(trans_lon, 30.0) - fmod(tgt.lon, 30.0));
+                        
+                        if (dist <= orb) {
+                            double e_in, e_peak, e_out;
+                            refine_bubble(t, tgt.lon, jd, orb, e_in, e_peak, e_out, v_num);
+
+                            string impact = "";
+                            if (n == 0) {
+                                bool t_is_malefic = (t == 1 || t == 3 || t == 7 || t == 8 || t == 9);
+                                string reason = "[Lagna / Core Physical Body Hit]";
+                                impact = (t_is_malefic ? "DANGER " : "OPPORTUNITY ") + reason;
+                            } else {
+                                string severity = (natal_scores[n] <= -5) ? "High Malefic" : 
+                                                  (natal_scores[n] < 0)   ? "Malefic" : 
+                                                  (natal_scores[n] >= 5)  ? "High Benefic" : "Neutral/Benefic";
+                                
+                                string reason = "[Score: " + to_string(natal_scores[n]) + ", " + severity + "]";
+                                impact = (natal_scores[n] < 0) ? "DANGER " + reason : "OPPORTUNITY " + reason;
+                            }
+                            
+                            string natal_name = (n == 0) ? "Lagna" : string(p_names_full[n]);
+                            
+                            printf("%-10s | %-10s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
+                                   p_names_full[t], natal_name.c_str(), tgt.name.c_str(),
+                                   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), 
+                                   jd_to_string(e_out).c_str(), impact.c_str());
+                            
+                            if (e_out > jd) jd = e_out; 
+                        }
+                    }
+                }
+            }
+        }
+        printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+    }
+	
 void print_birth_chart_ui() {
         if (json_mode) return;
 
@@ -708,11 +864,155 @@ void print_birth_chart_ui() {
         }
     }
 	
+void print_varga_positions_and_grid(int v_num, string varga_str, int v_lagna, int* v_planets) {
+        const char* rashi_lords_te_local[] = {"కుజ", "శుక్ర", "బుధ", "చంద్ర", "సూర్య", "బుధ", "శుక్ర", "కుజ", "గురు", "శని", "శని", "గురు"};
+
+        // 1. Planet Positions Table (Now with Degrees for ALL Vargas)
+        if (html_mode) {
+            string pos_title = telugu_mode ? (varga_str + " గ్రహ స్థితులు") : (varga_str + " Planet Positions");
+            printf("<h3 style='color: var(--accent); margin-top: 20px; margin-bottom: 10px;'>%s</h3>", pos_title.c_str());
+            printf("<table class='data-table'><tr>");
+            if (v_num == 1) {
+                printf("<th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n", 
+                       telugu_mode ? "గ్రహం" : "Planet", telugu_mode ? "డిగ్రీలు" : "Degrees", telugu_mode ? "రాశి" : "Rashi", telugu_mode ? "నక్షత్రం" : "Nakshatra", telugu_mode ? "పాదం" : "Pada", telugu_mode ? "అధిపతి" : "Lord");
+            } else {
+                printf("<th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n", 
+                       telugu_mode ? "గ్రహం" : "Planet", telugu_mode ? "డిగ్రీలు" : "Degrees", telugu_mode ? "రాశి" : "Rashi", telugu_mode ? "అధిపతి" : "Lord");
+            }
+        } else {
+            if (telugu_mode) printf("\n[%s గ్రహ స్థితులు]\n", varga_str.c_str());
+            else printf("\n[%s PLANET POSITIONS]\n", varga_str.c_str());
+            
+            printf("-------------------------------------------------------------------------------------------------\n");
+            if (v_num == 1) {
+                if (telugu_mode) printf("%-12s | %-12s | %-18s | %-22s | %-5s | %-10s\n", "గ్రహం", "డిగ్రీలు", "రాశి", "నక్షత్రం", "పాదం", "అధిపతి");
+                else printf("%-10s | %-12s | %-15s | %-20s | %-5s | %-10s\n", "Planet", "Degrees", "Rashi", "Nakshatra", "Pada", "Lord");
+            } else {
+                if (telugu_mode) printf("%-12s | %-12s | %-18s | %-10s\n", "గ్రహం", "డిగ్రీలు", "రాశి", "అధిపతి");
+                else printf("%-10s | %-12s | %-15s | %-10s\n", "Planet", "Degrees", "Rashi", "Lord");
+            }
+            printf("-------------------------------------------------------------------------------------------------\n");
+        }
+
+        for (int i = 0; i <= 9; i++) {
+            int rashi = v_planets[i];
+            int p_lord_idx = -1;
+            for(int p=1; p<=7; p++) {
+                if (rashi_lords[rashi] == string(p_names_full[p])) { p_lord_idx = p; break; }
+            }
+            string p_lord_name = p_lord_idx != -1 ? (telugu_mode ? get_planet_name(p_lord_idx) : p_names_full[p_lord_idx]) : (telugu_mode ? rashi_lords_te_local[rashi] : rashi_lords[rashi]);
+            string p_name = (i == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : (telugu_mode ? get_planet_name(i) : p_names_full[i]);
+            string r_name = telugu_mode ? te_rashi_names[rashi] : rashi_names[rashi];
+
+            // Calculate proportional exact degree within the specific Varga
+            double deg_in_d1 = fmod(planet_lons[i], 30.0);
+            double v_deg = 0.0;
+            
+            if (v_num == 30) {
+                // Irregular Division Handler (Trimsamsa)
+                int base_rashi = (int)(planet_lons[i] / 30.0);
+                if (base_rashi % 2 == 0) { // Even Signs
+                    if (deg_in_d1 < 5.0) v_deg = (deg_in_d1 / 5.0) * 30.0;
+                    else if (deg_in_d1 < 10.0) v_deg = ((deg_in_d1 - 5.0) / 5.0) * 30.0;
+                    else if (deg_in_d1 < 18.0) v_deg = ((deg_in_d1 - 10.0) / 8.0) * 30.0;
+                    else if (deg_in_d1 < 25.0) v_deg = ((deg_in_d1 - 18.0) / 7.0) * 30.0;
+                    else v_deg = ((deg_in_d1 - 25.0) / 5.0) * 30.0;
+                } else { // Odd Signs
+                    if (deg_in_d1 < 5.0) v_deg = (deg_in_d1 / 5.0) * 30.0;
+                    else if (deg_in_d1 < 12.0) v_deg = ((deg_in_d1 - 5.0) / 7.0) * 30.0;
+                    else if (deg_in_d1 < 20.0) v_deg = ((deg_in_d1 - 12.0) / 8.0) * 30.0;
+                    else if (deg_in_d1 < 25.0) v_deg = ((deg_in_d1 - 20.0) / 5.0) * 30.0;
+                    else v_deg = ((deg_in_d1 - 25.0) / 5.0) * 30.0;
+                }
+            } else {
+                // Symmetrical/Standard Varga Expansion Formula
+                v_deg = fmod(planet_lons[i] * v_num, 30.0);
+            }
+            
+            char v_deg_str[16];
+            snprintf(v_deg_str, sizeof(v_deg_str), "%02d° %02d' %02d\"", (int)v_deg, (int)((v_deg - (int)v_deg) * 60), (int)((((v_deg - (int)v_deg) * 60) - (int)((v_deg - (int)v_deg) * 60)) * 60));
+
+            if (v_num == 1) {
+                int nak_idx = (int)(planet_lons[i] / (360.0 / 27.0));
+                int pada = (int)((planet_lons[i] - (nak_idx * (360.0 / 27.0))) / ((360.0 / 27.0) / 4.0)) + 1;
+                string n_name = telugu_mode ? te_nak_names[nak_idx] : nak_names[nak_idx];
+                
+                if (html_mode) {
+                    printf("<tr><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>\n", 
+                           p_name.c_str(), v_deg_str, r_name.c_str(), n_name.c_str(), pada, p_lord_name.c_str());
+                } else {
+                    if (telugu_mode) printf("%-12s | %-12s | %-18s | %-22s | %-5d | %-10s\n", p_name.c_str(), v_deg_str, r_name.c_str(), n_name.c_str(), pada, p_lord_name.c_str());
+                    else printf("%-10s | %-12s | %-15s | %-20s | %-5d | %-10s\n", p_name.c_str(), v_deg_str, r_name.c_str(), n_name.c_str(), pada, p_lord_name.c_str());
+                }
+            } else {
+                if (html_mode) {
+                    printf("<tr><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td></tr>\n", p_name.c_str(), v_deg_str, r_name.c_str(), p_lord_name.c_str());
+                } else {
+                    if (telugu_mode) printf("%-12s | %-12s | %-18s | %-10s\n", p_name.c_str(), v_deg_str, r_name.c_str(), p_lord_name.c_str());
+                    else printf("%-10s | %-12s | %-15s | %-10s\n", p_name.c_str(), v_deg_str, r_name.c_str(), p_lord_name.c_str());
+                }
+            }
+        }
+        
+        if (html_mode) printf("</table>\n");
+        else printf("-------------------------------------------------------------------------------------------------\n");
+
+        // 2. Rasi Chart Grid Output
+        auto get_planets = [&](int rashi) -> string {
+            string res = "";
+            if (v_lagna == rashi) res += telugu_mode ? "లగ్న " : "Asc ";
+            for (int i = 1; i <= 9; i++) {
+                if (v_planets[i] == rashi) {
+                    // FIX: Use the dedicated short names array instead of substr
+                    res += get_short_planet(i) + " ";
+                }
+            }
+            if (!res.empty() && res.back() == ' ') res.pop_back();
+            return res;
+        };
+		
+        if (html_mode) {
+            string grid_title = telugu_mode ? (varga_str + " రాశి చక్రం") : (varga_str + " Rasi Chart");
+            printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", grid_title.c_str());
+            printf("<table class='rasi-table'>");
+            printf("<tr><td>%s<br><b style='color:#f39c12'>%s</b></td><td>%s<br><b style='color:#f39c12'>%s</b></td><td>%s<br><b style='color:#f39c12'>%s</b></td><td>%s<br><b style='color:#f39c12'>%s</b></td></tr>", 
+                telugu_mode ? "మీనం" : "Pisces", get_planets(11).c_str(), telugu_mode ? "మేషం" : "Aries", get_planets(0).c_str(), telugu_mode ? "వృషభం" : "Taurus", get_planets(1).c_str(), telugu_mode ? "మిథునం" : "Gemini", get_planets(2).c_str());
+            printf("<tr><td>%s<br><b style='color:#f39c12'>%s</b></td><td colspan='2' rowspan='2' class='rasi-center'><b>%s</b></td><td>%s<br><b style='color:#f39c12'>%s</b></td></tr>", 
+                telugu_mode ? "కుంభం" : "Aquarius", get_planets(10).c_str(), telugu_mode ? (varga_str + "<br>చక్రం").c_str() : (varga_str + "<br>CHART").c_str(), telugu_mode ? "కర్కాటకం" : "Cancer", get_planets(3).c_str());
+            printf("<tr><td>%s<br><b style='color:#f39c12'>%s</b></td><td>%s<br><b style='color:#f39c12'>%s</b></td></tr>", 
+                telugu_mode ? "మకరం" : "Capricorn", get_planets(9).c_str(), telugu_mode ? "సింహం" : "Leo", get_planets(4).c_str());
+            printf("<tr><td>%s<br><b style='color:#f39c12'>%s</b></td><td>%s<br><b style='color:#f39c12'>%s</b></td><td>%s<br><b style='color:#f39c12'>%s</b></td><td>%s<br><b style='color:#f39c12'>%s</b></td></tr>", 
+                telugu_mode ? "ధనుస్సు" : "Sagittarius", get_planets(8).c_str(), telugu_mode ? "వృశ్చికం" : "Scorpio", get_planets(7).c_str(), telugu_mode ? "తుల" : "Libra", get_planets(6).c_str(), telugu_mode ? "కన్య" : "Virgo", get_planets(5).c_str());
+            printf("</table>\n");
+        } else {
+            string p12 = get_planets(11), p1 = get_planets(0), p2 = get_planets(1), p3 = get_planets(2);
+            string p11 = get_planets(10), p4 = get_planets(3);
+            string p10 = get_planets(9),  p5 = get_planets(4);
+            string p9 = get_planets(8),   p8 = get_planets(7), p7 = get_planets(6), p6 = get_planets(5);
+
+            printf("\n[%s %s]\n", varga_str.c_str(), telugu_mode ? "రాశి చక్రం" : "CHART");
+            printf("+-----------------+-----------------+-----------------+-----------------+\n");
+            printf("| %-15s | %-15s | %-15s | %-15s |\n", telugu_mode?"మీనం":"Pisces", telugu_mode?"మేషం":"Aries", telugu_mode?"వృషభం":"Taurus", telugu_mode?"మిథునం":"Gemini");
+            printf("| %-15s | %-15s | %-15s | %-15s |\n", p12.c_str(), p1.c_str(), p2.c_str(), p3.c_str());
+            printf("+-----------------+-----------------+-----------------+-----------------+\n");
+            printf("| %-15s |                                     | %-15s |\n", telugu_mode?"కుంభం":"Aquarius", telugu_mode?"కర్కాటకం":"Cancer");
+            
+            char center_text[32]; snprintf(center_text, sizeof(center_text), "%s CHART", varga_str.c_str());
+            printf("| %-15s |         %-17s         | %-15s |\n", p11.c_str(), center_text, p4.c_str());
+            printf("+-----------------+                                     +-----------------+\n");
+            printf("| %-15s |                                     | %-15s |\n", telugu_mode?"మకరం":"Capricorn", telugu_mode?"సింహం":"Leo");
+            printf("| %-15s |                                     | %-15s |\n", p10.c_str(), p5.c_str());
+            printf("+-----------------+-----------------+-----------------+-----------------+\n");
+            printf("| %-15s | %-15s | %-15s | %-15s |\n", telugu_mode?"ధనుస్సు":"Sagittarius", telugu_mode?"వృశ్చికం":"Scorpio", telugu_mode?"తుల":"Libra", telugu_mode?"కన్య":"Virgo");
+            printf("| %-15s | %-15s | %-15s | %-15s |\n", p9.c_str(), p8.c_str(), p7.c_str(), p6.c_str());
+            printf("+-----------------+-----------------+-----------------+-----------------+\n");
+        }
+    }
 	// =========================================================================
     // PHASE 1: INTERPRETATION ENGINE (D1 OUTCOMES + VARGA FATE)
     // =========================================================================
 
-	void analyze_chart(string varga_str) {
+void analyze_chart(string varga_str, bool skip_grid = false) {
         int v_num = 1;
         if (varga_str.length() > 1 && varga_str[0] == 'D') v_num = stoi(varga_str.substr(1));
 
@@ -720,21 +1020,27 @@ void print_birth_chart_ui() {
         int v_planets[10];
         for(int i=0; i<10; i++) v_planets[i] = get_varga(v_num, planet_lons[i]);
 
-		if (html_mode) {
-            printf("<h2 style='margin-top: 20px; margin-bottom: 15px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s CHART ANALYSIS (Lagna: %s)</h2>", varga_str.c_str(), rashi_names[v_lagn_rasi]);
+        if (html_mode) {
+            printf("<h2 style='margin-top: 20px; margin-bottom: 15px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s CHART ANALYSIS (Lagna: %s)</h2>", varga_str.c_str(), telugu_mode ? te_rashi_names[v_lagn_rasi] : rashi_names[v_lagn_rasi]);
         } else {
             printf("\n================================================================================\n");
-            printf("=== %s CHART ANALYSIS (Lagna: %s) ===\n", varga_str.c_str(), rashi_names[v_lagn_rasi]);
+            if (telugu_mode) printf("=== %s చక్ర విశ్లేషణ (లగ్నం: %s) ===\n", varga_str.c_str(), te_rashi_names[v_lagn_rasi]);
+            else printf("=== %s CHART ANALYSIS (Lagna: %s) ===\n", varga_str.c_str(), rashi_names[v_lagn_rasi]);
             printf("================================================================================\n");
         }
         
-		if (v_num == 1) {
-			analyze_general_personality();
+        // --- NEW: INJECT PLANET POSITIONS AND GRID BEFORE ANALYSIS ---
+        if (!skip_grid) {
+            print_varga_positions_and_grid(v_num, varga_str, v_lagn_rasi, v_planets);
+        }
+
+        if (v_num == 1) {
+            analyze_general_personality();
             analyze_yogas(v_planets, v_lagn_rasi);
             analyze_doshas(v_planets, v_lagn_rasi);
             analyze_placements(v_planets, v_lagn_rasi);
             analyze_lordships(v_lagn_rasi, v_planets);
-            analyze_auspiciousness(v_lagn_rasi, v_planets);			
+            analyze_auspiciousness(v_lagn_rasi, v_planets);            
             analyze_conjunctions(v_planets, v_lagn_rasi);
             analyze_final_outcomes(v_lagn_rasi, v_planets);
         } else {
@@ -744,7 +1050,6 @@ void print_birth_chart_ui() {
             analyze_conjunctions(v_planets, v_lagn_rasi);
         }
     }
-
 void analyze_lordships(int lagna_rasi, int* p_rasi) {
         if (html_mode) {
             printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "భావ ఆధిపత్యాలు (పరాశర పద్ధతిలో ఫలితాలు)" : "Bhava Lordships (Specific BPHS House Interpretations)");
@@ -1107,139 +1412,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         printf("---------------------------------------------------------------------------------\n");
     }
 	
-	void scan_planetary_collisions(string target_planet, int start_year, int start_month, int start_day) {
-        vector<int> t_targets;
-        string p_lower = target_planet;
-        transform(p_lower.begin(), p_lower.end(), p_lower.begin(), ::tolower);
-        
-        if (p_lower == "all" || p_lower == "") {
-            for (int i = 1; i <= 9; i++) t_targets.push_back(i);
-        } else {
-            int p_idx = -1;
-            if (p_lower == "surya" || p_lower == "sun" || p_lower == "ravi") p_idx = 1;
-            else if (p_lower == "chandra" || p_lower == "moon") p_idx = 2;
-            else if (p_lower == "mangal" || p_lower == "mars" || p_lower == "kuja") p_idx = 3;
-            else if (p_lower == "budha" || p_lower == "mercury") p_idx = 4;
-            else if (p_lower == "guru" || p_lower == "jupiter" || p_lower == "brihaspati") p_idx = 5;
-            else if (p_lower == "shukra" || p_lower == "venus" || p_lower == "sukra") p_idx = 6;
-            else if (p_lower == "shani" || p_lower == "saturn") p_idx = 7;
-            else if (p_lower == "rahu") p_idx = 8;
-            else if (p_lower == "ketu") p_idx = 9;
-            
-            if (p_idx == -1) { printf("Error: Planet '%s' not recognized.\n", target_planet.c_str()); return; }
-            t_targets.push_back(p_idx);
-        }
 
-        // --- DYNAMIC TIME WINDOW LOGIC ---
-        double start_jd, end_jd;
-        string scope_desc;
-        
-        if (start_year > 0 && start_month > 0 && start_day > 0) {
-            start_jd = swe_julday(start_year, start_month, start_day, 0.0 - location.tz_offset, SE_GREG_CAL);
-            end_jd = start_jd + 1.0; 
-            char buf[64]; sprintf(buf, "%02d/%02d/%04d", start_day, start_month, start_year);
-            scope_desc = "Exact Day: " + string(buf);
-        } 
-        else if (start_year > 0 && start_month > 0) {
-            start_jd = swe_julday(start_year, start_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            int next_m = (start_month == 12) ? 1 : start_month + 1;
-            int next_y = (start_month == 12) ? start_year + 1 : start_year;
-            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            char buf[64]; sprintf(buf, "%02d/%04d", start_month, start_year);
-            scope_desc = "Month: " + string(buf);
-        } 
-        else {
-            int y = (start_year > 0) ? start_year : 2026;
-            start_jd = swe_julday(y, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            end_jd = swe_julday(y + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            scope_desc = "Year: " + to_string(y);
-        }
-
-        printf("\n=== GLOBAL PRECISION TRANSIT SCANNER (YUTI & VEDIC DRISHTI) ===\n");
-        printf("Scope: %s | Target: %s\n", scope_desc.c_str(), (p_lower == "all" || p_lower == "") ? "All Planets" : p_names_full[t_targets[0]]);
-        printf("%-10s | %-10s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
-               "Transit", "Natal", "Aspect Type", "Enter Time", "Peak Time", "Exit Time", "Status & Reason");
-        printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
-
-        const double orb = 2.0;
-        struct AspectTarget { double lon; string name; };
-
-        for (int t : t_targets) {
-            // V9.2 FIX: Start loop at 0 to include the Natal Lagna (Ascendant)
-            for (int n = 0; n <= 9; n++) {
-                
-                vector<AspectTarget> targets;
-                double n_lon = planet_lons[n];
-                
-                // Vedic Drishti Mapping
-                targets.push_back({n_lon, "1st (Yuti)"});
-                targets.push_back({fmod(n_lon + 180.0, 360.0), "7th Aspect"});
-                
-                if (t == 3) { 
-                    targets.push_back({fmod(n_lon + 270.0, 360.0), "4th Aspect"}); 
-                    targets.push_back({fmod(n_lon + 150.0, 360.0), "8th Aspect"}); 
-                }
-                else if (t == 5) { 
-                    targets.push_back({fmod(n_lon + 240.0, 360.0), "5th Aspect"}); 
-                    targets.push_back({fmod(n_lon + 120.0, 360.0), "9th Aspect"}); 
-                }
-                else if (t == 7) { 
-                    targets.push_back({fmod(n_lon + 300.0, 360.0), "3rd Aspect"}); 
-                    targets.push_back({fmod(n_lon + 90.0, 360.0),  "10th Aspect"}); 
-                }
-                else if (t == 8 || t == 9) { 
-                    targets.push_back({fmod(n_lon + 240.0, 360.0), "5th Aspect"});
-                    targets.push_back({fmod(n_lon + 120.0, 360.0), "9th Aspect"});
-                }
-
-                for (const auto& tgt : targets) {
-                    int target_rashi = (int)(tgt.lon / 30.0);
-                    double step = (t == 2) ? 1.0 / 24.0 : 4.0 / 24.0; 
-                    
-                    for (double jd = start_jd; jd < end_jd; jd += step) {
-                        
-                        double trans_lon = get_planet_lon_on_jd(t, jd);
-                        
-                        if ((int)(trans_lon / 30.0) != target_rashi) continue; 
-                        
-                        double dist = std::abs(fmod(trans_lon, 30.0) - fmod(tgt.lon, 30.0));
-                        
-                        if (dist <= orb) {
-                            double e_in, e_peak, e_out;
-                            refine_bubble(t, tgt.lon, jd, orb, e_in, e_peak, e_out);
-
-                            // --- DYNAMIC REASON GENERATION ---
-                            string impact = "";
-                            if (n == 0) {
-                                // Lagna Hit Context: Depends entirely on the Transiting Planet's nature
-                                bool t_is_malefic = (t == 1 || t == 3 || t == 7 || t == 8 || t == 9);
-                                string reason = "[Lagna / Core Physical Body Hit]";
-                                impact = (t_is_malefic ? "DANGER " : "OPPORTUNITY ") + reason;
-                            } else {
-                                // Standard Planetary Hit Context: Depends on the Natal Planet's dignity score
-                                string severity = (natal_scores[n] <= -5) ? "High Malefic" : 
-                                                  (natal_scores[n] < 0)   ? "Malefic" : 
-                                                  (natal_scores[n] >= 5)  ? "High Benefic" : "Neutral/Benefic";
-                                
-                                string reason = "[Score: " + to_string(natal_scores[n]) + ", " + severity + "]";
-                                impact = (natal_scores[n] < 0) ? "DANGER " + reason : "OPPORTUNITY " + reason;
-                            }
-                            
-                            string natal_name = (n == 0) ? "Lagna" : string(p_names_full[n]);
-                            
-                            printf("%-10s | %-10s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
-                                   p_names_full[t], natal_name.c_str(), tgt.name.c_str(),
-                                   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), 
-                                   jd_to_string(e_out).c_str(), impact.c_str());
-                            
-                            if (e_out > jd) jd = e_out; // Safeguard against infinity loop desyncs
-                        }
-                    }
-                }
-            }
-        }
-        printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
-    }	
     void analyze_varga_synthesis(int v_num, int d1_lagna, int v_lagna, int* d1_rasi, int* v_rasi) {
         printf("\n[D1 TO VARGA SUPERIMPOSITION (Cross-Reference Matrix)]\n");
         
@@ -5952,7 +6125,7 @@ int main(int argc, char *argv[]) {
         }
         else if (strcasecmp(cmd.c_str(), "web_general") == 0) {
             // General Tab is strictly for Predictive Text! No tables here.
-            engine.analyze_chart("D1"); 
+            engine.analyze_chart("D1",true); 
             printf("\n"); fflush(stdout); 
             return 0;
         }
@@ -6066,7 +6239,7 @@ int main(int argc, char *argv[]) {
 
             // Run all tabs sequentially
             engine.print_birth_chart_ui(); 
-            engine.analyze_chart("D1"); 
+            engine.analyze_chart("D1", true); 
             
             engine.calculate_dasha_balance();
             engine.print_dasha_web();
@@ -6091,23 +6264,34 @@ int main(int argc, char *argv[]) {
         }
         else if (strcasecmp(cmd.c_str(), "analyze") == 0) {
             string varga = "D1"; if (clean_argc >= 10) varga = clean_argv[9];
-            engine.analyze_chart(varga); 
+            engine.analyze_chart(varga,false); 
             printf("\n"); fflush(stdout); 
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "collision") == 0) {
             if (clean_argc >= 10) {
                 string col_planet = clean_argv[9];
+                int v_num = 1;
+                int arg_idx = 10;
+                
+                // Check if arg is D9, D10 etc
+                if (clean_argc > arg_idx && toupper(clean_argv[arg_idx][0]) == 'D') {
+                    string v_str = clean_argv[arg_idx++];
+                    v_num = stoi(v_str.substr(1));
+                }
+                
                 bool col_year_only = false, col_month_only = false;
-                if (clean_argc == 11) { t_year = stoi(clean_argv[10]); col_year_only = true; }
-                else if (clean_argc == 12) { t_year = stoi(clean_argv[10]); t_month = stoi(clean_argv[11]); col_month_only = true; }
-                else if (clean_argc >= 13) { t_year = stoi(clean_argv[10]); t_month = stoi(clean_argv[11]); t_day = stoi(clean_argv[12]); }
-                engine.calculate_collisions(col_planet, t_year, t_month, t_day, col_year_only, col_month_only); 
+                if (clean_argc == arg_idx + 1) { t_year = stoi(clean_argv[arg_idx]); col_year_only = true; }
+                else if (clean_argc == arg_idx + 2) { t_year = stoi(clean_argv[arg_idx]); t_month = stoi(clean_argv[arg_idx+1]); col_month_only = true; }
+                else if (clean_argc >= arg_idx + 3) { t_year = stoi(clean_argv[arg_idx]); t_month = stoi(clean_argv[arg_idx+1]); t_day = stoi(clean_argv[arg_idx+2]); }
+                
+                // Execute the heavily upgraded Varga Collision Sweeper
+                engine.calculate_collisions(col_planet, t_year, t_month, t_day, col_year_only, col_month_only, v_num); 
             } else print_help_menu();
             printf("\n"); fflush(stdout); 
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "daily") == 0) {
+		else if (strcasecmp(cmd.c_str(), "daily") == 0) {
             if (clean_argc >= 12) { t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); }
             else { t_year = year; t_month = month; t_day = day; }
             engine.calculate_muhurat(t_year, t_month, t_day, true);
@@ -6261,17 +6445,26 @@ int main(int argc, char *argv[]) {
         }
         else if (strcasecmp(cmd.c_str(), "all") == 0) {
             string target_planet_all = "all";
-            if (clean_argc > 9 && !isdigit(clean_argv[9][0])) {
-                target_planet_all = clean_argv[9];
-                if (clean_argc > 10) t_year = stoi(clean_argv[10]);
-                if (clean_argc > 11) t_month = stoi(clean_argv[11]);
-                if (clean_argc > 12) t_day = stoi(clean_argv[12]);
-            } else if (clean_argc > 9) {
-                t_year = stoi(clean_argv[9]);
-                if (clean_argc > 10) t_month = stoi(clean_argv[10]);
-                if (clean_argc > 11) t_day = stoi(clean_argv[11]);
+            int v_num = 1;
+            int arg_idx = 9;
+            
+            // Check if arg is a specific planet
+            if (clean_argc > arg_idx && !isdigit(clean_argv[arg_idx][0]) && toupper(clean_argv[arg_idx][0]) != 'D') {
+                target_planet_all = clean_argv[arg_idx++];
             }
+            
+            // Check if arg is D9, D10 etc
+            if (clean_argc > arg_idx && toupper(clean_argv[arg_idx][0]) == 'D') {
+                string v_str = clean_argv[arg_idx++];
+                v_num = stoi(v_str.substr(1));
+            }
+            
+            if (clean_argc > arg_idx) t_year = stoi(clean_argv[arg_idx++]);
+            if (clean_argc > arg_idx) t_month = stoi(clean_argv[arg_idx++]);
+            if (clean_argc > arg_idx) t_day = stoi(clean_argv[arg_idx++]);
 
+            int target_year = (t_year > 0) ? t_year : year; 
+            
             engine.calculate_navatara_table();
             engine.calculate_special_karakas();
             engine.calculate_muhurat(year, month, day, true); 
@@ -6280,7 +6473,6 @@ int main(int argc, char *argv[]) {
             int varsha_lord_idx = -1, masa_lord_idx = -1;
             engine.calculate_varsha_masa(varsha_lord_idx, masa_lord_idx);
             
-            // FIX: Added html_ui and telugu_ui arguments
             ShadbalaEngine::calculate(engine.lagna_lon, engine.planet_lons, engine.moon_lon, engine.tjd_ut, 
                                       engine.local_hour_decimal, engine.sunrise_hour_decimal, engine.sunset_hour_decimal, 
                                       engine.current_weekday, varsha_lord_idx, masa_lord_idx, false, html_ui, telugu_ui, engine.json_output);
@@ -6290,17 +6482,20 @@ int main(int argc, char *argv[]) {
             engine.calculate_ashtakavarga();
             engine.calculate_panchang();
             
-            int target_year = (t_year > 0) ? t_year : year; 
             engine.calculate_dasha_balance();
             engine.calculate_6_level_dasha_target(0, 0, 0, 12, 0, 0, true);
+            
+            string varga_str = (v_num == 1) ? "D1" : "D" + to_string(v_num);
             engine.print_birth_chart_ui();
-            engine.analyze_chart("D1");
-            engine.scan_planetary_collisions(target_planet_all, target_year, t_month, t_day);
+            engine.analyze_chart(varga_str, true);
+            
+            // Execute the heavily upgraded Varga Transit Scanner
+            engine.scan_planetary_collisions(target_planet_all, target_year, t_month, t_day, v_num); 
             
             printf("\n"); fflush(stdout); 
             return 0;
         }
-        else { print_help_menu(); return 1; }
+		else { print_help_menu(); return 1; }
     }
 
     // Default action if no command is provided

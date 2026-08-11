@@ -646,10 +646,9 @@ void draw_south_indian_chart() {
         string varga_prefix = (v_num == 1) ? "D1" : "D" + to_string(v_num);
         printf("\n=== GLOBAL PRECISION %s TRANSIT SCANNER (YUTI & VEDIC DRISHTI) ===\n", varga_prefix.c_str());
         printf("Scope: %s | Target: %s\n", scope_desc.c_str(), (p_lower == "all" || p_lower == "") ? "All Planets" : p_names_full[t_targets[0]]);
-        printf("%-10s | %-10s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
+        printf("%-10s | %-14s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
                "Transit", "Natal", "Aspect Type", "Enter Time", "Peak Time", "Exit Time", "Status & Reason");
-        printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
-
+        printf("--------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
         const double orb = 2.0;
         struct AspectTarget { double lon; string name; };
 
@@ -690,7 +689,7 @@ void draw_south_indian_chart() {
                         
                         double dist = std::abs(fmod(trans_lon, 30.0) - fmod(tgt.lon, 30.0));
                         
-                        if (dist <= orb) {
+                    if (dist <= orb) {
                             double e_in, e_peak, e_out;
                             refine_bubble(t, tgt.lon, jd, orb, e_in, e_peak, e_out, v_num);
 
@@ -708,16 +707,33 @@ void draw_south_indian_chart() {
                                 impact = (natal_scores[n] < 0) ? "DANGER " + reason : "OPPORTUNITY " + reason;
                             }
                             
+                            // --- UPGRADED: INJECT DYNAMIC VARGA LORDSHIPS INTO THE NATAL NAME ---
                             string natal_name = (n == 0) ? "Lagna" : string(p_names_full[n]);
+                            if (n >= 1 && n <= 7) {
+                                string lordships = "";
+                                // Dynamically calculate the Lagna for the requested Varga
+                                int v_lagna = get_varga(v_num, planet_lons[0]); 
+                                
+                                for (int h = 1; h <= 12; h++) {
+                                    int rashi_of_house = (v_lagna + h - 1) % 12; 
+                                    if (string(rashi_lords[rashi_of_house]) == string(p_names_full[n])) {
+                                        if (!lordships.empty()) lordships += ",";
+                                        lordships += to_string(h);
+                                    }
+                                }
+                                if (!lordships.empty()) natal_name += " (L" + lordships + ")";
+                            }
                             
-                            printf("%-10s | %-10s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
+                            // Tightened formatting column from %-18s to %-14s
+                            printf("%-10s | %-14s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
                                    p_names_full[t], natal_name.c_str(), tgt.name.c_str(),
                                    jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), 
                                    jd_to_string(e_out).c_str(), impact.c_str());
                             
                             if (e_out > jd) jd = e_out; 
-                        }
                     }
+					
+					}
                 }
             }
         }
@@ -822,7 +838,8 @@ void print_birth_chart_ui() {
             if (planet_rashis[0] == rashi) res += telugu_mode ? "లగ్న " : "Asc ";
             for (int i = 1; i <= 9; i++) {
                 if (planet_rashis[i] == rashi) {
-                    res += telugu_mode ? get_planet_name(i).substr(0, 6) + " " : string(p_names_full[i]).substr(0, 2) + " ";
+                    // FIX: Use the dedicated short names array instead of substr
+                    res += get_short_planet(i) + " ";
                 }
             }
             if (!res.empty() && res.back() == ' ') res.pop_back(); // Clean trailing space

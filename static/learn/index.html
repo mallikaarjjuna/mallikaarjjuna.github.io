@@ -102,10 +102,25 @@
             color: #4CAF50;
             font-size: 1.1em;
             margin-bottom: 10px;
+            margin-top: 20px;
+        }
+        
+        .faq-content h3:first-child {
+            margin-top: 0;
         }
 
         .faq-content p {
             margin-bottom: 15px;
+        }
+        
+        .faq-content ul {
+            margin-bottom: 15px;
+            padding-left: 20px;
+            color: #ccc;
+        }
+        
+        .faq-content li {
+            margin-bottom: 8px;
         }
     </style>
 
@@ -128,38 +143,85 @@
     <div class="container">
         <h1>Vedic Astrology Knowledge Base</h1>
         <p style="color: #888; font-size: 0.95em; margin-top: -10px; margin-bottom: 30px;">
-            Expand a topic below to learn about the classical principles powering the Jyotisha Engine.
+            Expand a topic below to explore the profound classical principles, astronomical precision, and advanced predictive frameworks powering the Jyotisha Engine.
         </p>
 
         <!-- FAQ ITEM 1 -->
         <details>
-            <summary>What is a Janam Kundli (Birth Chart)?</summary>
+            <summary>What makes Vedic Astrology different from Western Astrology?</summary>
             <div class="faq-content">
-                <p>A Janam Kundli, or birth chart, is a precise snapshot of the celestial sky at the exact moment and geographic location of your birth. It maps out the positions of the 9 Grahas (planets) across the 12 Rashis (zodiac signs) and 12 Bhavas (houses).</p>
-                <p>In Vedic astrology, this chart acts as a cosmic blueprint, outlining your karmic potential, life path, strengths, and challenges based on the principles of the Brihat Parashara Hora Shastra.</p>
+                <p>The primary difference lies in the astronomical calculation of the zodiac. Western astrology uses the <b>Tropical Zodiac (Sayana)</b>, which is tied to the seasons and fixes the Vernal Equinox to 0° Aries. Due to the precession of the equinoxes, the Tropical zodiac drifts away from the actual star constellations by about 1 degree every 72 years.</p>
+                <p>Vedic Astrology (Jyotisha) uses the <b>Sidereal Zodiac (Nirayana)</b>, which factors in an adjustment called the <i>Ayanamsa</i> (commonly the Lahiri/Chitra Paksha Ayanamsa). This ensures that when the engine says a planet is in Aries, it is physically aligned with the actual constellation of Aries in the night sky.</p>
             </div>
         </details>
 
         <!-- FAQ ITEM 2 -->
         <details>
-            <summary>How is the Janma Nakshatra calculated?</summary>
+            <summary>How does the engine predict exact life events and timings?</summary>
             <div class="faq-content">
-                <p>The Janma Nakshatra is the specific lunar mansion (out of 27 possible Nakshatras) that the Moon was transiting through at the time of your birth. Each Nakshatra spans exactly 13 degrees and 20 minutes of the zodiac.</p>
-                <h3>Why is it important?</h3>
-                <p>The Nakshatra determines your starting Dasha (planetary period) and plays a critical role in mental temperament, emotional compatibility (Synastry), and determining the auspicious Nama-Akshara (starting letter) for naming a child.</p>
+                <p>Event prediction in authentic Jyotisha is not based on guesswork; it relies on a multi-layered locking mechanism. Our engine cross-references three distinct systems to pinpoint life epochs:</p>
+                <ul>
+                    <li><b>Vimshottari Dasha:</b> A 120-year mathematical timeline calculated from the exact degree of your birth Moon. It determines the overarching themes (Mahadasha) and specific localized events (Antardasha/Bhukti) active in your life.</li>
+                    <li><b>Bhrigu Nandi Nadi (BNN) Transits:</b> We track the exact degree-to-degree conjunctions of transiting slow planets (Jupiter/Saturn) against your natal planets to detect major karmic shifts.</li>
+                    <li><b>Micro-Transits (Gochara):</b> Once the Dasha and Nadi transits open a "window," fast-moving planets like the Sun, Mars, and Venus act as detonators. The engine scans for the exact day these planets hit sensitive degrees to predict manifestation dates.</li>
+                </ul>
             </div>
         </details>
 
         <!-- FAQ ITEM 3 -->
         <details>
-            <summary>What is the significance of the Lagna (Ascendant)?</summary>
+            <summary>What are Divisional Charts (Vargas) like the D9 Navamsa?</summary>
             <div class="faq-content">
-                <p>The Lagna is the specific degree of the zodiac that was rising on the eastern horizon at the moment of birth. Because the Earth rotates rapidly (roughly 1 degree every 4 minutes), an accurate birth time is crucial for determining the Lagna.</p>
-                <p>The Lagna represents the self, the physical body, and the overarching perspective through which you experience the world. It sets the baseline for the entire house system in your chart.</p>
+                <p>The D1 Rasi chart is the physical body of your destiny, but Vargas are the microscopic DNA. A planet may look exalted in the D1 chart, but if it is debilitated in a divisional chart, its inner strength is hollow.</p>
+                <h3>Crucial Divisional Charts:</h3>
+                <ul>
+                    <li><b>D9 Navamsa:</b> The most important sub-chart. It reveals your true soul strength, the second half of your life, and the exact nature of your spouse and marriage.</li>
+                    <li><b>D7 Saptamsha:</b> The microscopic chart analyzed to predict the destiny, gender sequences, and karmic blocks regarding progeny (children).</li>
+                    <li><b>D10 Dashamsha:</b> The ultimate map of your career, public authority, and professional milestones.</li>
+                </ul>
             </div>
         </details>
 
-        <!-- Add as many <details> blocks as you need here! -->
+        <!-- FAQ ITEM 4 -->
+        <details>
+            <summary>What is Ashtakavarga and why does it matter for Transits?</summary>
+            <div class="faq-content">
+                <p>Ashtakavarga is an incredibly advanced point-based mathematical system used to judge the absolute strength of transits (Gochara). It calculates how many "benefic points" (Bindus) a zodiac sign receives from the 7 physical planets and the Ascendant.</p>
+                <p>A sign with <b>28 or more SAV points</b> creates a protective shield. For example, if you are undergoing a traditionally "bad" Saturn transit (like Sade Sati), but Saturn is moving through a sign where you have 35 Ashtakavarga points, the negative effects are mathematically neutralized, and the period may surprisingly yield massive success.</p>
+            </div>
+        </details>
+
+        <!-- FAQ ITEM 5 -->
+        <details>
+            <summary>What is Mangal Dosha (Kuja Dosha) and does it ruin marriage?</summary>
+            <div class="faq-content">
+                <p>Mangal Dosha occurs when Mars (Kuja) is placed in the 1st, 2nd, 4th, 7th, 8th, or 12th house from the Ascendant or the Moon. It indicates an excess of fiery, aggressive, or protective energy that can cause friction in partnerships.</p>
+                <h3>The Engine's Dosha Samya (Cancellation) Protocol:</h3>
+                <p>Most basic software labels you "Manglik" and stops there. However, classical texts contain dozens of cancellation rules (Bhangas). Our engine dynamically evaluates these rules. If Mars is in its own sign, aspected by a strong Jupiter, or neutralized by age maturity (post 28 years), the engine will accurately report the dosha as <b>Cancelled</b>, meaning the marital friction is spiritually neutralized.</p>
+            </div>
+        </details>
+
+        <!-- FAQ ITEM 6 -->
+        <details>
+            <summary>How does Synastry (Kundli Matching) work beyond just the 36 Gunas?</summary>
+            <div class="faq-content">
+                <p>The traditional "Ashtakoota" 36-point system is only the surface layer of compatibility, relying entirely on the Moon Nakshatras. True astrological matching requires deep structural analysis, which our engine performs automatically:</p>
+                <ul>
+                    <li><b>Mutual Dosha Rectification:</b> Does Person A's Jupiter cast a healing aspect on Person B's afflicted 7th house? If so, they physically heal each other's karmic flaws.</li>
+                    <li><b>Nadi & Degree Overlays:</b> We check if Person A's Venus exactly conjuncts Person B's Mars, creating undeniable physical chemistry, or if their D9 Lagnas overlap, indicating a fated soul contract.</li>
+                    <li><b>Dasha Synchronization:</b> Even with a perfect 36/36 score, a marriage will struggle if the couple's current operating Dasha periods are fundamentally opposed. The engine evaluates both timelines to ensure they are ready for union simultaneously.</li>
+                </ul>
+            </div>
+        </details>
+        
+        <!-- FAQ ITEM 7 -->
+        <details>
+            <summary>What is Bhrigu Nandi Nadi (BNN) Astrology?</summary>
+            <div class="faq-content">
+                <p>Unlike Parashari astrology which heavily relies on Houses (Bhavas) and Lordship, Bhrigu Nandi Nadi evaluates destiny purely through planetary conjunctions and alignments in the sky, regardless of the house they sit in.</p>
+                <p>In BNN, Jupiter represents the "Jiva" (the native's soul). If Jupiter transits over natal Venus, it guarantees a fated encounter with wealth or a partner. By mathematically sweeping the zodiac for these exact planetary collisions using a 2-degree orb, our engine achieves pinpoint accuracy for life's biggest milestones without needing the exact birth time down to the minute.</p>
+            </div>
+        </details>
 
     </div>
 </body>

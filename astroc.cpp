@@ -23,6 +23,7 @@ using json = nlohmann::json; // <--- ADD THIS
 // =========================================================================
 // DATA STRUCTURES & CONSTANTS
 // =========================================================================
+const double TRUE_SIDEREAL_YEAR = 365.256363004;
 
 struct City { string name; double lat; double lon; double tz_offset; };
 
@@ -118,11 +119,14 @@ struct TransitHit { string p_name; string hit_type; };
 
 class JyotishaEngine {
 public:
-	string user_name = "";
+    string user_name = "";
     string user_gender = "";
     bool json_mode = false;
-	bool telugu_mode = false;
-	string get_month_name(int month) const {
+    bool telugu_mode = false;
+    bool html_mode = false;
+    double dasha_year_len; // NEW: Dynamic Dasha Time Constant
+
+    string get_month_name(int month) const {
         const char* te_months[] = {"", "జనవరి", "ఫిబ్రవరి", "మార్చి", "ఏప్రిల్", "మే", "జూన్", "జూలై", "ఆగస్టు", "సెప్టెంబరు", "అక్టోబరు", "నవంబరు", "డిసెంబరు"};
         return telugu_mode ? te_months[month] : to_string(month);
     }
@@ -130,12 +134,11 @@ public:
     string get_paksha(int tithi_idx) const {
         return telugu_mode ? ((tithi_idx < 15) ? "శుక్ల పక్షం" : "కృష్ణ పక్షం") : ((tithi_idx < 15) ? "Shukla" : "Krishna");
     }
-	// ==========================================
+    // ==========================================
     // TELUGU TRANSLATION WRAPPERS
     // ==========================================
     string get_planet_name(int idx) const { return telugu_mode ? te_p_names_full[idx] : p_names_full[idx]; }
-// Change your get_short_planet wrapper to this:
-	string get_short_planet(int idx) const { return telugu_mode ? te_short_p_names[idx] : en_short_p_names[idx]; }
+    string get_short_planet(int idx) const { return telugu_mode ? te_short_p_names[idx] : en_short_p_names[idx]; }
     string get_rashi_name(int idx) const { return telugu_mode ? te_rashi_names[idx] : rashi_names[idx]; }
     string get_short_rashi(int idx) const { return telugu_mode ? te_short_rashi[idx] : short_rashi[idx]; }
     string get_nak_name(int idx) const { return telugu_mode ? te_nak_names[idx] : nak_names[idx]; }
@@ -157,15 +160,48 @@ public:
     
     double sun_lon, moon_lon, lagna_lon;
     double planet_lons[10];
-	int natal_scores[10] = {0}; // Global storage for Auspiciousness scores	
+    int natal_scores[10] = {0}; // Global storage for Auspiciousness scores   
     double house_cusps[13]; 
     string rashi_grid[12] = {"", "", "", "", "", "", "", "", "", "", "", ""};
     int planet_rashis[10];
-	
-	// --- New Phase 4 Jaimini Variables ---
+    
+    // --- New Phase 4 Jaimini Variables ---
     int atmakaraka_idx = 0;
     int darakaraka_idx = 0;
 
+// --- Search Helper Functions ---
+    int get_planet_idx(string p_name) {
+        string p_lower = p_name; transform(p_lower.begin(), p_lower.end(), p_lower.begin(), ::tolower);
+        if (p_lower == "lagna" || p_lower == "ascendant" || p_lower == "asc") return 0;
+        if (p_lower == "surya" || p_lower == "sun" || p_lower == "ravi") return 1;
+        if (p_lower == "chandra" || p_lower == "moon") return 2;
+        if (p_lower == "mangal" || p_lower == "mars" || p_lower == "kuja") return 3;
+        if (p_lower == "budha" || p_lower == "mercury") return 4;
+        if (p_lower == "guru" || p_lower == "jupiter" || p_lower == "brihaspati") return 5;
+        if (p_lower == "shukra" || p_lower == "venus" || p_lower == "sukra") return 6;
+        if (p_lower == "shani" || p_lower == "saturn") return 7;
+        if (p_lower == "rahu") return 8;
+        if (p_lower == "ketu") return 9;
+        return -1;
+    }
+
+    int get_rashi_idx(string s_name) {
+        string s_lower = s_name; transform(s_lower.begin(), s_lower.end(), s_lower.begin(), ::tolower);
+        if (s_lower == "mesha" || s_lower == "mesh") return 0;
+        if (s_lower == "vrishabha" || s_lower == "vrish") return 1;
+        if (s_lower == "mithuna" || s_lower == "mitu") return 2;
+        if (s_lower == "karka" || s_lower == "karkataka") return 3;
+        if (s_lower == "simha" || s_lower == "simh") return 4;
+        if (s_lower == "kanya" || s_lower == "kany") return 5;
+        if (s_lower == "tula") return 6;
+        if (s_lower == "vrishchika" || s_lower == "vrischika") return 7;
+        if (s_lower == "dhanu" || s_lower == "dhanus") return 8;
+        if (s_lower == "makara" || s_lower == "makar") return 9;
+        if (s_lower == "kumbha" || s_lower == "kumbh") return 10;
+        if (s_lower == "meena" || s_lower == "meen") return 11;
+        return -1;
+    }
+	
     int get_arudha(int target_house_num) const {
         int lagna = planet_rashis[0];
         int start_sign = (lagna + target_house_num - 1) % 12;
@@ -180,20 +216,20 @@ public:
         else if (steps == 6) arudha_sign = (arudha_sign + 3) % 12; // 4th therefrom
         return arudha_sign;
     }
-	
+    
 // --- New Phase 3 Variables ---
     int sav_scores[12] = {0}; 
     int bav_scores[7][12] = {0};
-    bool av_calculated = false;	
+    bool av_calculated = false; 
     
     string json_output = "{\n";
 
-    // Change this line:
-    bool html_mode = false;
-
-    JyotishaEngine(int y, int m, int d, int h, int min, int sec, City loc, bool j_mode, bool t_mode = false, bool h_mode = false) {
+    JyotishaEngine(int y, int m, int d, int h, int min, int sec, City loc, bool j_mode, bool t_mode = false, bool h_mode = false, bool savana_mode = false) {
         location = loc; json_mode = j_mode; telugu_mode = t_mode; html_mode = h_mode;
-		
+        
+        // Set dynamic dasha year length (360 for Savana, Exact Sidereal otherwise)
+        dasha_year_len = savana_mode ? 360.0 : TRUE_SIDEREAL_YEAR;
+        
         local_hour_decimal = h + (min / 60.0) + (sec / 3600.0);
         double time_ut = local_hour_decimal - location.tz_offset;
         swe_set_ephe_path((char*)"./ephe"); 
@@ -202,15 +238,16 @@ public:
         swe_set_topo(location.lon, location.lat, 0.0);
         iflag = SEFLG_SWIEPH | SEFLG_SIDEREAL | SEFLG_SPEED | SEFLG_TRUEPOS;
 
-		if (!json_mode && !html_mode) {
+        if (!json_mode && !html_mode) {
             printf("\n=== PURE ASTRONOMICAL C++ ENGINE OUTPUT ===\n");
             printf("Local Date: %02d/%02d/%04d | Local Time: %02d:%02d:%02d\n", d, m, y, h, min, sec);
             printf("Location: %s (Lat: %f, Lon: %f, TZ: %+.1f)\n", location.name.c_str(), location.lat, location.lon, location.tz_offset);
+            printf("Time Protocol: %s Year (%.4f Days)\n", savana_mode ? "Savana" : "Sidereal", dasha_year_len);
         }
-	}
+    }
 
     ~JyotishaEngine() { swe_close(); }
-
+	
     string format_time_only(double jd) {
         int y, m, d; double jut;
         swe_revjul(jd + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
@@ -738,6 +775,154 @@ void draw_south_indian_chart() {
             }
         }
         printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+    }
+	
+
+void scan_rasi_tulya_varga_collisions(string target_planet, int start_year, int start_month, int start_day, int v_num) {
+        if (v_num == 1) return; // D1 to D1 is already handled by the primary scanner
+        
+        vector<int> t_targets;
+        string p_lower = target_planet;
+        transform(p_lower.begin(), p_lower.end(), p_lower.begin(), ::tolower);
+        
+        if (p_lower == "all" || p_lower == "") {
+            for (int i = 1; i <= 9; i++) t_targets.push_back(i);
+        } else {
+            int p_idx = -1;
+            if (p_lower == "surya" || p_lower == "sun" || p_lower == "ravi") p_idx = 1;
+            else if (p_lower == "chandra" || p_lower == "moon") p_idx = 2;
+            else if (p_lower == "mangal" || p_lower == "mars" || p_lower == "kuja") p_idx = 3;
+            else if (p_lower == "budha" || p_lower == "mercury") p_idx = 4;
+            else if (p_lower == "guru" || p_lower == "jupiter" || p_lower == "brihaspati") p_idx = 5;
+            else if (p_lower == "shukra" || p_lower == "venus" || p_lower == "sukra") p_idx = 6;
+            else if (p_lower == "shani" || p_lower == "saturn") p_idx = 7;
+            else if (p_lower == "rahu") p_idx = 8;
+            else if (p_lower == "ketu") p_idx = 9;
+            
+            if (p_idx == -1) { printf("Error: Planet '%s' not recognized.\n", target_planet.c_str()); return; }
+            t_targets.push_back(p_idx);
+        }
+
+        double start_jd, end_jd;
+        string scope_desc;
+        
+        if (start_year > 0 && start_month > 0 && start_day > 0) {
+            start_jd = swe_julday(start_year, start_month, start_day, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = start_jd + 1.0; 
+            char buf[64]; sprintf(buf, "%02d/%02d/%04d", start_day, start_month, start_year);
+            scope_desc = "Exact Day: " + string(buf);
+        } 
+        else if (start_year > 0 && start_month > 0) {
+            start_jd = swe_julday(start_year, start_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = (start_month == 12) ? 1 : start_month + 1;
+            int next_y = (start_month == 12) ? start_year + 1 : start_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            char buf[64]; sprintf(buf, "%02d/%04d", start_month, start_year);
+            scope_desc = "Month: " + string(buf);
+        } 
+        else {
+            int y = (start_year > 0) ? start_year : 2026;
+            start_jd = swe_julday(y, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = swe_julday(y + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_desc = "Year: " + to_string(y);
+        }
+
+        string varga_name = "D" + to_string(v_num);
+        printf("\n=== RASI TULYA %s SCANNER (PHYSICAL D1 TRANSITS OVER NATAL %s) ===\n", varga_name.c_str(), varga_name.c_str());
+        printf("Scope: %s | Target: %s\n", scope_desc.c_str(), (p_lower == "all" || p_lower == "") ? "All Planets" : p_names_full[t_targets[0]]);
+        printf("%-10s | %-14s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
+               "Transit D1", ("Natal " + varga_name).c_str(), "Aspect Type", "Enter Time", "Peak Time", "Exit Time", "Status & Reason");
+        printf("--------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+
+        const double orb = 2.0;
+        struct AspectTarget { double lon; string name; };
+
+        for (int t : t_targets) {
+            for (int n = 0; n <= 9; n++) {
+                
+                vector<AspectTarget> targets;
+                // Fetch the EXACT fractional degree of the Natal Planet inside the requested Varga
+                double n_lon = get_varga_absolute_lon(v_num, planet_lons[n]);
+                
+                targets.push_back({n_lon, "1st (Yuti)"});
+                targets.push_back({fmod(n_lon + 180.0, 360.0), "7th Aspect"});
+                
+                if (t == 3) { 
+                    targets.push_back({fmod(n_lon + 270.0, 360.0), "4th Aspect"}); 
+                    targets.push_back({fmod(n_lon + 150.0, 360.0), "8th Aspect"}); 
+                }
+                else if (t == 5) { 
+                    targets.push_back({fmod(n_lon + 240.0, 360.0), "5th Aspect"}); 
+                    targets.push_back({fmod(n_lon + 120.0, 360.0), "9th Aspect"}); 
+                }
+                else if (t == 7) { 
+                    targets.push_back({fmod(n_lon + 300.0, 360.0), "3rd Aspect"}); 
+                    targets.push_back({fmod(n_lon + 90.0, 360.0),  "10th Aspect"}); 
+                }
+                else if (t == 8 || t == 9) { 
+                    targets.push_back({fmod(n_lon + 240.0, 360.0), "5th Aspect"});
+                    targets.push_back({fmod(n_lon + 120.0, 360.0), "9th Aspect"});
+                }
+
+                for (const auto& tgt : targets) {
+                    int target_rashi = (int)(tgt.lon / 30.0);
+                    // D1 PHYSICAL SPEED LIMITS
+                    double step = (t == 2) ? 1.0 / 24.0 : 4.0 / 24.0; 
+                    
+                    for (double jd = start_jd; jd < end_jd; jd += step) {
+                        
+                        // Extract physical D1 longitude
+                        double trans_lon = get_varga_absolute_lon(1, get_planet_lon_on_jd(t, jd));
+                        if ((int)(trans_lon / 30.0) != target_rashi) continue; 
+                        
+                        double dist = std::abs(fmod(trans_lon, 30.0) - fmod(tgt.lon, 30.0));
+                        
+                        if (dist <= orb) {
+                            double e_in, e_peak, e_out;
+                            // Send v_num=1 so refine_bubble bounds the timeline using the physical D1 speed!
+                            refine_bubble(t, tgt.lon, jd, orb, e_in, e_peak, e_out, 1);
+
+                            string impact = "";
+                            if (n == 0) {
+                                bool t_is_malefic = (t == 1 || t == 3 || t == 7 || t == 8 || t == 9);
+                                string reason = "[Lagna / Core Matrix Hit]";
+                                impact = (t_is_malefic ? "DANGER " : "OPPORTUNITY ") + reason;
+                            } else {
+                                string severity = (natal_scores[n] <= -5) ? "High Malefic" : 
+                                                  (natal_scores[n] < 0)   ? "Malefic" : 
+                                                  (natal_scores[n] >= 5)  ? "High Benefic" : "Neutral/Benefic";
+                                
+                                string reason = "[Score: " + to_string(natal_scores[n]) + ", " + severity + "]";
+                                impact = (natal_scores[n] < 0) ? "DANGER " + reason : "OPPORTUNITY " + reason;
+                            }
+                            
+                            string natal_name = (n == 0) ? "Lagna" : string(p_names_full[n]);
+                            if (n >= 1 && n <= 7) {
+                                string lordships = "";
+                                int v_lagna = get_varga(v_num, planet_lons[0]); 
+                                
+                                for (int h = 1; h <= 12; h++) {
+                                    int rashi_of_house = (v_lagna + h - 1) % 12; 
+                                    if (string(rashi_lords[rashi_of_house]) == string(p_names_full[n])) {
+                                        if (!lordships.empty()) lordships += ",";
+                                        lordships += to_string(h);
+                                    }
+                                }
+                                if (!lordships.empty()) natal_name += " (L" + lordships + ")";
+                            }
+                            
+                            printf("%-10s | %-14s | %-14s | %-20s | %-20s | %-20s | %-35s\n", 
+                                   p_names_full[t], natal_name.c_str(), tgt.name.c_str(),
+                                   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), 
+                                   jd_to_string(e_out).c_str(), impact.c_str());
+                            
+                            if (e_out > jd) jd = e_out; 
+                        }
+                    }
+                }
+            }
+        }
+        printf("--------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
     }
 	
 void print_birth_chart_ui() {
@@ -1361,7 +1546,7 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
                 scope_str = string(buf);
             } else {
                 start_jd = tjd_ut; 
-                end_jd = start_jd + (120.0 * 365.2425);
+                end_jd = start_jd + (120.0 * TRUE_SIDEREAL_YEAR);
                 scope_str = "LIFESPAN (120 Years)";
             }
         }
@@ -1429,8 +1614,336 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         printf("---------------------------------------------------------------------------------\n");
     }
 	
+void search_planet_conjunct_planet(string src_name, string tgt_name, int search_year, int search_month, int search_day) {
+        int src_idx = get_planet_idx(src_name);
+        int tgt_idx = get_planet_idx(tgt_name);
+        if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
+        if (tgt_idx == -1) { printf("Error: Target planet '%s' not recognized.\n", tgt_name.c_str()); return; }
 
-    void analyze_varga_synthesis(int v_num, int d1_lagna, int v_lagna, int* d1_rasi, int* v_rasi) {
+        double target_lon = planet_lons[tgt_idx];
+
+        double start_jd, end_jd;
+        string scope_str = "";
+        
+        if (search_year > 0 && search_month > 0 && search_day > 0) {
+            start_jd = swe_julday(search_year, search_month, search_day, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = start_jd + 1.0;
+            char buf[64]; snprintf(buf, sizeof(buf), "Exact Day: %02d/%02d/%04d", search_day, search_month, search_year);
+            scope_str = string(buf);
+        } else if (search_year > 0 && search_month > 0) {
+            start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = search_month == 12 ? 1 : search_month + 1;
+            int next_y = search_month == 12 ? search_year + 1 : search_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
+        } else if (search_year > 0) {
+            start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Year: " + to_string(search_year);
+        } else {
+            if (src_idx == 0 || src_idx == 2) {
+                int y, m, d; double jut;
+                swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+                start_jd = swe_julday(y, m, d, 0.0 - location.tz_offset, SE_GREG_CAL);
+                end_jd = start_jd + 1.0;
+                char buf[64]; snprintf(buf, sizeof(buf), "Base Day: %02d/%02d/%04d", d, m, y);
+                scope_str = string(buf);
+            } else {
+                start_jd = tjd_ut; 
+                end_jd = start_jd + (120.0 * TRUE_SIDEREAL_YEAR);
+                scope_str = "LIFESPAN (120 Years)";
+            }
+        }
+
+        string print_src = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
+        string print_tgt = (tgt_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[tgt_idx]);
+
+        printf("\n=== PLANET CONJUNCTION SEARCH (2° ORB) ===\n");
+        printf("Transit Source : %s\n", print_src.c_str());
+        printf("Natal Target   : %s (%.2f°)\n", print_tgt.c_str(), target_lon);
+        printf("Scope          : %s\n", scope_str.c_str());
+        printf("----------------------------------------------------------------------------------------------------------------\n");
+        printf("%-20s | %-20s | %-20s | %-15s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Movement");
+        printf("----------------------------------------------------------------------------------------------------------------\n");
+
+        double step = (src_idx == 2) ? (1.0 / 24.0) : (4.0 / 24.0);
+        if (src_idx == 0) step = 1.0 / 1440.0;
+        
+        const double orb = 2.0;
+        int hits = 0;
+
+        for (double jd = start_jd; jd < end_jd; jd += step) {
+            double trans_lon = get_planet_lon_on_jd(src_idx, jd);
+            double dist = get_dist(trans_lon, target_lon);
+            if (dist <= orb) {
+                double e_in, e_peak, e_out;
+                refine_bubble(src_idx, target_lon, jd, orb, e_in, e_peak, e_out, 1);
+                
+                double lon1 = get_planet_lon_on_jd(src_idx, e_in);
+                double lon2 = get_planet_lon_on_jd(src_idx, e_out);
+                double d_move = fmod(lon2 - lon1 + 360.0, 360.0);
+                if (d_move > 180.0) d_move -= 360.0;
+                string dir = (d_move < 0) ? "Retrograde" : "Direct";
+
+                if (e_peak >= start_jd && e_peak <= end_jd) {
+                    printf(" %-19s | %-19s | %-19s | %-15s\n", jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dir.c_str());
+                    hits++;
+                }
+                jd = e_out; 
+            }
+        }
+        if (hits == 0) printf(" No conjunctions found within the 2° orb in this timeframe.\n");
+        printf("----------------------------------------------------------------------------------------------------------------\n");
+    }
+
+void search_planet_all_transits(string p_name, int search_year) {
+        int p_idx = get_planet_idx(p_name);
+        if (p_idx == -1) { printf("Error: Planet '%s' not recognized.\n", p_name.c_str()); return; }
+
+        double start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+        double end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+
+        string print_src = (p_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[p_idx]);
+
+        printf("\n=== RASHI & NAKSHATRA TRANSIT SEARCH ===\n");
+        printf("Transit Source : %s\n", print_src.c_str());
+        printf("Scope          : Year %d\n", search_year);
+        printf("------------------------------------------------------------------------------------------------------\n");
+        printf("%-20s | %-16s | %-45s\n", "Date & Time", "Movement", "Event Profile");
+        printf("------------------------------------------------------------------------------------------------------\n");
+
+        double step = (p_idx == 2) ? 0.05 : 0.25; 
+        if (p_idx == 0) step = 1.0 / 1440.0;
+        
+        // FIX: Correctly map custom planet index to Swiss Ephemeris ID!
+        int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, SE_TRUE_NODE, SE_TRUE_NODE};
+        int se_p = (p_idx > 0 && p_idx <= 9) ? planets_se[p_idx - 1] : 0;
+        
+        double prev_xx[6]; char serr[256];
+        if (p_idx > 0) swe_calc_ut(start_jd - step, se_p, iflag, prev_xx, serr);
+        
+        double prev_lon = get_planet_lon_on_jd(p_idx, start_jd - step);
+        double prev_speed = (p_idx > 0 && p_idx < 8) ? prev_xx[3] : 1.0; 
+
+        int prev_rashi = (int)(prev_lon / 30.0);
+        int prev_nak = (int)(prev_lon / (360.0 / 27.0));
+        int hits = 0;
+        
+        struct Event { double jd; string dir; string desc; };
+        vector<Event> events;
+
+        for (double jd = start_jd; jd < end_jd; jd += step) {
+            double lon = get_planet_lon_on_jd(p_idx, jd);
+            int curr_rashi = (int)(lon / 30.0);
+            int curr_nak = (int)(lon / (360.0 / 27.0));
+            
+            double d_move = fmod(lon - prev_lon + 360.0, 360.0);
+            if (d_move > 180.0) d_move -= 360.0;
+            bool is_retro = (d_move < 0);
+            string dir = is_retro ? "Retrograde" : "Direct";
+
+            double curr_xx[6];
+            if (p_idx > 0) swe_calc_ut(jd, se_p, iflag, curr_xx, serr);
+            double curr_speed = (p_idx > 0 && p_idx < 8) ? curr_xx[3] : 1.0;
+            
+            // 1. Rashi Change
+            if (curr_rashi != prev_rashi) {
+                double t_low = jd - step, t_high = jd;
+                for (int i=0; i<40; i++) {
+                    double t_mid = (t_low + t_high)/2.0;
+                    int mid_rashi = (int)(get_planet_lon_on_jd(p_idx, t_mid) / 30.0);
+                    if (mid_rashi == prev_rashi) t_low = t_mid; else t_high = t_mid;
+                }
+                double exact_jd = (t_low + t_high)/2.0;
+                if (exact_jd >= start_jd && exact_jd <= end_jd) {
+                    char buf[128]; snprintf(buf, sizeof(buf), "Enters Rashi: %s", rashi_names[curr_rashi]);
+                    events.push_back({exact_jd, dir, string(buf)});
+                }
+            }
+            
+            // 2. Nakshatra Change
+            if (curr_nak != prev_nak) {
+                double t_low = jd - step, t_high = jd;
+                for (int i=0; i<40; i++) {
+                    double t_mid = (t_low + t_high)/2.0;
+                    int mid_nak = (int)(get_planet_lon_on_jd(p_idx, t_mid) / (360.0 / 27.0));
+                    if (mid_nak == prev_nak) t_low = t_mid; else t_high = t_mid;
+                }
+                double exact_jd = (t_low + t_high)/2.0;
+                if (exact_jd >= start_jd && exact_jd <= end_jd) {
+                    double exact_lon = get_planet_lon_on_jd(p_idx, exact_jd);
+                    int exact_rashi = (int)(exact_lon / 30.0);
+                    char buf[128]; snprintf(buf, sizeof(buf), "Enters Nak: %s (%s)", nak_names[curr_nak], rashi_names[exact_rashi]);
+                    events.push_back({exact_jd, dir, string(buf)});
+                }
+            }
+
+            // 3. Station Points (Turning Retrograde or Direct)
+            if (p_idx > 2 && p_idx < 8) { // Mars, Mercury, Jupiter, Venus, Saturn
+                if (curr_speed * prev_speed < 0) {
+                    double t_low = jd - step, t_high = jd;
+                    for (int i=0; i<40; i++) {
+                        double t_mid = (t_low+t_high)/2.0;
+                        double mid_xx[6]; swe_calc_ut(t_mid, se_p, iflag, mid_xx, serr);
+                        if (mid_xx[3] * curr_speed > 0) t_high = t_mid; else t_low = t_mid;
+                    }
+                    double exact_jd = (t_low + t_high)/2.0;
+                    if (exact_jd >= start_jd && exact_jd <= end_jd) {
+                        double stat_xx[6]; swe_calc_ut(exact_jd, se_p, iflag, stat_xx, serr);
+                        double deg_in_sign = fmod(stat_xx[0], 30.0);
+                        int rashi = (int)(stat_xx[0] / 30.0);
+                        int nak = (int)(stat_xx[0] / (360.0 / 27.0));
+                        int d = (int)deg_in_sign; int m = (int)((deg_in_sign - d)*60); int s = (int)round((deg_in_sign - d - m/60.0)*3600);
+                        if(s>=60){s-=60;m++;} if(m>=60){m-=60;d++;}
+                        
+                        string stat_str = (curr_speed < 0) ? "STATIONS -> Retro" : "STATIONS -> Direct";
+                        char buf[128]; snprintf(buf, sizeof(buf), "%s | %02d°%02d'%02d\" %s (%s)", stat_str.c_str(), d, m, s, rashi_names[rashi], nak_names[nak]);
+                        events.push_back({exact_jd, "Stationary", string(buf)});
+                    }
+                }
+            }
+            
+            prev_lon = lon;
+            prev_rashi = curr_rashi;
+            prev_nak = curr_nak;
+            prev_speed = curr_speed;
+        }
+
+        sort(events.begin(), events.end(), [](const Event& a, const Event& b){ return a.jd < b.jd; });
+
+        for (const auto& ev : events) {
+            printf(" %-19s | %-16s | %s\n", jd_to_string(ev.jd).c_str(), ev.dir.c_str(), ev.desc.c_str());
+            hits++;
+        }
+        
+        if (hits == 0) printf(" No transit events found in the specified timeframe.\n");
+        printf("------------------------------------------------------------------------------------------------------\n");
+    }
+
+    void search_planet_transit_rashi(string src_name, string rashi_name, int search_year, int search_month, int search_day) {
+        int src_idx = get_planet_idx(src_name);
+        int rashi_idx = get_rashi_idx(rashi_name);
+        if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
+        if (rashi_idx == -1) { printf("Error: Sign '%s' not recognized.\n", rashi_name.c_str()); return; }
+
+        double start_jd, end_jd;
+        string scope_str = "";
+        
+        if (search_year > 0 && search_month > 0 && search_day > 0) {
+            start_jd = swe_julday(search_year, search_month, search_day, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = start_jd + 1.0;
+            char buf[64]; snprintf(buf, sizeof(buf), "Exact Day: %02d/%02d/%04d", search_day, search_month, search_year);
+            scope_str = string(buf);
+        } else if (search_year > 0 && search_month > 0) {
+            start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = search_month == 12 ? 1 : search_month + 1;
+            int next_y = search_month == 12 ? search_year + 1 : search_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
+        } else if (search_year > 0) {
+            start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Year: " + to_string(search_year);
+        } else {
+            if (src_idx == 0 || src_idx == 2) {
+                int y, m, d; double jut;
+                swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+                start_jd = swe_julday(y, m, d, 0.0 - location.tz_offset, SE_GREG_CAL);
+                end_jd = start_jd + 1.0;
+                char buf[64]; snprintf(buf, sizeof(buf), "Base Day: %02d/%02d/%04d", d, m, y);
+                scope_str = string(buf);
+            } else {
+                start_jd = tjd_ut; 
+                end_jd = start_jd + (120.0 * TRUE_SIDEREAL_YEAR);
+                scope_str = "LIFESPAN (120 Years)";
+            }
+        }
+
+        string print_src = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
+
+        printf("\n=== RASHI TRANSIT SEARCH (0° to 30°) ===\n");
+        printf("Transit Source : %s\n", print_src.c_str());
+        printf("Target Sign    : %s\n", rashi_names[rashi_idx]);
+        printf("Scope          : %s\n", scope_str.c_str());
+        printf("---------------------------------------------------------------------------------\n");
+        printf("%-20s | %-15s | %-20s\n", "Date & Time", "Event", "Position");
+        printf("---------------------------------------------------------------------------------\n");
+
+        double step = (src_idx == 2) ? 0.05 : 0.25; 
+        if (src_idx == 0) step = 1.0 / 1440.0;
+        
+        double prev_lon = get_planet_lon_on_jd(src_idx, start_jd - step);
+        bool prev_in = ((int)(prev_lon / 30.0) == rashi_idx);
+        int hits = 0;
+        
+        for (double jd = start_jd; jd < end_jd; jd += step) {
+            double lon = get_planet_lon_on_jd(src_idx, jd);
+            bool curr_in = ((int)(lon / 30.0) == rashi_idx);
+            
+            double d_move = fmod(lon - prev_lon + 360.0, 360.0);
+            if (d_move > 180.0) d_move -= 360.0;
+            bool is_retro = (d_move < 0);
+            
+            if (curr_in != prev_in) {
+                double t_low = jd - step, t_high = jd;
+                for (int i=0; i<40; i++) {
+                    double t_mid = (t_low + t_high)/2.0;
+                    double mid_lon = get_planet_lon_on_jd(src_idx, t_mid);
+                    bool mid_in = ((int)(mid_lon / 30.0) == rashi_idx);
+                    if (mid_in == prev_in) t_low = t_mid; else t_high = t_mid;
+                }
+                double exact_jd = (t_low + t_high)/2.0;
+                
+                if (curr_in) {
+                    printf(" %-19s | %-15s | %s 00° 00' 00\"\n", jd_to_string(exact_jd).c_str(), is_retro ? "ENTER (Retro)" : "ENTER (Direct)", rashi_names[rashi_idx]);
+                } else {
+                    printf(" %-19s | %-15s | %s 30° 00' 00\"\n", jd_to_string(exact_jd).c_str(), is_retro ? "EXIT (Retro)" : "EXIT (Direct)", rashi_names[rashi_idx]);
+                }
+                hits++;
+            }
+            
+            if (curr_in && src_idx != 0 && src_idx != 1 && src_idx != 2 && src_idx != 8 && src_idx != 9) {
+                // FIX: Correct Swiss Ephemeris Mapping
+                int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, SE_TRUE_NODE, SE_TRUE_NODE};
+                int se_p = planets_se[src_idx - 1];
+                
+                double xx[6]; char serr[256];
+                swe_calc_ut(jd, se_p, iflag, xx, serr);
+                double speed = xx[3];
+                
+                double prev_xx[6];
+                swe_calc_ut(jd - step, se_p, iflag, prev_xx, serr);
+                double prev_speed = prev_xx[3];
+                
+                if (speed * prev_speed < 0) { 
+                    double t_low = jd - step, t_high = jd;
+                    for (int i=0; i<40; i++) {
+                        double t_mid = (t_low+t_high)/2.0;
+                        double mid_xx[6]; swe_calc_ut(t_mid, se_p, iflag, mid_xx, serr);
+                        if (mid_xx[3] * speed > 0) t_high = t_mid; else t_low = t_mid;
+                    }
+                    double exact_jd = (t_low + t_high)/2.0;
+                    double stat_xx[6]; swe_calc_ut(exact_jd, se_p, iflag, stat_xx, serr);
+                    
+                    double deg_in_sign = fmod(stat_xx[0], 30.0);
+                    int d = (int)deg_in_sign; int m = (int)((deg_in_sign - d)*60); int s = (int)round((deg_in_sign - d - m/60.0)*3600);
+                    if(s>=60){s-=60;m++;} if(m>=60){m-=60;d++;}
+                    
+                    string stat_str = (speed < 0) ? "STATION (-> R)" : "STATION (-> D)";
+                    char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° %02d' %02d\"", rashi_names[rashi_idx], d, m, s);
+                    printf(" %-19s | %-15s | %s\n", jd_to_string(exact_jd).c_str(), stat_str.c_str(), buf);
+                    hits++;
+                }
+            }
+            prev_lon = lon;
+            prev_in = curr_in;
+        }
+        
+        if (hits == 0) printf(" No transit events found in the specified timeframe.\n");
+        printf("---------------------------------------------------------------------------------\n");
+    }
+	
+	void analyze_varga_synthesis(int v_num, int d1_lagna, int v_lagna, int* d1_rasi, int* v_rasi) {
         printf("\n[D1 TO VARGA SUPERIMPOSITION (Cross-Reference Matrix)]\n");
         
         // 1. Vargottama Check
@@ -2596,11 +3109,45 @@ void analyze_conjunctions(int* p_rasi, int lagna) {
         printf("----------------------------------------------------------------------------------------------------\n");
     }
 
-	void calculate_special_karakas() {
+void calculate_special_karakas() {
         if (json_mode) return;
-        vector<Karaka> k_list;
-        for (int i = 1; i <= 7; i++) k_list.push_back({i-1, fmod(planet_lons[i], 30.0)});
-        sort(k_list.begin(), k_list.end(), [](const Karaka& a, const Karaka& b) { return a.deg > b.deg; });
+        
+        vector<pair<int, double>> k_list;
+        for (int i = 1; i <= 7; i++) {
+            double raw_deg = planet_lons[i];
+            double deg_in_sign = raw_deg - (floor(raw_deg / 30.0) * 30.0);
+            k_list.push_back({i, deg_in_sign});
+        }
+        
+        // Sort in descending order based on degrees in the sign
+        sort(k_list.begin(), k_list.end(), [](const pair<int, double>& a, const pair<int, double>& b) {
+            return a.second > b.second;
+        });
+
+        const char* k_names[] = {
+            "Atmakaraka (AK)   ", 
+            "Amatyakaraka (AmK)", 
+            "Bhratrukaraka (BK)", 
+            "Matrukaraka (MK)  ", 
+            "Putrakaraka (PK)  ", 
+            "Gnatikaraka (GK)  ", 
+            "Darakaraka (DK)   "
+        };
+
+        printf("\n=== JAIMINI KARAKAS (7-PLANET SCHEME) ===\n");
+        printf("-----------------------------------------------------------------\n");
+        for(int i = 0; i < 7; i++) {
+            int p_idx = k_list[i].first;
+            double deg = k_list[i].second;
+            int d = (int)deg;
+            int m = (int)((deg - d) * 60);
+            
+            printf("%s : %s (%02d° %02d')\n", k_names[i], p_names_full[p_idx], d, m);
+            
+            // IMPORTANT: Dynamically assign the global DK index for the prediction engine
+            if (i == 6) darakaraka_idx = p_idx; 
+        }
+        printf("-----------------------------------------------------------------\n");
 
         double yogi_point = fmod((sun_lon + moon_lon + 93.3333333), 360.0);
         int y_nak_idx = (int)(yogi_point / (360.0 / 27.0));
@@ -2611,11 +3158,6 @@ void analyze_conjunctions(int* p_rasi, int lagna) {
         double avayogi_ni_point = fmod((yogi_point + 80.0), 360.0);
         int ay_ni_nak_idx = (int)(avayogi_ni_point / (360.0 / 27.0));
 
-        printf("\n=== SPECIAL KARAKAS & YOGI POINTS ===\n");
-        printf("-----------------------------------------------------------------\n");
-        printf("Atmakaraka (AK)    : %s (%.2f°)\n", p_names_full[k_list[0].p_idx + 1], k_list[0].deg);
-        printf("Amatyakaraka (AmK) : %s (%.2f°)\n", p_names_full[k_list[1].p_idx + 1], k_list[1].deg);
-        printf("-----------------------------------------------------------------\n");
         printf("Yogi Point         : %s\n", format_dms(yogi_point).c_str());
         printf("Yogi Nakshatra     : %s\n", nak_names[y_nak_idx]);
         printf("Yogi Planet        : %s\n", dasha_lords[y_nak_idx % 9]);
@@ -3188,15 +3730,20 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         printf("----------------------------------------------------------------------------------------------------\n");
     }
 
-	void calculate_dasha_balance() {
+void calculate_dasha_balance() {
         if (json_mode) return;
         double nak_size = 360.0 / 27.0; 
         int n_idx = (int)(moon_lon / nak_size);
         int l_idx = n_idx % 9;
+        
         double frac = (moon_lon - (n_idx * nak_size)) / nak_size;
-        double left = (1.0 - frac) * dasha_years[l_idx];
-        int y = (int)left; double m_rem = (left - y) * 12.0; int m = (int)m_rem;
-        int d = (int)round((m_rem - m) * (365.2425 / 12.0)); 
+        double left_in_years = (1.0 - frac) * dasha_years[l_idx];
+        
+        int y = (int)left_in_years; 
+        double m_rem = (left_in_years - y) * 12.0; 
+        int m = (int)m_rem;
+        double exact_days = (m_rem - m) * (dasha_year_len / 12.0); 
+        int d = (int)exact_days; 
         
         if (html_mode) {
             printf("<div style='background: #1e1e24; padding: 15px; border-radius: 6px; border-left: 4px solid var(--term-text); margin-bottom: 20px;'>");
@@ -3210,7 +3757,7 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
             printf("Maha Dasha: %s (Balance: %d Years, %d Months, %d Days)\n", dasha_lords[l_idx], y, m, d);
         }
     }
-	
+    
     void calculate_6_level_dasha_target(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool is_current_clock = false) {
         if (json_mode) return;
         double target_jd;
@@ -3231,13 +3778,13 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         int nak_index = (int)(moon_lon / nak_size);
         int lord_index = nak_index % 9;
         double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
-        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
+        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * dasha_year_len);
         
         printf("----------------------------------------------------------------------------------------\n");
         printf("%-20s | %-10s | %-19s | %-19s\n", "Level", "Lord", "Starts", "Ends");
         printf("----------------------------------------------------------------------------------------\n");
 
-        double current_start_jd = life_start_jd; double current_duration = 120.0 * 365.2425; int current_lord = lord_index;
+        double current_start_jd = life_start_jd; double current_duration = 120.0 * dasha_year_len; int current_lord = lord_index;
 
         for (int level = 0; level < 6; level++) {
             double loop_start_jd = current_start_jd; int active_lord = -1;
@@ -3266,12 +3813,12 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         double nak_size = 360.0 / 27.0; 
         int nak_index = (int)(moon_lon / nak_size); int lord_index = nak_index % 9;
         double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
-        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
+        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * dasha_year_len);
 
         printf("\n=== INTERACTIVE DASHA EXPLORER ===\n");
         printf("Enter 1-9 to select a period. Enter 0 to go back.\n");
 
-        vector<DashaState> history; history.push_back({life_start_jd, 120.0 * 365.2425, lord_index});
+        vector<DashaState> history; history.push_back({life_start_jd, 120.0 * dasha_year_len, lord_index});
         int level = 0;
         
         while (level >= 0 && level < 6) {
@@ -3309,7 +3856,7 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         }
     }
 
-	// Add this helper function to print the tree
+    // Add this helper function to print the tree
     void dfs_print_hierarchy(int level, int max_level, int current_lord, double start_jd, double duration, vector<string> path) {
         if (level >= max_level) return;
         
@@ -3331,12 +3878,12 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         }
     }
 
-void print_dasha_web() {
+    void print_dasha_web() {
         double nak_size = 360.0 / 27.0; 
         int nak_index = (int)(moon_lon / nak_size); 
         int lord_index = nak_index % 9;
         double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
-        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
+        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * dasha_year_len);
 
         if (html_mode) {
             printf("<h2 style='margin-top: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", telugu_mode ? "జీవిత కాల దశలు (DYNAMIC VIMSHOTTARI DASHA)" : "LIFE CHAPTERS (DYNAMIC VIMSHOTTARI DASHA)");
@@ -3360,7 +3907,7 @@ void print_dasha_web() {
         for (int i = 0; i < 9; i++) {
             int md_idx = (lord_index + i) % 9;
             int md_p = d_map[md_idx];
-            double md_dur = 120.0 * 365.2425 * (dasha_years[md_idx] / 120.0);
+            double md_dur = 120.0 * dasha_year_len * (dasha_years[md_idx] / 120.0);
             double md_end_jd = cur_start + md_dur;
             
             // --- NEW: CLAMP MAHADASHA START DATE TO BIRTH DATE ---
@@ -3591,18 +4138,19 @@ void print_dasha_web() {
             
             cur_start += md_dur;
         } 
-    }	
-void print_dasha_tables_html(double target_jd) {
+    }
+
+    void print_dasha_tables_html(double target_jd) {
         if (!html_mode) return;
 
         double nak_size = 360.0 / 27.0; 
         int nak_index = (int)(moon_lon / nak_size); 
         int lord_index = nak_index % 9;
         double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
-        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
+        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * dasha_year_len);
 
         double cur_start = life_start_jd; 
-        double cur_dur = 120.0 * 365.2425; 
+        double cur_dur = 120.0 * dasha_year_len; 
         int cur_lord = lord_index;
         
         int active_md_idx = -1;
@@ -3690,6 +4238,7 @@ void print_dasha_tables_html(double target_jd) {
         printf("</table><br>\n"); 
         fflush(stdout); 
     }
+
     void dfs_find_dehas(int level, int current_lord, double start_jd, double duration, double target_start, double target_end, vector<int> path) {
         if (start_jd >= target_end || start_jd + duration <= target_start) return;
         if (level == 6) {
@@ -3734,16 +4283,16 @@ void print_dasha_tables_html(double target_jd) {
 
         double nak_size = 360.0 / 27.0; int nak_index = (int)(moon_lon / nak_size); int lord_index = nak_index % 9;
         double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
-        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
+        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * dasha_year_len);
         vector<int> path;
-        dfs_find_dehas(0, lord_index, life_start_jd, 120.0 * 365.2425, target_start_jd, target_end_jd, path);
+        dfs_find_dehas(0, lord_index, life_start_jd, 120.0 * dasha_year_len, target_start_jd, target_end_jd, path);
         printf("--------------------------------------------------------------------------------------\n");
     }
 
     void export_all_dashas_csv() {
         double nak_size = 360.0 / 27.0; int nak_index = (int)(moon_lon / nak_size); int lord_index = nak_index % 9;
         double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
-        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
+        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * dasha_year_len);
 
         FILE* fp = fopen("vimshottari_full_export.csv", "w");
         if (!fp) { printf("Error creating CSV file!\n"); return; }
@@ -3751,7 +4300,7 @@ void print_dasha_tables_html(double target_jd) {
         printf("\n=== EXPORTING 120-YEAR DASHA HIERARCHY ===\nGenerating roughly 598,000 records... Please wait...\n");
 
         vector<string> path_names;
-        dfs_export_csv(0, lord_index, life_start_jd, 120.0 * 365.2425, path_names, fp);
+        dfs_export_csv(0, lord_index, life_start_jd, 120.0 * dasha_year_len, path_names, fp);
         fclose(fp);
         printf("Success! All dashas have been saved to 'vimshottari_full_export.csv'.\n");
     }
@@ -3770,16 +4319,17 @@ void print_dasha_tables_html(double target_jd) {
             loop_start += sub_dur;
         }
     }
+
 // Phase 3: Silent Dasha Fetcher
     void get_active_dasha_lords(double target_jd, int &md_lord, int &ad_lord) const {
         double nak_size = 360.0 / 27.0; 
         int nak_index = (int)(moon_lon / nak_size);
         int lord_index = nak_index % 9;
         double fraction_passed = (moon_lon - (nak_index * nak_size)) / nak_size;
-        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * 365.2425);
+        double life_start_jd = tjd_ut - (fraction_passed * dasha_years[lord_index] * dasha_year_len);
 
         double cur_start = life_start_jd; 
-        double cur_dur = 120.0 * 365.2425; 
+        double cur_dur = 120.0 * dasha_year_len; 
         int cur_lord = lord_index;
 
         // Find Mahadasha (MD)
@@ -3803,7 +4353,6 @@ void print_dasha_tables_html(double target_jd) {
             ad_start += sub_dur;
         }
     }
-
 double calculate_tithi_return(int target_year) {
         // 1. Calculate Natal Baseline
         double natal_angle = fmod(moon_lon - sun_lon + 360.0, 360.0);
@@ -3928,16 +4477,16 @@ double calculate_tithi_return(int target_year) {
         }
     }
 
-	// ==========================================
+// ==========================================
     // NAKSHATRA (TARA BALA) BOUNDARY SCANNER
     // ==========================================
     void get_nakshatra_transit_range(int p_idx, double target_jd, long flags, std::string& start_date, std::string& end_date) {
         double xx[6];
         char serr[256];
         
-        // Map engine planet indices to Swiss Ephemeris planet codes
-        int se_p = p_idx - 1; 
-        if (p_idx >= 8) se_p = SE_TRUE_NODE; // Both Rahu and Ketu use TRUE_NODE
+        // FIX: Correct Swiss Ephemeris Mapping
+        int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, SE_TRUE_NODE, SE_TRUE_NODE};
+        int se_p = (p_idx > 0 && p_idx <= 9) ? planets_se[p_idx - 1] : 0;
 
         // Helper lambda to instantly fetch longitude and auto-correct for Ketu
         auto get_lon = [&](double jd) {
@@ -4679,134 +5228,736 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
         
         fflush(stdout); // FORCE EVERYTHING TO JAVASCRIPT
     }
-	void predict_marriage(int start_year, int end_year) {
-        printf("\n=================================================================\n");
-        printf("=== ADVANCED EVENT PREDICTION SCANNER (PROBABILITY CLUSTERING) ===\n");
-        printf("=================================================================\n");
-        printf("Scanning %d to %d for exact Jup/Sat/Sun/Ven/Dasha alignments...\n", start_year, end_year);
-        
-        // 1. Establish the Natal Anchors (Including Jaimini & D9)
-        int l7_idx = 1; 
-        int asc_rashi = planet_rashis[0];
-        int h7_rashi = (asc_rashi + 6) % 12;
-        for(int p=1; p<=7; p++) if(string(rashi_lords[h7_rashi]) == p_names_full[p]) l7_idx = p;
-        
-        int ul_rashi = get_arudha(12);
-        int dk_idx = darakaraka_idx; // Extracted from Phase 4
-        int dk_rashi = planet_rashis[dk_idx];
 
-        int d9_asc = get_varga(9, planet_lons[0]);
-        int d9_h7 = (d9_asc + 6) % 12;
-        int d9_7L_idx = 1;
-        for(int p=1; p<=7; p++) if(string(rashi_lords[d9_h7]) == p_names_full[p]) d9_7L_idx = p;
-        int d9_7L_rashi = get_varga(9, planet_lons[d9_7L_idx]);
 
-        // Map Dasha index (0=Ketu) to Planet index (1=Sun)
-        int d_map[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
-        
-        double start_jd = swe_julday(start_year, 1, 1, 0.0, SE_GREG_CAL);
-        double end_jd = swe_julday(end_year, 12, 31, 0.0, SE_GREG_CAL);
+struct DayScore{string date; int score; string reason; double jd;};
 
-        struct Hit { int y, m, d; int score; string environment; string reason; };
-        vector<Hit> peak_hits;
+void decode_exact_date(int target_year, int asc_rashi, int h7_rashi, int h8_rashi, int dk_rashi, int l7_rashi_val, int l8_rashi_val, int target_natal_rashi, int planet_rashis[]){
+    printf("\n=== DECODING EXACT DATE IN %d [8TH HOUSE LOCK] ===\n", target_year);
+    double jd_start = swe_julday(target_year,1,1,12.0-location.tz_offset,SE_GREG_CAL);
+    double jd_end = swe_julday(target_year,12,31,12.0-location.tz_offset,SE_GREG_CAL);
 
-        // Sweep every single day in the timeframe
-        for (double jd = start_jd; jd <= end_jd; jd += 1.0) {
-            int score = 0;
-            string reason = "";
-            string environment = "General / Social setting";
+    auto dist=[](int f,int t){return (t-f+12)%12;};
+    auto p_jup=[&](int t,int n){int d=dist(t,n); return d==0||d==4||d==6||d==8;};
+    auto p_sat=[&](int t,int n){int d=dist(t,n); return d==0||d==2||d==6||d==9;};
+    auto bnn=[&](int t,int n){int d=dist(t,n); return d==0||d==1||d==4||d==6||d==8||d==11;};
 
-            // 1. Dasha Readiness (Now includes DK)
-            int md, ad; get_active_dasha_lords(jd, md, ad);
-            int md_p = d_map[md]; int ad_p = d_map[ad];
-            
-            bool md_active = (md_p == l7_idx || md_p == 6 || md_p == 8 || md_p == 5 || planet_rashis[md_p] == ul_rashi || md_p == dk_idx);
-            bool ad_active = (ad_p == l7_idx || ad_p == 6 || ad_p == 8 || ad_p == 5 || planet_rashis[ad_p] == ul_rashi || ad_p == dk_idx);
-            
-            if (md_active) score += 3;
-            if (ad_active) score += 4;
+    vector<DayScore> days;
 
-            // Environment Inference (Based on active AD Lord's House)
-            int ad_house = (planet_rashis[ad_p] - asc_rashi + 12) % 12 + 1;
-            if (ad_house == 3 || ad_house == 4) environment = "Local area, neighborhood, or internet";
-            else if (ad_house == 9) environment = "Travel, education, or spiritual setting";
-            else if (ad_house == 10 || ad_house == 11) environment = "Workplace, professional network, or older friends";
-            else if (ad_house == 2 || ad_house == 7) environment = "Family introduction or direct negotiation";
+    for(double jd=jd_start; jd<=jd_end; jd+=1.0){
+        double xx_ju[6],xx_sa[6],xx_ma[6],xx_ve[6],xx_su[6],xx_mo[6]; char serr[256];
+        swe_calc_ut(jd,SE_JUPITER,iflag,xx_ju,serr);
+        swe_calc_ut(jd,SE_SATURN,iflag,xx_sa,serr);
+        swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr);
+        swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr);
+        swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
+        swe_calc_ut(jd,SE_MOON,iflag,xx_mo,serr);
 
-            // 2. Transit Jupiter Blessing (Now checks D1 AND D9 anchors)
-            double xx_ju[6], xx_sa[6], xx_ve[6], xx_su[6]; char serr[256];
-            swe_calc_ut(jd, SE_JUPITER, iflag, xx_ju, serr);
-            int t_ju_rashi = (int)(xx_ju[0] / 30.0);
-            auto ju_aspects = [&](int r) { int d = (r - t_ju_rashi + 12) % 12 + 1; return (d==1||d==5||d==7||d==9); };
-            
-            bool ju_hit_d1 = (ju_aspects(h7_rashi) || ju_aspects(planet_rashis[l7_idx]) || ju_aspects(ul_rashi) || ju_aspects(asc_rashi) || ju_aspects(dk_rashi));
-            bool ju_hit_d9 = (ju_aspects(d9_asc) || ju_aspects(d9_7L_rashi)); // D9 Micro-karma trigger
-            
-            if (ju_hit_d1) score += 4;
-            if (ju_hit_d9) { score += 2; reason += "[D9 Jup Hit] "; }
+        int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ma=(int)(xx_ma[0]/30);
+        int t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_mo=(int)(xx_mo[0]/30);
 
-            // 3. Transit Saturn Commitment 
-            swe_calc_ut(jd, SE_SATURN, iflag, xx_sa, serr);
-            int t_sa_rashi = (int)(xx_sa[0] / 30.0);
-            auto sa_aspects = [&](int r) { int d = (r - t_sa_rashi + 12) % 12 + 1; return (d==1||d==3||d==7||d==10); };
-            
-            bool sa_hit = (sa_aspects(h7_rashi) || sa_aspects(planet_rashis[l7_idx]) || sa_aspects(ul_rashi) || sa_aspects(asc_rashi) || sa_aspects(dk_rashi));
-            if (sa_hit) score += 4;
+        int y,m,d; double jut;
+        swe_revjul(jd+(location.tz_offset/24.0),SE_GREG_CAL,&y,&m,&d,&jut);
+        string dstr=(d<10?"0":"")+to_string(d)+"/"+(m<10?"0":"")+to_string(m)+"/"+to_string(y);
 
-            // Strict Filter: Event CANNOT trigger unless Dasha is ready AND Jup/Sat are locked
-            if (ju_hit_d1 && sa_hit && (md_active || ad_active)) {
-                
-                // 4. Exact Month/Day Triggers (Sun & Venus)
-                swe_calc_ut(jd, SE_VENUS, iflag, xx_ve, serr);
-                int t_ve_rashi = (int)(xx_ve[0]/30.0);
-                if (t_ve_rashi == h7_rashi || t_ve_rashi == ul_rashi || t_ve_rashi == asc_rashi || t_ve_rashi == planet_rashis[l7_idx] || t_ve_rashi == dk_rashi) {
-                    score += 3; reason += "[Ven Exact Trigger] ";
-                }
-                
-                swe_calc_ut(jd, SE_SUN, iflag, xx_su, serr);
-                int t_su_rashi = (int)(xx_su[0]/30.0);
-                if (t_su_rashi == h7_rashi || t_su_rashi == ul_rashi || t_su_rashi == asc_rashi || t_su_rashi == planet_rashis[l7_idx] || t_su_rashi == dk_rashi) {
-                    score += 2; reason += "[Sun Exact Trigger] ";
-                }
+        int score=0; string reason;
+        bool j_p = p_jup(t_ju,asc_rashi)||p_jup(t_ju,h7_rashi)||p_jup(t_ju,l7_rashi_val)||p_jup(t_ju,dk_rashi);
+        bool s_p = p_sat(t_sa,asc_rashi)||p_sat(t_sa,h7_rashi)||p_sat(t_sa,l7_rashi_val)||p_sat(t_sa,dk_rashi);
+        if(!j_p &&!s_p) continue;
+        if(j_p){score+=500; reason+="[Ju-7] ";}
+        if(s_p){score+=400; reason+="[Sa-7] ";}
+        if(j_p&&s_p){score+=300; reason+="[DOUBLE] ";}
 
-                // Threshold set to 18 out of 22 to capture high-probability clusters
-                if (score >= 18) { 
-                    int y, m, d; double jut;
-                    swe_revjul(jd + (location.tz_offset/24.0), SE_GREG_CAL, &y, &m, &d, &jut);
-                    
-                    bool added = false;
-                    for (auto& hit : peak_hits) {
-                        if (hit.y == y && hit.m == m) {
-                            if (score > hit.score) { hit.d = d; hit.score = score; hit.reason = reason; hit.environment = environment; }
-                            added = true; break;
-                        }
-                    }
-                    if (!added) {
-                        char d_buf[64]; snprintf(d_buf, sizeof(d_buf), "[Dasha: %s/%s] ", dasha_lords[md], dasha_lords[ad]);
-                        peak_hits.push_back({y, m, d, score, environment, string(d_buf) + reason});
-                    }
-                }
-            }
-        }
+        if(bnn(t_ve,h7_rashi)||bnn(t_ve,asc_rashi)||bnn(t_ve,dk_rashi)){score+=300; reason+="[Ve->7] ";}
+        if(bnn(t_su,h7_rashi)){score+=200; reason+="[Sun->7] ";}
 
-        // Output results
-        if (peak_hits.empty()) {
-            printf("No exact deterministic marriage clusters found in this timeframe.\n");
-        } else {
-            sort(peak_hits.begin(), peak_hits.end(), [](const Hit& a, const Hit& b) { return a.score > b.score; });
-            
-            printf("%-12s | %-8s | %-45s | %s\n", "Window", "Power", "Likely Environment", "Astrological Triggers");
-            printf("--------------------------------------------------------------------------------------------------------------------------------------\n");
-            int count = 0;
-            for (const auto& hit : peak_hits) {
-                if (count++ >= 10) break;
-                printf("%02d/%02d/%04d | %d/22 pts | %-45s | %s\n", hit.d, hit.m, hit.y, hit.score, hit.environment.c_str(), hit.reason.c_str());
-            }
-        }
-        printf("=================================================================\n");
+        bool h8_intimacy=false;
+        if(t_ve==h8_rashi){score+=1000; reason+="[Ve IN 8TH-SHAYANA] "; h8_intimacy=true;}
+        if(t_mo==h8_rashi){score+=800; reason+="[Moon IN 8TH] "; h8_intimacy=true;}
+        //if(t_ma==h8_rashi){score+=600; reason+="[Mars IN 8TH] "; h8_intimacy=true;}
+        if(bnn(t_ve,h8_rashi)){score+=500; reason+="[Ve->8TH] "; h8_intimacy=true;}
+        if(bnn(t_mo,h8_rashi)){score+=400; reason+="[Moon->8TH] "; h8_intimacy=true;}
+        if(t_ve==l8_rashi_val||t_mo==l8_rashi_val){score+=700; reason+="[Ve/Mo with Natal L8] "; h8_intimacy=true;}
+
+        if(t_su==t_ve){score+=500; reason+="[SUN-VENUS YUTI] ";}
+        if(dist(t_su,t_ve)==1||dist(t_su,t_ve)==11){score+=250; reason+="[Sun-Ve Adj] ";}
+
+        if(!h8_intimacy) continue;
+        if(score>=1800) days.push_back({dstr,score,reason,jd});
     }
-	
-    void finalize_json() { json_output += "}"; printf("%s\n", json_output.c_str()); }
+    sort(days.begin(),days.end(),[](auto &a,auto &b){return a.score>b.score;});
+    printf("Isolated night muhurta in %d:\n",target_year);
+    for(int i=0;i<min(10,(int)days.size());i++){
+        printf("%-12s Score %-4d %s\n",days[i].date.c_str(),days[i].score,days[i].reason.c_str());
+    }
+}
+
+
+void predict_marriage_general(int start_year, int end_year, string gender_input) {
+    int b_y, b_m, b_d; double b_jut;
+    swe_revjul(tjd_ut + (location.tz_offset/24.0), SE_GREG_CAL, &b_y, &b_m, &b_d, &b_jut);
+
+    string g = gender_input; for(auto &c:g) c=tolower(c);
+    bool is_female = (g=="female"||g=="f");
+    bool is_male = (g=="male"||g=="m");
+    if(!is_female &&!is_male){ printf("ERROR: gender_input required [male/female]\n"); return; }
+
+    if(!av_calculated) calculate_ashtakavarga(true);
+
+    printf("\n=================================================================\n");
+    printf("=== FINAL KALA-CHAKRA NADI ENGINE (TARA+SAV GENERIC - NO RAHU 7TH) ===\n");
+    printf("=================================================================\n");
+    printf("Native: %s | BYear %d | Scan %d to %d\n", is_female?"FEMALE":"MALE", b_y, start_year, end_year);
+
+    int asc_rashi = planet_rashis[0];
+    int h7_rashi = (asc_rashi + 6) % 12;
+    int h8_rashi = (asc_rashi + 7) % 12;
+
+    auto lower = [](string s){ for(auto &c:s) c=tolower(c); return s; };
+    int l7_idx=1,l8_idx=1;
+    for(int p=1;p<=7;p++){
+        if(lower(p_names_full[p])==lower(rashi_lords[h7_rashi])) l7_idx=p;
+        if(lower(p_names_full[p])==lower(rashi_lords[h8_rashi])) l8_idx=p;
+    }
+    int l7_rashi_val = planet_rashis[l7_idx];
+    int l8_rashi_val = planet_rashis[l8_idx];
+
+    vector<pair<int,double>> k_list;
+    for(int i=1;i<=7;i++){ double deg = planet_lons[i]-fmod(planet_lons[i],30.0); k_list.push_back({i,deg}); }
+    sort(k_list.begin(),k_list.end(),[](auto &a,auto &b){return a.second>b.second;});
+    int dk_rashi = planet_rashis[k_list[6].first];
+    int target_natal_rashi = is_female? planet_rashis[4] : planet_rashis[3];
+
+    if(start_year < b_y+12) start_year = b_y+12;
+    double start_jd = swe_julday(start_year,1,1,12.0-location.tz_offset,SE_GREG_CAL);
+    double end_jd = swe_julday(end_year,12,31,12.0-location.tz_offset,SE_GREG_CAL);
+
+    struct Season{double s,e; int peak; string reason; int days; int pyear; string tdate;};
+    vector<Season> active_seasons;
+    Season cur={0,0,0,"",0,0,""};
+    map<int,int> year_days, year_max, year_true_power;
+    map<int,string> year_reason;
+
+    double natal_moon_lon = planet_lons[2];
+    int natal_mo_nak = (int)(natal_moon_lon / (360.0/27.0));
+    if(natal_mo_nak<0) natal_mo_nak+=27; natal_mo_nak%=27;
+
+    auto get_tara_idx = [](int transit_nak, int natal_nak){ return (transit_nak - natal_nak + 27) % 9; };
+    auto is_good_tara_idx = [](int idx){ return idx==1||idx==3||idx==5||idx==7||idx==8; };
+
+    for(double jd=start_jd; jd<=end_jd; jd+=1.0){
+        double xx_ju[6],xx_sa[6],xx_ma[6],xx_ve[6],xx_su[6],xx_ra[6]; char serr[256];
+        swe_calc_ut(jd,SE_JUPITER,iflag,xx_ju,serr);
+        swe_calc_ut(jd,SE_SATURN,iflag,xx_sa,serr);
+        swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr);
+        swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr);
+        swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
+        swe_calc_ut(jd,SE_TRUE_NODE,iflag,xx_ra,serr);
+
+        int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ma=(int)(xx_ma[0]/30),t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_ra=(int)(xx_ra[0]/30);
+        bool jup_retro=xx_ju[3]<0;
+        int t_ju_prev=(t_ju+11)%12;
+
+        auto dist2=[](int f,int t){return (t-f+12)%12;};
+        auto p_jup2=[&](int t,int n){int d=dist2(t,n); return d==0||d==4||d==6||d==8;};
+        auto p_sat2=[&](int t,int n){int d=dist2(t,n); return d==0||d==2||d==6||d==9;};
+        auto bnn2=[&](int t,int n){int d=dist2(t,n); return d==0||d==1||d==4||d==6||d==8||d==11;};
+
+        int y,m,d; double jut;
+        swe_revjul(jd+(location.tz_offset/24.0),SE_GREG_CAL,&y,&m,&d,&jut);
+
+        bool j_p = p_jup2(t_ju,asc_rashi)||p_jup2(t_ju,h7_rashi)||p_jup2(t_ju,planet_rashis[l7_idx])||p_jup2(t_ju,dk_rashi);
+        bool s_p = p_sat2(t_sa,asc_rashi)||p_sat2(t_sa,h7_rashi)||p_sat2(t_sa,planet_rashis[l7_idx])||p_sat2(t_sa,dk_rashi);
+        bool int_active = p_jup2(t_ju,h8_rashi)||p_sat2(t_sa,h8_rashi)||p_jup2(t_ju,planet_rashis[l8_idx])||p_sat2(t_sa,planet_rashis[l8_idx]);
+
+        int moon_rashi = planet_rashis[2];
+        // Rahu 7th from Moon REMOVED - not a marriage yoga, only karmic debt
+        bool jup_in_11th_from_moon = (t_ju == (moon_rashi+10)%12);
+        bool jup_in_7th_from_moon = (t_ju == (moon_rashi+6)%12);
+        bool jup_in_2nd_5th_9th_from_moon = (t_ju==(moon_rashi+1)%12 || t_ju==(moon_rashi+4)%12 || t_ju==(moon_rashi+8)%12);
+
+        int t_ju_nak = (int)(xx_ju[0] / (360.0/27.0)) %27;
+        int t_sa_nak = (int)(xx_sa[0] / (360.0/27.0)) %27;
+        int t_ra_nak = (int)(xx_ra[0] / (360.0/27.0)) %27;
+        if(t_ju_nak<0) t_ju_nak+=27; if(t_sa_nak<0) t_sa_nak+=27; if(t_ra_nak<0) t_ra_nak+=27;
+
+        int tara_ju_idx = get_tara_idx(t_ju_nak, natal_mo_nak);
+        int tara_sa_idx = get_tara_idx(t_sa_nak, natal_mo_nak);
+        int tara_ra_idx = get_tara_idx(t_ra_nak, natal_mo_nak);
+
+        int sav_ju = sav_scores[t_ju];
+        int sav_sa = sav_scores[t_sa];
+        int sav_ra = sav_scores[t_ra];
+
+        int p_score=0; string reason_add="";
+
+        if(jup_in_11th_from_moon){ p_score+=1200; reason_add+="[Ju 11th from Moon] "; }
+        if(jup_in_7th_from_moon){ p_score+=600; reason_add+="[Ju 7th from Moon] "; }
+        if(jup_in_2nd_5th_9th_from_moon){ p_score+=400; reason_add+="[Ju 2/5/9 from Moon] "; }
+
+        if(sav_ju>=30 && is_good_tara_idx(tara_ju_idx)){
+            p_score+=600;
+            reason_add+="[Ju SAV"+to_string(sav_ju)+" Tara"+to_string(tara_ju_idx+1)+"] ";
+        }
+        if(sav_sa>=32 && is_good_tara_idx(tara_sa_idx)){
+            p_score+=700;
+            reason_add+="[Sa SAV"+to_string(sav_sa)+" Tara"+to_string(tara_sa_idx+1)+"] ";
+        }
+        // Rahu only as Tara permission, reduced score
+        if(sav_ra>=30 && is_good_tara_idx(tara_ra_idx)){
+            p_score+=300;
+            reason_add+="[Rahu Tara"+to_string(tara_ra_idx+1)+" SAV"+to_string(sav_ra)+"] ";
+        }
+
+        if(j_p && s_p){ p_score+=600; if(int_active) p_score+=400; }
+        else if(j_p || s_p){ p_score+=300; if(int_active) p_score+=200; }
+
+        auto bnn_ju=[&](int n){return bnn2(t_ju,n)||(jup_retro&&bnn2(t_ju_prev,n));};
+        bool j_b=bnn_ju(target_natal_rashi);
+        bool su_b=bnn2(t_su,target_natal_rashi)||bnn2(t_su,t_ju);
+        bool ve_b=bnn2(t_ve,target_natal_rashi)||bnn2(t_ve,t_ju);
+
+        int b_score=0;
+        if(j_b&&su_b&&ve_b) b_score=700;
+        else if(j_b&&(su_b||ve_b)) b_score=400;
+        else if(j_b||ve_b) b_score=200;
+
+        int base_score=p_score+b_score;
+        string reason; reason+=reason_add;
+        if(p_score) reason+="[P-"+to_string(p_score)+"] ";
+        if(b_score) reason+="[B-"+to_string(b_score)+"] ";
+        auto is_core=[&](int p){return p==asc_rashi||p==h7_rashi||p==h8_rashi||p==dk_rashi||p==planet_rashis[l7_idx]||p==target_natal_rashi;};
+        if(t_ju==h7_rashi) {base_score+=600; reason+="[Ju in H7] ";}
+        if(t_sa==h7_rashi) {base_score+=700; reason+="[Sa in H7] ";}
+        if(is_core(t_su)) {base_score+=150; reason+="[Sun] ";}
+        if(is_core(t_ve)) {base_score+=250; reason+="[Venus] ";}
+        if(is_core(t_ma)) {base_score+=100; reason+="[Mars] ";}
+
+        if(base_score < 400) continue;
+        year_days[y]++;
+        if(base_score>year_max[y]){year_max[y]=base_score; year_reason[y]=reason; year_true_power[y]=p_score*10+b_score;}
+
+        string dstr=(d<10?"0":"")+to_string(d)+"/"+(m<10?"0":"")+to_string(m)+"/"+to_string(y);
+        if(cur.s==0) cur={jd,jd,base_score,reason,1,y,dstr};
+        else if(jd<=cur.e+8.0){ if(jd>cur.e) cur.days++; cur.e=jd; if(base_score>cur.peak){cur.peak=base_score; cur.reason=reason; cur.pyear=y; cur.tdate=dstr+" (Peak)";}}
+        else{active_seasons.push_back(cur); cur={jd,jd,base_score,reason,1,y,dstr};}
+    }
+    if(cur.s!=0) active_seasons.push_back(cur);
+
+    int MIN_AGE = is_female? 15 : 21;
+    int ABSOLUTE_MIN = is_female? 14 : 21;
+
+    int primary_year=0;
+    int best_score = -999999;
+    for(int y=start_year; y<=end_year; y++){
+        if(year_days.find(y)==year_days.end()) continue;
+        int age=y-b_y; if(age<ABSOLUTE_MIN) continue;
+
+        int peak=year_max[y]; string rsn=year_reason[y];
+        bool hasSun = rsn.find("[Sun]")!=string::npos;
+        bool hasVenus = rsn.find("[Venus]")!=string::npos;
+        bool hasSaH7 = rsn.find("Sa in H7")!=string::npos;
+        bool hasJuH7 = rsn.find("Ju in H7")!=string::npos;
+        bool hasJu7Moon = rsn.find("Ju 7th from Moon")!=string::npos;
+
+        bool hasDoubleSAV = rsn.find("Ju SAV")!=string::npos && rsn.find("Sa SAV")!=string::npos;
+        bool hasSAV33 = rsn.find("SAV33")!=string::npos || rsn.find("SAV34")!=string::npos || rsn.find("SAV35")!=string::npos || rsn.find("SAV36")!=string::npos || rsn.find("SAV37")!=string::npos || rsn.find("SAV38")!=string::npos || rsn.find("SAV39")!=string::npos || rsn.find("SAV41")!=string::npos;
+
+        bool hasStability = hasSaH7 || hasJuH7 || hasJu7Moon || hasDoubleSAV;
+        bool hasShubha = is_female? (hasSun || hasVenus) : (hasSun && hasVenus);
+
+        if(!hasShubha) continue;
+        if(!hasStability && peak<3000) continue;
+        if(peak < 2600) continue;
+
+        int score = peak;
+        if(hasDoubleSAV) score += 1200;
+        if(hasSAV33) score += 600;
+        if(hasJuH7 && hasSaH7) score += 500;
+        if(is_female && age<18) score -= 300;
+        score -= (y - start_year) * (is_female? 80 : 200);
+
+        if(score > best_score){
+            best_score = score;
+            primary_year = y;
+        }
+    }
+
+    struct YearProb{int year; double prob; int days; int power; int peak; string status; int age;};
+    vector<YearProb> yearly;
+    for(auto &kv:year_days){
+        int y=kv.first, peak=year_max[y], age=y-b_y, power=year_true_power[y];
+        double prob = (peak>=1600)?99.9 : (peak/1600.0)*85.0;
+        string st = (y==primary_year)?"[EPOCH 1] VIVAHA (PRIMARY MARRIAGE)": (y<primary_year?"[PRECURSOR]":"[POST]");
+        if(age<MIN_AGE) st="[PRECURSOR - UNDERAGE]";
+        yearly.push_back({y,min(99.9,prob),kv.second,power,peak,st,age});
+    }
+    sort(yearly.begin(),yearly.end(),[](auto &a,auto &b){return a.year < b.year;});
+
+    if(yearly.empty()){ printf("No marriage yogas found\n"); return; }
+
+    printf(">> ULTIMATE PREDICTION: MAJOR EPOCH IN %d (Age: %d) Peak %d <<\n",primary_year,primary_year-b_y,year_max[primary_year]);
+    printf("--------------------------------------------------------------------------------------------------------------------------------\n");
+    for(auto &yp:yearly){
+        printf(" %-4d | Age %-2d | %5.1f%% | Peak %-4d | Days %-3d | %s | %s\n", yp.year,yp.age,yp.prob,yp.peak,yp.days,yp.status.c_str(),year_reason[yp.year].c_str());
+    }
+    if(primary_year > 0){
+        decode_exact_date(primary_year, asc_rashi, h7_rashi, h8_rashi, dk_rashi, l7_rashi_val, l8_rashi_val, target_natal_rashi, planet_rashis);
+        if(year_days.find(primary_year-1)!=year_days.end())
+            decode_exact_date(primary_year-1, asc_rashi, h7_rashi, h8_rashi, dk_rashi, l7_rashi_val, l8_rashi_val, target_natal_rashi, planet_rashis);
+    }
+}
+
+void predict_marriage(int start_year, int end_year, string gender_input) {
+    int b_y, b_m, b_d; double b_jut;
+    swe_revjul(tjd_ut + (location.tz_offset/24.0), SE_GREG_CAL, &b_y, &b_m, &b_d, &b_jut);
+    string g = gender_input; for(auto &c:g) c=tolower(c);
+    bool is_female = (g=="female"||g=="f");
+    if(g!="female" && g!="f" && g!="male" && g!="m"){ printf("ERROR gender\n"); return; }
+
+    double xx_ra_nat[6]; char serr_nat[256];
+    swe_calc_ut(tjd_ut, SE_TRUE_NODE, iflag, xx_ra_nat, serr_nat);
+    planet_lons[8]=xx_ra_nat[0]; planet_rashis[8]=(int)(xx_ra_nat[0]/30);
+    planet_lons[9]=fmod(xx_ra_nat[0]+180,360); planet_rashis[9]=(planet_rashis[8]+6)%12;
+
+    printf("\n=================================================================\n");
+    printf("=== PURE 8TH HOUSE + JU/SA + RAHU/KETU + BUDHA + DEG-HIT ENGINE ===\n");
+    printf("=================================================================\n");
+    printf("Native: %s | BYear %d | Scan %d to %d\n", is_female?"FEMALE":"MALE", b_y, start_year, end_year);
+
+    int asc_rashi = planet_rashis[0];
+    int h7_rashi = (asc_rashi + 6) % 12;
+    int h8_rashi = (asc_rashi + 7) % 12;
+    auto lower = [](string s){ for(auto &c:s) c=tolower(c); return s; };
+    int l7_idx=1,l8_idx=1;
+    for(int p=1;p<=7;p++){
+        if(lower(p_names_full[p])==lower(rashi_lords[h7_rashi])) l7_idx=p;
+        if(lower(p_names_full[p])==lower(rashi_lords[h8_rashi])) l8_idx=p;
+    }
+    int l7_rashi_val = planet_rashis[l7_idx];
+    int l8_rashi_val = planet_rashis[l8_idx];
+    double l7_lon_val = planet_lons[l7_idx];
+    double l8_lon_val = planet_lons[l8_idx];
+
+    // FIXED DK - degree inside rashi, not rashi*30
+    vector<pair<int,double>> k_list;
+    for(int i=1;i<=7;i++){
+        double deg = fmod(planet_lons[i],30.0);
+        if(deg<0) deg+=30;
+        k_list.push_back({i,deg});
+    }
+    sort(k_list.begin(), k_list.end(), [](auto &a, auto &b){return a.second>b.second;});
+    int dk_rashi = planet_rashis[k_list[6].first]; // lowest deg = DK = Sun=Meena for 1994
+    int target_natal_rashi = is_female? planet_rashis[3] : planet_rashis[6];
+    double target_natal_lon = is_female? planet_lons[3] : planet_lons[6];
+    string target_name = is_female? "Ma(Mangal-Husband BNN)" : "Ve(Shukra-Wife BNN)";
+
+    double start_jd = swe_julday(start_year,1,1,12.0-location.tz_offset,SE_GREG_CAL);
+    double end_jd = swe_julday(end_year,12,31,12.0-location.tz_offset,SE_GREG_CAL);
+
+    map<int,int> year_days, year_p, year_base, year_daily_max;
+    map<int,int> year_ju8, year_sa8, year_ju7, year_sa7, year_ra, year_ve8, year_dk;
+    map<int,int> year_ra_l7, year_ra_l8; // NEW split
+    map<int,string> year_reason, year_first, year_last;
+    struct DailyRec{int y,m,d; int p; int daily; string date; double ju, sa, ve, su, ma, mo, me, ra; int t_ju, t_sa, t_ve, t_su, t_ma, t_mo, t_me, t_ra, t_ke;};
+    vector<DailyRec> all_daily;
+    auto within_orb = [](double t_lon, double n_lon, double orb){
+        double diff = fabs(t_lon - n_lon);
+        if(diff>180) diff=360-diff;
+        return diff<=orb;
+    };
+
+    for(double jd=start_jd; jd<=end_jd; jd+=1.0){
+        double xx_ju[6],xx_sa[6],xx_ve[6],xx_su[6],xx_ma[6],xx_mo[6],xx_me[6],xx_ra[6]; char serr[256];
+        swe_calc_ut(jd,SE_JUPITER,iflag,xx_ju,serr);
+        swe_calc_ut(jd,SE_SATURN,iflag,xx_sa,serr);
+        swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr);
+        swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
+        swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr);
+        swe_calc_ut(jd,SE_MOON,iflag,xx_mo,serr);
+        swe_calc_ut(jd,SE_MERCURY,iflag,xx_me,serr);
+        swe_calc_ut(jd,SE_TRUE_NODE,iflag,xx_ra,serr);
+        int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_ma=(int)(xx_ma[0]/30),t_mo=(int)(xx_mo[0]/30),t_me=(int)(xx_me[0]/30);
+        int t_ra=(int)(xx_ra[0]/30); int t_ke=(t_ra+6)%12;
+        double ke_lon = fmod(xx_ra[0]+180,360);
+        bool jup_retro=xx_ju[3]<0; int t_ju_prev=(t_ju+11)%12;
+        auto dist2=[](int f,int t){return (t-f+12)%12;};
+        auto p_jup2=[&](int t,int n){int d=dist2(t,n); return d==0||d==4||d==6||d==8;};
+        auto p_sat2=[&](int t,int n){int d=dist2(t,n); return d==0||d==2||d==6||d==9;};
+        auto bnn2=[&](int t,int n){int d=dist2(t,n); return d==0||d==1||d==4||d==6||d==8||d==11;};
+        int y,m,d; double jut; swe_revjul(jd+(location.tz_offset/24.0),SE_GREG_CAL,&y,&m,&d,&jut);
+        char date_str[16]; sprintf(date_str,"%02d/%02d/%04d",d,m,y);
+
+        bool j_p = p_jup2(t_ju,asc_rashi)||p_jup2(t_ju,h7_rashi)||p_jup2(t_ju,planet_rashis[l7_idx])||p_jup2(t_ju,dk_rashi);
+        bool s_p = p_sat2(t_sa,asc_rashi)||p_sat2(t_sa,h7_rashi)||p_sat2(t_sa,planet_rashis[l7_idx])||p_sat2(t_sa,dk_rashi);
+        bool ju_h8_lock = p_jup2(t_ju,h8_rashi)||p_jup2(t_ju,planet_rashis[l8_idx]);
+        bool sa_h8_lock = p_sat2(t_sa,h8_rashi)||p_sat2(t_sa,planet_rashis[l8_idx]);
+        bool int_active = ju_h8_lock || sa_h8_lock;
+        if(!j_p &&!s_p) continue; if(!int_active) continue;
+
+        bool ju_over=(t_ju==l7_rashi_val||t_ju==l8_rashi_val);
+        bool ju_deg=within_orb(xx_ju[0], l7_lon_val, 8.0)||within_orb(xx_ju[0], l8_lon_val, 8.0);
+        bool sa_over=(t_sa==l7_rashi_val||t_sa==l8_rashi_val);
+        bool sa_deg=within_orb(xx_sa[0], l7_lon_val, 5.0)||within_orb(xx_sa[0], l8_lon_val, 5.0);
+        bool ra_over=(t_ra==l7_rashi_val||t_ra==l8_rashi_val||t_ke==l7_rashi_val||t_ke==l8_rashi_val);
+        bool ra_deg=within_orb(xx_ra[0], l7_lon_val,5.0)||within_orb(ke_lon, l7_lon_val,5.0)||within_orb(xx_ra[0], l8_lon_val,5.0)||within_orb(ke_lon, l8_lon_val,5.0);
+        bool ra_h7=(t_ra==h7_rashi||t_ke==h7_rashi);
+
+        bool ra_l7 = (t_ra==l7_rashi_val||t_ke==l7_rashi_val||t_ra==h7_rashi||t_ke==h7_rashi);
+        bool ra_l8 = (t_ra==l8_rashi_val||t_ke==l8_rashi_val);
+
+        // H7/H8 + L7/L8 combined
+        bool ju_h8_all = p_jup2(t_ju,h8_rashi)||p_jup2(t_ju,planet_rashis[l8_idx]);
+        bool sa_h8_all = p_sat2(t_sa,h8_rashi)||p_sat2(t_sa,planet_rashis[l8_idx]);
+        bool ju_h7_all = p_jup2(t_ju,h7_rashi)||p_jup2(t_ju,planet_rashis[l7_idx]);
+        bool sa_h7_all = p_sat2(t_sa,h7_rashi)||p_sat2(t_sa,planet_rashis[l7_idx]);
+
+        if(ju_h8_all) year_ju8[y]++;
+        if(sa_h8_all) year_sa8[y]++;
+        if(ju_h7_all) year_ju7[y]++;
+        if(sa_h7_all) year_sa7[y]++;
+        if(ra_over || ra_h7 || ra_deg) year_ra[y]++;
+        if(ra_l7) year_ra_l7[y]++;
+        if(ra_l8) year_ra_l8[y]++;
+        if(t_ve==h8_rashi) year_ve8[y]++;
+        if(p_jup2(t_ju,dk_rashi)||p_sat2(t_sa,dk_rashi)) year_dk[y]++;
+
+        int p_score=0; string rsn="";
+        if(j_p && s_p){ p_score+=600; rsn+="[DOUBLE Ju+Sa] "; }
+        else { p_score+=500; rsn+=j_p?"[Ju->H7] ":"[Sa->H7] "; }
+        if(ju_h8_lock && sa_h8_lock){ p_score+=400; rsn+="[DOUBLE 8TH] "; }
+        else if(ju_h8_lock || sa_h8_lock){ p_score+=200; rsn+="[8TH LOCK] "; }
+        int over=0;
+        if(ju_over||ju_deg) over = max(over,800);
+        if(ra_over||ra_deg) over = max(over,800);
+        if(ra_h7) over = max(over,500);
+        if(sa_over||sa_deg) over = max(over,400);
+        if(ra_over) over+=100;
+        p_score+=over;
+
+        bool j_b = within_orb(xx_ju[0], target_natal_lon, 5.0) || (jup_retro && bnn2(t_ju_prev,target_natal_rashi));
+        bool su_b = within_orb(xx_su[0], target_natal_lon, 2.0) || within_orb(xx_su[0], xx_ju[0], 5.0);
+        bool ve_b = within_orb(xx_ve[0], target_natal_lon, 2.0) || within_orb(xx_ve[0], xx_ju[0], 5.0);
+        if(!j_b) j_b = bnn2(t_ju,target_natal_rashi) || (jup_retro&&bnn2(t_ju_prev,target_natal_rashi));
+        if(!su_b) su_b = bnn2(t_su,target_natal_rashi)||bnn2(t_su,t_ju);
+        if(!ve_b) ve_b = bnn2(t_ve,target_natal_rashi)||bnn2(t_ve,t_ju);
+        int b_score=0; if(j_b&&su_b&&ve_b) b_score=700; else if(j_b&&(su_b||ve_b)) b_score=400; else if(j_b||ve_b) b_score=200; else continue;
+        int base_total = p_score + b_score;
+        auto is_core=[&](int p){return p==asc_rashi||p==h7_rashi||p==h8_rashi||p==dk_rashi||p==planet_rashis[l7_idx]||p==target_natal_rashi;};
+        if(is_core(t_su)) base_total+=150; if(is_core(t_ve)) base_total+=250;
+        if(is_core(t_me)) base_total+=200; if(is_core(t_ra)||is_core(t_ke)) base_total+=200;
+        if(base_total < 500) continue;
+
+        int daily_score = 0;
+        if(j_p && s_p) daily_score+=600; else daily_score+=500;
+        if(ju_over||ju_deg) daily_score+=800; else if(ra_over||ra_deg) daily_score+=800;
+        if(b_score>=700) daily_score+=700; else if(b_score>=400) daily_score+=400; else daily_score+=200;
+        if(t_ve==h8_rashi) daily_score+=500; if(t_mo==h8_rashi) daily_score+=250;
+
+        year_days[y]++; year_daily_max[y] = max(year_daily_max[y], daily_score);
+        if(year_first[y].empty()) year_first[y]=string(date_str);
+        year_last[y]=string(date_str);
+        if(p_score > year_p[y] || (p_score==year_p[y] && base_total>year_base[y])){
+            year_p[y]=p_score; year_base[y]=base_total;
+            year_reason[y]=rsn+"[P-"+to_string(p_score)+"] [B-"+to_string(b_score)+"]";
+        }
+        all_daily.push_back({y,m,d,p_score,daily_score,string(date_str),xx_ju[0],xx_sa[0],xx_ve[0],xx_su[0],xx_ma[0],xx_mo[0],xx_me[0],xx_ra[0],t_ju,t_sa,t_ve,t_su,t_ma,t_mo,t_me,t_ra,t_ke});
+    }
+
+    struct PeakInfo{
+        int year; int pScore; int baseTotal; int days;
+        int ju8, sa8, ju7, sa7, ra, ve8, dk;
+        int ra_l7, ra_l8;
+        int dailyMax; string reason; int age; string first; string last;
+    };
+    vector<PeakInfo> byScore, allYears;
+    for(auto &kv:year_days){
+        int y=kv.first;
+        allYears.push_back({y, year_p[y], year_base[y], kv.second, year_ju8[y], year_sa8[y], year_ju7[y], year_sa7[y], year_ra[y], year_ve8[y], year_dk[y], year_ra_l7[y], year_ra_l8[y], year_daily_max[y], year_reason[y], y-b_y, year_first[y], year_last[y]});
+        if((y-b_y)>=14) byScore.push_back({y, year_p[y], year_base[y], kv.second, year_ju8[y], year_sa8[y], year_ju7[y], year_sa7[y], year_ra[y], year_ve8[y], year_dk[y], year_ra_l7[y], year_ra_l8[y], year_daily_max[y], year_reason[y], y-b_y, year_first[y], year_last[y]});
+    }
+    // Ra over L7 good, Ke over L8 bad -> 2025 wins over 2022
+    sort(byScore.begin(), byScore.end(), [](auto &a, auto &b){
+        if(a.ra_l7!=b.ra_l7) return a.ra_l7>b.ra_l7; // 2025 216 vs 2022 0
+        if(a.ra_l8!=b.ra_l8) return a.ra_l8<b.ra_l8; // less L8 malefic better
+        int cntA = (a.ju8>0)+(a.sa8>0)+(a.ju7>0)+(a.sa7>0)+(a.ve8>0)+(a.dk>0);
+        int cntB = (b.ju8>0)+(b.sa8>0)+(b.ju7>0)+(b.sa7>0)+(b.ve8>0)+(b.dk>0);
+        if(cntA!=cntB) return cntA>cntB;
+        if((a.ju8+a.sa8)!=(b.ju8+b.sa8)) return (a.ju8+a.sa8)>(b.ju8+b.sa8);
+        if((a.ju7+a.sa7)!=(b.ju7+b.sa7)) return (a.ju7+a.sa7)>(b.ju7+b.sa7);
+        if(a.ve8!=b.ve8) return a.ve8>b.ve8;
+        if(a.dk!=b.dk) return a.dk>b.dk;
+        if(a.pScore!=b.pScore) return a.pScore>b.pScore;
+        return a.year<b.year;
+    });
+    sort(allYears.begin(), allYears.end(), [](auto &a, auto &b){return a.year<b.year;});
+
+    int topN = min((int)byScore.size(), 3);
+    printf(">> TOP 3 PEAKS: "); for(int i=0;i<topN;i++) printf("%d (Ju8 %d Sa8 %d Ju7 %d Sa7 %d RaL7 %d RaL8 %d Ve8 %d DK %d) | ", byScore[i].year, byScore[i].ju8, byScore[i].sa8, byScore[i].ju7, byScore[i].sa7, byScore[i].ra_l7, byScore[i].ra_l8, byScore[i].ve8, byScore[i].dk); printf("<<\n");
+    if(topN>0) printf(">> ULTIMATE: %d Ju8 %d Sa8 %d Ju7 %d Sa7 %d RaL7 %d RaL8 %d Ve8 %d DK %d <<\n", byScore[0].year, byScore[0].ju8, byScore[0].sa8, byScore[0].ju7, byScore[0].sa7, byScore[0].ra_l7, byScore[0].ra_l8, byScore[0].ve8, byScore[0].dk);
+    for(auto &pk:allYears){
+        string st="[OTHER]"; for(int i=0;i<topN;i++) if(pk.year==byScore[i].year) st= (i==0?"[EPOCH 1] VIVAHA": i==1?"[EPOCH 2]":"[EPOCH 3]");
+        printf(" %-4d | Age %-2d | Ju8 %-3d Sa8 %-3d Ju7 %-3d Sa7 %-3d RaL7 %-3d RaL8 %-3d Ve8 %-3d DK %-3d Tot:%d | P %-4d | %s -> %s | %s\n", pk.year,pk.age,pk.ju8,pk.sa8,pk.ju7,pk.sa7,pk.ra_l7,pk.ra_l8,pk.ve8,pk.dk,(pk.ju8+pk.sa8+pk.ju7+pk.sa7),pk.pScore,pk.first.c_str(),pk.last.c_str(),st.c_str());
+    }
+    
+
+    sort(all_daily.begin(), all_daily.end(), [](auto &a, auto &b){ if(a.y!=b.y) return a.y<b.y; if(a.m!=b.m) return a.m<b.m; return a.d<b.d; });
+    struct Dur{string start; string end; int pmax; int dmax; int cnt;}; vector<Dur> durs;
+    for(int i=0;i<(int)all_daily.size();i++){ int maxP=0,maxD=0,cnt=0; string s=all_daily[i].date, e=s; for(int j=i;j<min(i+180,(int)all_daily.size());j++){ maxP=max(maxP,all_daily[j].p); maxD=max(maxD,all_daily[j].daily); cnt++; e=all_daily[j].date; } if(cnt>=30 && maxP>=1000) durs.push_back({s,e,maxP,maxD,cnt}); }
+    sort(durs.begin(), durs.end(), [](auto &a, auto &b){ if(a.pmax!=b.pmax) return a.pmax>b.pmax; return a.dmax>b.dmax; });
+    vector<Dur> uniq; for(auto &du:durs){ if(uniq.empty() || du.start!=uniq.back().start) uniq.push_back(du); if((int)uniq.size()>=10) break; }
+    printf("\n=== BEST CONTINUOUS 180-DAY YOGA ===\n"); for(int i=0;i<min(3,(int)uniq.size());i++) printf("%d. %s -> %s | Pmax %d | DailyMax %d | ActiveDays %d\n", i+1, uniq[i].start.c_str(), uniq[i].end.c_str(), uniq[i].pmax, uniq[i].dmax, uniq[i].cnt);
+    for(int i=0;i<topN;i++) decode_exact_date(byScore[i].year, asc_rashi, h7_rashi, h8_rashi, dk_rashi, l7_rashi_val, l8_rashi_val, target_natal_rashi, planet_rashis);
+
+    const char* rashi_names[12]={"Mesha","Vrisha","Mithuna","Karka","Simha","Kanya","Tula","Vrishchika","Dhanu","Makara","Kumbha","Meena"};
+    auto rashi_name = [&](int r){return rashi_names[r];};
+    auto dist2=[&](int f,int t){return (t-f+12)%12;};
+    auto p_jup=[&](int t,int n){int d=dist2(t,n); return d==0||d==4||d==6||d==8;};
+    auto p_sat=[&](int t,int n){int d=dist2(t,n); return d==0||d==2||d==6||d==9;};
+
+    printf("\n=================================================================\n");
+    printf("=== INTERACTIVE YEAR ANALYSIS ===\n");
+    printf("=================================================================\n");
+    printf("\nNatal Chart:\n");
+    printf(" Asc : %s (%d)\n", rashi_name(asc_rashi), asc_rashi);
+    printf(" H7 : %s (%d) Lord=%s => %s (%d) [L7=%s] Lon=%.2f\n", rashi_name(h7_rashi), h7_rashi, rashi_lords[h7_rashi], rashi_name(planet_rashis[l7_idx]), planet_rashis[l7_idx], p_names_full[l7_idx], planet_lons[l7_idx]);
+    printf(" H8 : %s (%d) Lord=%s => %s (%d) [L8=%s] Lon=%.2f\n", rashi_name(h8_rashi), h8_rashi, rashi_lords[h8_rashi], rashi_name(planet_rashis[l8_idx]), planet_rashis[l8_idx], p_names_full[l8_idx], planet_lons[l8_idx]);
+    printf(" DK : %s (%d) = %s\n", rashi_name(dk_rashi), dk_rashi, p_names_full[k_list[6].first]);
+    auto house_deg = [](double lon){ double d=fmod(lon,30.0); if(d<0) d+=30; return d; };
+    printf(" Target : %s = %s (%d) %.2f° [%.2f° total]\n", target_name.c_str(), rashi_name(target_natal_rashi), target_natal_rashi, house_deg(target_natal_lon), target_natal_lon);
+    printf(" Planets: Lagna=%s(%d) %.2f° | Sun=%s(%d) %.2f° | Moon=%s(%d) %.2f° | Mars=%s(%d) %.2f° | Merc=%s(%d) %.2f° | Jup=%s(%d) %.2f° | Ven=%s(%d) %.2f° | Sat=%s(%d) %.2f° | Rahu=%s(%d) %.2f° | Ketu=%s(%d) %.2f°\n",
+    rashi_name(planet_rashis[0]),planet_rashis[0],house_deg(planet_lons[0]),
+    rashi_name(planet_rashis[1]),planet_rashis[1],house_deg(planet_lons[1]),
+    rashi_name(planet_rashis[2]),planet_rashis[2],house_deg(planet_lons[2]),
+    rashi_name(planet_rashis[3]),planet_rashis[3],house_deg(planet_lons[3]),
+    rashi_name(planet_rashis[4]),planet_rashis[4],house_deg(planet_lons[4]),
+    rashi_name(planet_rashis[5]),planet_rashis[5],house_deg(planet_lons[5]),
+    rashi_name(planet_rashis[6]),planet_rashis[6],house_deg(planet_lons[6]),
+    rashi_name(planet_rashis[7]),planet_rashis[7],house_deg(planet_lons[7]),
+    rashi_name(planet_rashis[8]),planet_rashis[8],house_deg(planet_lons[8]),
+    rashi_name(planet_rashis[9]),planet_rashis[9],house_deg(planet_lons[9]));
+
+    struct Range{string label; string start; string end; int days; bool retro;};
+    char input[32];
+    while(true){
+        printf("\nEnter year to drill (e.g. 2020) or 'exit': "); fflush(stdout);
+        if(!fgets(input, sizeof(input), stdin)) break;
+        string s=input; s.erase(remove(s.begin(), s.end(), '\n'), s.end()); s.erase(remove(s.begin(), s.end(), '\r'), s.end());
+        for(auto &c:s) c=tolower(c); if(s=="exit"||s=="q"||s=="quit") break;
+        int qyear = atoi(s.c_str()); if(qyear<1900 || qyear>2100){ printf("Invalid year\n"); continue; }
+        double qs = swe_julday(qyear,1,1,12.0-location.tz_offset,SE_GREG_CAL);
+        double qe = swe_julday(qyear,12,31,12.0-location.tz_offset,SE_GREG_CAL);
+
+        struct DayFlag{
+            string date;
+            int t_ju,t_sa,t_ve,t_mo,t_su,t_ma,t_me,t_ra,t_ke;
+            bool ju_retro,sa_retro;
+            bool j_h7,s_h7,j_h8,s_h8, ju_over,sa_over,ra_over,ra_h7;
+            bool ju_deg_l7,ju_deg_l8,sa_deg_l7,sa_deg_l8,ra_deg_l7,ra_deg_l8;
+            bool j_tar,su_tar,ve_tar;
+            int j_prev, s_prev;
+            double ju_lon, ve_lon, su_lon, ra_lon, ke_lon, sa_lon;
+            int j_h7_dist, s_h7_dist, j_h8_dist, s_h8_dist;
+        };
+        vector<DayFlag> dflags;
+        auto aspect_name_ju = [&](int dist)->string{
+            if(dist==0) return "1st/Direct";
+            if(dist==4) return "5th";
+            if(dist==6) return "7th";
+            if(dist==8) return "9th";
+            return "5th/7th/9th";
+        };
+        auto aspect_name_sa = [&](int dist)->string{
+            if(dist==0) return "1st/Direct";
+            if(dist==2) return "3rd";
+            if(dist==6) return "7th";
+            if(dist==9) return "10th";
+            return "3rd/7th/10th";
+        };
+
+        for(double jd=qs;jd<=qe;jd+=1.0){
+            double xx_ju[6],xx_sa[6],xx_ve[6],xx_su[6],xx_ma[6],xx_mo[6],xx_me[6],xx_ra[6]; char serr[256];
+            swe_calc_ut(jd,SE_JUPITER,iflag,xx_ju,serr); swe_calc_ut(jd,SE_SATURN,iflag,xx_sa,serr);
+            swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr); swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
+            swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr); swe_calc_ut(jd,SE_MOON,iflag,xx_mo,serr);
+            swe_calc_ut(jd,SE_MERCURY,iflag,xx_me,serr);
+            swe_calc_ut(jd,SE_TRUE_NODE,iflag,xx_ra,serr);
+            int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_ma=(int)(xx_ma[0]/30),t_mo=(int)(xx_mo[0]/30),t_me=(int)(xx_me[0]/30);
+            int t_ra=(int)(xx_ra[0]/30); int t_ke=(t_ra+6)%12;
+            bool ju_ret=xx_ju[3]<0, sa_ret=xx_sa[3]<0; int t_ju_prev=(t_ju+11)%12;
+            int y,m,d; double jut; swe_revjul(jd+(location.tz_offset/24.0),SE_GREG_CAL,&y,&m,&d,&jut);
+            char ds[16]; sprintf(ds,"%02d/%02d/%04d",d,m,y);
+            int dj_h7 = -1, ds_h7 = -1, dj_h8 = -1, ds_h8 = -1;
+            if(p_jup(t_ju,h7_rashi)) dj_h7 = dist2(t_ju,h7_rashi);
+            else if(p_jup(t_ju,asc_rashi)) dj_h7 = dist2(t_ju,asc_rashi);
+            else if(p_jup(t_ju,planet_rashis[l7_idx])) dj_h7 = dist2(t_ju,planet_rashis[l7_idx]);
+            else if(p_jup(t_ju,dk_rashi)) dj_h7 = dist2(t_ju,dk_rashi);
+            if(p_sat(t_sa,h7_rashi)) ds_h7 = dist2(t_sa,h7_rashi);
+            else if(p_sat(t_sa,asc_rashi)) ds_h7 = dist2(t_sa,asc_rashi);
+            else if(p_sat(t_sa,planet_rashis[l7_idx])) ds_h7 = dist2(t_sa,planet_rashis[l7_idx]);
+            else if(p_sat(t_sa,dk_rashi)) ds_h7 = dist2(t_sa,dk_rashi);
+            if(p_jup(t_ju,h8_rashi)) dj_h8 = dist2(t_ju,h8_rashi);
+            else if(p_jup(t_ju,planet_rashis[l8_idx])) dj_h8 = dist2(t_ju,planet_rashis[l8_idx]);
+            if(p_sat(t_sa,h8_rashi)) ds_h8 = dist2(t_sa,h8_rashi);
+            else if(p_sat(t_sa,planet_rashis[l8_idx])) ds_h8 = dist2(t_sa,planet_rashis[l8_idx]);
+            bool j_h7 = p_jup(t_ju,asc_rashi)||p_jup(t_ju,h7_rashi)||p_jup(t_ju,planet_rashis[l7_idx])||p_jup(t_ju,dk_rashi);
+            bool s_h7 = p_sat(t_sa,asc_rashi)||p_sat(t_sa,h7_rashi)||p_sat(t_sa,planet_rashis[l7_idx])||p_sat(t_sa,dk_rashi);
+            bool j_h8 = p_jup(t_ju,h8_rashi)||p_jup(t_ju,planet_rashis[l8_idx]);
+            bool s_h8 = p_sat(t_sa,h8_rashi)||p_sat(t_sa,planet_rashis[l8_idx]);
+            bool ju_over=(t_ju==l7_rashi_val||t_ju==l8_rashi_val);
+            bool sa_over=(t_sa==l7_rashi_val||t_sa==l8_rashi_val);
+            bool ra_over=(t_ra==l7_rashi_val||t_ra==l8_rashi_val||t_ke==l7_rashi_val||t_ke==l8_rashi_val);
+            bool ra_h7=(t_ra==h7_rashi||t_ke==h7_rashi);
+            bool ju_dl7 = within_orb(xx_ju[0], l7_lon_val,5.0);
+            bool ju_dl8 = within_orb(xx_ju[0], l8_lon_val,5.0);
+            bool sa_dl7 = within_orb(xx_sa[0], l7_lon_val,5.0);
+            bool sa_dl8 = within_orb(xx_sa[0], l8_lon_val,5.0);
+            bool ra_dl7 = within_orb(xx_ra[0], l7_lon_val,5.0)||within_orb(fmod(xx_ra[0]+180,360), l7_lon_val,5.0);
+            bool ra_dl8 = within_orb(xx_ra[0], l8_lon_val,5.0)||within_orb(fmod(xx_ra[0]+180,360), l8_lon_val,5.0);
+            bool j_t = within_orb(xx_ju[0], target_natal_lon, 5.0);
+            bool su_t = within_orb(xx_su[0], target_natal_lon, 2.0) || within_orb(xx_su[0], xx_ju[0], 5.0);
+            bool ve_t = within_orb(xx_ve[0], target_natal_lon, 2.0) || within_orb(xx_ve[0], xx_ju[0], 5.0);
+            dflags.push_back({ds,t_ju,t_sa,t_ve,t_mo,t_su,t_ma,t_me,t_ra,t_ke,ju_ret,sa_ret,j_h7,s_h7,j_h8,s_h8,ju_over,sa_over,ra_over,ra_h7,ju_dl7,ju_dl8,sa_dl7,sa_dl8,ra_dl7,ra_dl8,j_t,su_t,ve_t,t_ju_prev,0,xx_ju[0],xx_ve[0],xx_su[0],xx_ra[0],fmod(xx_ra[0]+180,360),xx_sa[0],dj_h7,ds_h7,dj_h8,ds_h8});
+        }
+
+        auto print_ranges = [&](string title, vector<Range> &rs){
+            if(rs.empty()) return;
+            printf("\n%s:\n", title.c_str());
+            for(auto &r:rs) printf(" %-50s ==> %s - %s (%d days)%s\n", r.label.c_str(), r.start.c_str(), r.end.c_str(), r.days, r.retro?" [R]":"");
+        };
+        auto build_with_aspect = [&](auto getter, string planetKey, bool isJu)->vector<Range>{
+            vector<Range> out; string cur_s="", cur_e=""; int cnt=0; bool in=false; bool cur_r=false; string cur_lab=""; int cur_dist=-2;
+            for(auto &df:dflags){
+                bool active = getter(df);
+                int dist = -1;
+                if(planetKey=="Ju-H7") dist=df.j_h7_dist;
+                else if(planetKey=="Sa-H7") dist=df.s_h7_dist;
+                else if(planetKey=="Ju-H8") dist=df.j_h8_dist;
+                else if(planetKey=="Sa-H8") dist=df.s_h8_dist;
+                bool retro = (planetKey.find("Ju")==0? df.ju_retro : (planetKey.find("Sa")==0? df.sa_retro : false));
+                string asp = isJu? aspect_name_ju(dist) : aspect_name_sa(dist);
+                string base;
+                if(planetKey=="Ju-H7"||planetKey=="Sa-H7") base = planetKey.substr(0,2)+"("+asp+")->H7("+string(rashi_name(h7_rashi))+")";
+                else base = planetKey.substr(0,2)+"("+asp+")->H8("+string(rashi_name(h8_rashi))+")";
+                if(active &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; cur_r=retro; cur_lab=base; cur_dist=dist; in=true; }
+                else if(active && in){
+                    if(retro!=cur_r || dist!=cur_dist){ out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r}); cur_s=df.date; cur_e=df.date; cnt=1; cur_r=retro; cur_lab=base; cur_dist=dist; }
+                    else { cur_e=df.date; cnt++; }
+                }
+                else if(!active && in){ out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r}); in=false; }
+            }
+            if(in) out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r});
+            return out;
+        };
+        auto build_simple = [&](auto getter, string base_label)->vector<Range>{
+            vector<Range> out; string cur_s=""; string cur_e=""; int cnt=0; bool in=false; bool cur_r=false; string cur_lab="";
+            for(auto &df:dflags){
+                bool active = getter(df);
+                bool retro = (base_label.find("Ju")==0? df.ju_retro : (base_label.find("Sa")==0? df.sa_retro : false));
+                string label = base_label;
+                if(active &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; cur_r=retro; cur_lab=label; in=true; }
+                else if(active && in){
+                    if(retro!=cur_r){ out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r}); cur_s=df.date; cur_e=df.date; cnt=1; cur_r=retro; cur_lab=label; }
+                    else { cur_e=df.date; cnt++; }
+                }
+                else if(!active && in){ out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r}); in=false; }
+            }
+            if(in) out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r});
+            return out;
+        };
+        auto build_split_deg = [&](auto getter_l7, auto getter_l8, string planet, int l_idx, int l_rashi, double l_lon)->vector<Range>{
+            vector<Range> out; string cur_s="",cur_e=""; int cnt=0; bool in=false; string cur_lab=""; bool cur_is_l7=false;
+            for(auto &df:dflags){
+                bool is_l7 = getter_l7(df);
+                bool is_l8 = getter_l8(df);
+                string lab="";
+                if(is_l7) lab=planet+" DEG-HIT L7("+string(rashi_name(l7_rashi_val))+" L7="+p_names_full[l7_idx]+" "+to_string((int)house_deg(l7_lon_val))+"°)";
+                else if(is_l8) lab=planet+" DEG-HIT L8("+string(rashi_name(l8_rashi_val))+" L8="+p_names_full[l8_idx]+" "+to_string((int)house_deg(l8_lon_val))+"°)";
+                bool active = is_l7||is_l8;
+                bool is_l7_now = is_l7;
+                if(active &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; cur_lab=lab; cur_is_l7=is_l7_now; in=true; }
+                else if(active && in){
+                    if(lab!=cur_lab){ out.push_back({cur_lab,cur_s,cur_e,cnt,false}); cur_s=df.date; cur_e=df.date; cnt=1; cur_lab=lab; cur_is_l7=is_l7_now; }
+                    else { cur_e=df.date; cnt++; }
+                }
+                else if(!active && in){ out.push_back({cur_lab,cur_s,cur_e,cnt,false}); in=false; }
+            }
+            if(in) out.push_back({cur_lab,cur_s,cur_e,cnt,false});
+            return out;
+        };
+
+        printf("\n--- YEAR %d RANGE ANALYSIS [8TH + BUDHA + RA/KE + DEG-HIT SPLIT] ---\n", qyear);
+        auto r_ju_h7 = build_with_aspect([](DayFlag &d){return d.j_h7;}, "Ju-H7", true);
+        auto r_sa_h7 = build_with_aspect([](DayFlag &d){return d.s_h7;}, "Sa-H7", false);
+        auto r_ju_h8 = build_with_aspect([](DayFlag &d){return d.j_h8;}, "Ju-H8", true);
+        auto r_sa_h8 = build_with_aspect([](DayFlag &d){return d.s_h8;}, "Sa-H8", false);
+        auto r_ve_h8 = build_simple([&](DayFlag &d){return d.t_ve==h8_rashi;}, "Ve IN 8TH SHAYANA("+string(rashi_name(h8_rashi))+")");
+        auto r_mo_h8 = build_simple([&](DayFlag &d){return d.t_mo==h8_rashi;}, "Mo IN 8TH("+string(rashi_name(h8_rashi))+")");
+        auto r_su_h8 = build_simple([&](DayFlag &d){return d.t_su==h8_rashi;}, "Su IN 8TH("+string(rashi_name(h8_rashi))+")");
+        auto r_ma_h8 = build_simple([&](DayFlag &d){return d.t_ma==h8_rashi;}, "Ma IN 8TH("+string(rashi_name(h8_rashi))+")");
+        auto r_me_h7 = build_simple([&](DayFlag &d){return d.t_me==h7_rashi;}, "Me IN H7 [Budha]("+string(rashi_name(h7_rashi))+")");
+        auto r_me_h8 = build_simple([&](DayFlag &d){return d.t_me==h8_rashi;}, "Me IN 8TH("+string(rashi_name(h8_rashi))+")");
+        auto r_su_h7 = build_simple([&](DayFlag &d){return d.t_su==h7_rashi;}, "Su IN H7("+string(rashi_name(h7_rashi))+")");
+
+        auto build_ra_split = [&](void)->vector<Range>{
+            vector<Range> out; string cur_s="", cur_e=""; int cnt=0; bool in=false; string cur_lab="";
+            for(auto &df:dflags){
+                string lab="";
+                if(df.t_ra==l7_rashi_val) lab="Ra OVER L7("+string(rashi_name(l7_rashi_val))+" L7="+p_names_full[l7_idx]+")";
+                else if(df.t_ke==l7_rashi_val) lab="Ke OVER L7("+string(rashi_name(l7_rashi_val))+" L7="+p_names_full[l7_idx]+")";
+                else if(df.t_ra==l8_rashi_val) lab="Ra OVER L8("+string(rashi_name(l8_rashi_val))+" L8="+p_names_full[l8_idx]+")";
+                else if(df.t_ke==l8_rashi_val) lab="Ke OVER L8("+string(rashi_name(l8_rashi_val))+" L8="+p_names_full[l8_idx]+")";
+                else if(df.t_ra==h7_rashi) lab="Ra IN H7("+string(rashi_name(h7_rashi))+")";
+                else if(df.t_ke==h7_rashi) lab="Ke IN H7("+string(rashi_name(h7_rashi))+")";
+                bool active=!lab.empty();
+                if(active &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; cur_lab=lab; in=true; }
+                else if(active && in){
+                    if(lab!=cur_lab){ out.push_back({cur_lab,cur_s,cur_e,cnt,false}); cur_s=df.date; cur_e=df.date; cnt=1; cur_lab=lab; }
+                    else { cur_e=df.date; cnt++; }
+                }
+                else if(!active && in){ out.push_back({cur_lab,cur_s,cur_e,cnt,false}); in=false; }
+            }
+            if(in) out.push_back({cur_lab,cur_s,cur_e,cnt,false});
+            return out;
+        };
+
+        auto r_ra_split = build_ra_split();
+        auto r_ju_deg = build_split_deg([](DayFlag &d){return d.ju_deg_l7;}, [](DayFlag &d){return d.ju_deg_l8;}, "Ju", l7_idx, l7_rashi_val, l7_lon_val);
+        auto r_sa_deg = build_split_deg([](DayFlag &d){return d.sa_deg_l7;}, [](DayFlag &d){return d.sa_deg_l8;}, "Sa", l8_idx, l8_rashi_val, l8_lon_val);
+        auto r_ra_deg = build_split_deg([](DayFlag &d){return d.ra_deg_l7;}, [](DayFlag &d){return d.ra_deg_l8;}, "Ra/Ke", l7_idx, l7_rashi_val, l7_lon_val);
+        auto r_ju_tar = build_simple([](DayFlag &d){return d.j_tar;}, "BNN Ju->Target 2deg");
+        auto r_su_tar = build_simple([](DayFlag &d){return d.su_tar;}, "BNN Su->Target 2deg");
+        auto r_ve_tar = build_simple([](DayFlag &d){return d.ve_tar;}, "BNN Ve->Target 2deg");
+
+        print_ranges("1. JUPITER H7 BLESSING (with aspect)", r_ju_h7);
+        print_ranges("2. SATURN H7 BLESSING (with aspect)", r_sa_h7);
+        print_ranges("3. JUPITER 8TH LOCK (with aspect)", r_ju_h8);
+        print_ranges("4. SATURN 8TH LOCK [NECESSARY] (with aspect)", r_sa_h8);
+        print_ranges("5. VENUS 8TH [SHAYANA]", r_ve_h8);
+        print_ranges("6. MOON 8TH [MANA]", r_mo_h8);
+        print_ranges("7. SUN 8TH", r_su_h8);
+        print_ranges("8. MARS 8TH", r_ma_h8);
+        print_ranges("9. MERCURY H7 [AGREEMENT]", r_me_h7);
+        print_ranges("10. MERCURY 8TH", r_me_h8);
+        print_ranges("11. SUN H7", r_su_h7);
+        print_ranges("12. RAHU/KETU SPLIT [EXACT HIT]", r_ra_split);
+        print_ranges("13. JU DEG-HIT L7/L8 SPLIT (5deg orb)", r_ju_deg);
+        print_ranges("14. SA DEG-HIT L7/L8 SPLIT (5deg orb)", r_sa_deg);
+        print_ranges("15. RA/KE DEG-HIT L7/L8 SPLIT (5deg orb)", r_ra_deg);
+        printf("\n16. BNN BLESSINGS Target=%s=%s %.2f deg (2deg orb):\n", target_name.c_str(), rashi_name(target_natal_rashi), target_natal_lon);
+        for(auto &r:r_ju_tar) printf(" %-50s ==> %s - %s (%3d days)%s\n", r.label.c_str(), r.start.c_str(), r.end.c_str(), r.days, r.retro?" [R]":"");
+        for(auto &r:r_su_tar) printf(" %-50s ==> %s - %s (%3d days)\n", r.label.c_str(), r.start.c_str(), r.end.c_str(), r.days);
+        for(auto &r:r_ve_tar) printf(" %-50s ==> %s - %s (%3d days)\n", r.label.c_str(), r.start.c_str(), r.end.c_str(), r.days);
+
+        printf("\n17. DOUBLE YOGA (Ju+Sa both H7 direct):\n");
+        string cur_s=""; string cur_e=""; int cnt=0; bool in=false;
+        for(auto &df:dflags){ bool dbl = df.j_h7 && df.s_h7; if(dbl &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; in=true; } else if(dbl && in){ cur_e=df.date; cnt++; } else if(!dbl && in){ printf(" %-50s ==> %s - %s (%d days)\n", ("DOUBLE Ju+Sa("+string(rashi_name(h7_rashi))+")").c_str(), cur_s.c_str(), cur_e.c_str(), cnt); in=false; } } if(in) printf(" %-50s ==> %s - %s (%d days)\n", ("DOUBLE Ju+Sa("+string(rashi_name(h7_rashi))+")").c_str(), cur_s.c_str(), cur_e.c_str(), cnt);
+        printf("--- END %d ---\n", qyear);
+    }
+    printf("Exited interactive loop.\n");
+}
+
+void finalize_json() { json_output += "}"; printf("%s\n", json_output.c_str()); }
 // Helper to safely access array strings
 string safe_str(const string* arr, int idx, int size) {
     if (idx < 0 || idx >= size) return "Unknown";
@@ -5953,6 +7104,7 @@ void run_ayush_analysis(JyotishaEngine& p) {
     printf("=================================================================================================\n");
 }
 
+
 // =========================================================================
 // HELP MENU DEFINITION
 // =========================================================================
@@ -5967,7 +7119,8 @@ void print_help_menu() {
 
     printf("GLOBAL PRE-FLAGS (Optional - Intercepted before parsing structural data):\n");
     printf("  telugu / --te       Enables Telugu translation strings for UI blocks.\n");
-    printf("  html                Switches console table & rashi outputs to clean HTML elements.\n\n");
+    printf("  html                Switches console table & rashi outputs to clean HTML elements.\n");
+    printf("  savana / --savana   Uses 360-day Savana year for Dasha math instead of 365.2563 Sidereal.\n\n");
 
     printf("MANDATORY BASE PARAMETERS (Required for all executions):\n");
     printf("  <year> <month> <day>  Birth/Event Gregorian Date digits (e.g., 1979 06 01)\n");
@@ -5984,6 +7137,7 @@ void print_help_menu() {
     printf("                        Computes precise transit matrices for web frontend without complex phase logic.\n");
     printf("  web_progeny / progeny [gender]\n");
     printf("                        Evaluates classical Saptamsha (D7) and biological sphutas for children.\n");
+    printf("  web_age_gap / age_gap Calculates the estimated age difference and maturity of the spouse.\n");
     printf("  full_report [name] [gender]\n");
     printf("                        Generates a complete, print-ready HTML document (A4 PDF capable) of all tabs.\n\n");
 
@@ -5991,17 +7145,20 @@ void print_help_menu() {
     printf("  kp                    Calculates Krishnamurti Paddhati (KP System) cusps, lords, and significators.\n");
     printf("  analyze [varga]       Analyzes explicit chart divisions. [varga] optional (Defaults to 'D1').\n");
     printf("  ayush                 Triggers deep longevity evaluation protocols using operational sub-engines.\n");
-    printf("  all [planet/date]     Runs extensive systemic profile scan containing Navatara tables, Shadbala, \n");
-    printf("                        aspect matrices, subdivisions, Ashtakavarga, Panchang, and collisions.\n\n");
-	printf("  nama-nakshatra          Prints Nakshatra naming syllables. Can be run standalone or with date details.\n");
+    printf("  all [varga/planet] [Y M D]\n");
+    printf("                        Runs full systemic profile: Navatara, Shadbala, Ashtakavarga, Dasha, etc.\n");
+    printf("                        If a Varga (e.g., D9) is specified, it also runs Dual-Layer Transit Scanners:\n");
+    printf("                        1. Micro-Transit (D_x sky -> Natal D_x)\n");
+    printf("                        2. Rasi Tulya Varga (Physical D1 sky -> Natal D_x).\n\n");
+    printf("  nama-nakshatra        Prints Nakshatra naming syllables. Can be run standalone or with date details.\n");
 
     printf("TIME-VARIANT & CALCULATED TRANSITS:\n");
     printf("  daily [Y M D]         Calculates Muhurat grids, Panchang transitions, Lagnas, and Hora intervals.\n");
     printf("                        Defaults to base birth parameters if explicit date is not given.\n");
     printf("  transit [Y M D] [H:M:S]\n");
     printf("                        Calculates full planet transits with heavy evaluation. Defaults to local clock time if blank.\n");
-    printf("  collision <planet> [Y] [M] [D]\n");
-    printf("                        Tracks orbital junction alignments for specified planet over given intervals.\n\n");
+    printf("  collision [planet] [varga] [Y] [M] [D]\n");
+    printf("                        Tracks orbital junction alignments for specified planet over given intervals. Supports Vargas.\n\n");
 
     printf("DASHA & RETURN TIME COMMANDS:\n");
     printf("  dasha [all]           With 'all': Exports exhaustive multi-level dasha charts to CSV formatting.\n");
@@ -6027,17 +7184,17 @@ void print_help_menu() {
     printf("  match_predict <startY> <endY> <Y2> <M2> <D2> <H2> <Min2> <S2> <City2>\n");
     printf("                        Triggers dynamic relationship prediction over specific year frames.\n");
     printf("================================================================================\n\n");
-	printf("  web_age_gap / age_gap\n");
-    printf("                        Calculates the estimated age difference and maturity of the spouse.\n");
 }
+
 // =========================================================================
 // MAIN COMMAND LINE PARSER
 // =========================================================================
 
 int main(int argc, char *argv[]) {
-    // --- TELUGU INTERCEPTOR ---
+    // --- FLAG INTERCEPTOR ---
     bool telugu_ui = false;
     bool html_ui = false;
+    bool use_savana = false; // NEW FLAG
     vector<char*> clean_args;
     clean_args.push_back(argv[0]);
     
@@ -6046,6 +7203,8 @@ int main(int argc, char *argv[]) {
             telugu_ui = true;
         } else if (strcasecmp(argv[i], "html") == 0) {
             html_ui = true; // CATCH THE HTML FLAG
+        } else if (strcasecmp(argv[i], "savana") == 0 || strcasecmp(argv[i], "--savana") == 0) {
+            use_savana = true; // CATCH THE SAVANA FLAG
         } else {
             clean_args.push_back(argv[i]);
         }
@@ -6070,7 +7229,7 @@ int main(int argc, char *argv[]) {
 
     // 2. Help Menu Catch
     if (clean_argc < 8) { print_help_menu(); return 1; }
-	
+    
     // 2. Parse Base Chart Requirements (These are mandatory for all commands)
     int year = stoi(clean_argv[1]), month = stoi(clean_argv[2]), day = stoi(clean_argv[3]);
     int hour = stoi(clean_argv[4]), minute = stoi(clean_argv[5]), second = stoi(clean_argv[6]);
@@ -6084,7 +7243,7 @@ int main(int argc, char *argv[]) {
     if (clean_argc >= 9 && strcasecmp(clean_argv[8], "json") == 0) json_mode = true;
 
     // 4. Initialize Core Engine (Global Access for all commands)
-    JyotishaEngine engine(year, month, day, hour, minute, second, *it, json_mode, telugu_ui, html_ui);
+    JyotishaEngine engine(year, month, day, hour, minute, second, *it, json_mode, telugu_ui, html_ui, use_savana);
     
     // We run calculate_chart() here because 99% of commands rely on the Natal arrays being populated!
     engine.calculate_chart(); 
@@ -6361,22 +7520,69 @@ int main(int argc, char *argv[]) {
             return 0;
         }
 		else if (strcasecmp(cmd.c_str(), "degree") == 0) {
-            if (clean_argc >= 13) {
-                string s_planet = clean_argv[9], s_sign = clean_argv[10];
-                int s_deg = stoi(clean_argv[11]), s_min = stoi(clean_argv[12]), s_sec = stoi(clean_argv[13]);
-                int s_year = 0, s_month = 0, s_day = 0;
-                if (clean_argc >= 15) s_year = stoi(clean_argv[14]);
-                if (clean_argc >= 16) s_month = stoi(clean_argv[15]);
-                if (clean_argc >= 17) s_day = stoi(clean_argv[16]);
-                
-                engine.search_exact_degree(s_planet, s_sign, s_deg, s_min, s_sec, s_year, s_month, s_day);
+            if (clean_argc >= 11) {
+                string arg1 = clean_argv[9];
+                string arg2 = clean_argv[10];
+
+                int tgt_p_idx = engine.get_planet_idx(arg2);
+                int tgt_s_idx = engine.get_rashi_idx(arg2);
+
+                bool is_year_only = true;
+                for(char c : arg2) if(!isdigit(c)) { is_year_only = false; break; }
+
+                if (tgt_p_idx != -1) {
+                    // MODE 1: Planet to Natal Planet
+                    int s_year = 0, s_month = 0, s_day = 0;
+                    if (clean_argc >= 12) s_year = stoi(clean_argv[11]);
+                    if (clean_argc >= 13) s_month = stoi(clean_argv[12]);
+                    if (clean_argc >= 14) s_day = stoi(clean_argv[13]);
+                    engine.search_planet_conjunct_planet(arg1, arg2, s_year, s_month, s_day);
+                } 
+                else if (tgt_s_idx != -1) {
+                    if (clean_argc >= 12 && isdigit(clean_argv[11][0])) {
+                        int val = stoi(clean_argv[11]);
+                        if (val > 1000 || clean_argc < 14) {
+                            // MODE 2: Planet to Rashi Boundary
+                            int s_year = val, s_month = 0, s_day = 0;
+                            if (clean_argc >= 13) s_month = stoi(clean_argv[12]);
+                            if (clean_argc >= 14) s_day = stoi(clean_argv[13]);
+                            engine.search_planet_transit_rashi(arg1, arg2, s_year, s_month, s_day);
+                        } else {
+                            // MODE 3: Old Exact Degree
+                            int s_deg = val;
+                            int s_min = stoi(clean_argv[12]);
+                            int s_sec = stoi(clean_argv[13]);
+                            int s_year = 0, s_month = 0, s_day = 0;
+                            if (clean_argc >= 15) s_year = stoi(clean_argv[14]);
+                            if (clean_argc >= 16) s_month = stoi(clean_argv[15]);
+                            if (clean_argc >= 17) s_day = stoi(clean_argv[16]);
+                            engine.search_exact_degree(arg1, arg2, s_deg, s_min, s_sec, s_year, s_month, s_day);
+                        }
+                    } else {
+                        // MODE 2: Planet to Rashi Boundary (Lifespan default)
+                        engine.search_planet_transit_rashi(arg1, arg2, 0, 0, 0);
+                    }
+                } 
+                else if (is_year_only) {
+                    // MODE 4: Planet All Rashi/Nakshatra Transits for a specific Year
+                    int s_year = stoi(arg2);
+                    engine.search_planet_all_transits(arg1, s_year);
+                }
+                else {
+                    printf("Error: Target '%s' is neither a recognized planet, sign, nor a valid year.\n", arg2.c_str());
+                }
             } else {
-                printf("Error: 'degree' requires Planet, Sign, Deg, Min, Sec. Example: degree lagna tula 11 41 09\n");
+                printf("Error: 'degree' requires at least a Source Planet and a Target (Planet, Sign, or Year).\n");
+                printf("Usage 1: degree sun moon 2026\n");
+                printf("Usage 2: degree jupiter aries 2026\n");
+                printf("Usage 3: degree lagna tula 11 41 09\n");
+                printf("Usage 4: degree jupiter 2010\n");
             }
             printf("\n"); fflush(stdout); 
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "tithi") == 0) {
+		
+		else if (strcasecmp(cmd.c_str(), "tithi") == 0) {
             if (clean_argc >= 10) engine.calculate_tithi_return(stoi(clean_argv[9]));
             else printf("Error: 'tithi' requires a target year. Example: tithi 2026\n");
             printf("\n"); fflush(stdout); 
@@ -6397,7 +7603,7 @@ int main(int argc, char *argv[]) {
                 auto it2 = find_if(city_db.begin(), city_db.end(), [&](const City& c) { return strcasecmp(c.name.c_str(), m_city.c_str()) == 0; });
                 if (it2 == city_db.end()) { printf("Error: Person 2 City '%s' not found.\n", m_city.c_str()); return 1; }
                 
-                JyotishaEngine p2_engine(m_y, m_m, m_d, m_h, m_min, m_s, *it2, json_mode, telugu_ui, html_ui);
+                JyotishaEngine p2_engine(m_y, m_m, m_d, m_h, m_min, m_s, *it2, json_mode, telugu_ui, html_ui, use_savana);
                 p2_engine.calculate_chart();
                 
                 
@@ -6425,7 +7631,7 @@ int main(int argc, char *argv[]) {
                         printf("=================================================================\n");
                     }
                     
-                    JyotishaEngine annual_engine(ty, tm, td, th, tmin, tsec, *it, json_mode, telugu_ui, html_ui);
+                    JyotishaEngine annual_engine(ty, tm, td, th, tmin, tsec, *it, json_mode, telugu_ui, html_ui, use_savana);
                     annual_engine.calculate_chart();
                     
                     // --- FIX: Print the actual Rasi Chart Grid so it doesn't look empty! ---
@@ -6449,7 +7655,15 @@ int main(int argc, char *argv[]) {
             return 0;
         }
         else if (strcasecmp(cmd.c_str(), "predict") == 0) {
-            if (clean_argc >= 11) engine.predict_marriage(stoi(clean_argv[9]), stoi(clean_argv[10]));
+            if (clean_argc >= 11) 
+			{
+				string gender_arg = "UNKNOWN";
+				if (clean_argc >= 12) {
+					gender_arg = clean_argv[11];
+				}
+				
+				engine.predict_marriage(stoi(clean_argv[9]), stoi(clean_argv[10]), gender_arg);
+			}
             else printf("Error: 'predict' requires Start Year and End Year.\n");
             
             printf("\n"); fflush(stdout); 
@@ -6506,8 +7720,13 @@ int main(int argc, char *argv[]) {
             engine.print_birth_chart_ui();
             engine.analyze_chart(varga_str, true);
             
-            // Execute the heavily upgraded Varga Transit Scanner
+            // 1. Execute the Varga Transit Scanner (D_x Transit -> D_x Natal)
             engine.scan_planetary_collisions(target_planet_all, target_year, t_month, t_day, v_num); 
+            
+            // 2. Execute the Rasi Tulya Varga Scanner (D1 Transit -> D_x Natal)
+            if (v_num > 1) {
+                engine.scan_rasi_tulya_varga_collisions(target_planet_all, target_year, t_month, t_day, v_num);
+            }
             
             printf("\n"); fflush(stdout); 
             return 0;

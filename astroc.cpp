@@ -5817,26 +5817,29 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
         if((y-b_y)>=14) byScore.push_back({y, year_p[y], year_base[y], kv.second, year_ju8[y], year_sa8[y], year_ju7[y], year_sa7[y], year_ra[y], year_ve8[y], year_dk[y], year_ra_l7[y], year_ra_l8[y], year_daily_max[y], year_reason[y], y-b_y, year_first[y], year_last[y]});
     }
     // Universal: Ve8*12 + Sa7*2 + RaL7 good, RaL8 bad, L7==L8 -> Ra ignored
+
     bool l7_eq_l8 = (l7_rashi_val==l8_rashi_val);
+    bool h8_lord_shukra = (lower(rashi_lords[h8_rashi])=="shukra");
+    auto balanceScore = [](PeakInfo &p){
+        double a[8]={(double)p.ju8,(double)p.sa8,(double)p.ju7,(double)p.sa7,
+                     (double)p.ra_l7,(double)p.ra_l8,(double)p.ve8,(double)p.dk};
+        double m=0; for(int i=0;i<8;i++) m+=a[i]; m/=8;
+        double v=0; for(int i=0;i<8;i++) v+=(a[i]-m)*(a[i]-m); v/=8;
+        return 1000.0 - sqrt(v);
+    };
     sort(byScore.begin(), byScore.end(), [&](auto &a, auto &b){
-        auto is_candidate = [&](PeakInfo &p){
-            if(l7_eq_l8) return p.ju8>0 && p.sa8>0 && p.ju7>0 && p.ve8>0;
-            else return p.ju8>0 && p.sa8>0 && p.ju7>0 && p.ra_l7>0 && p.ve8>0;
-        };
-        auto score = [&](PeakInfo &p){
-            int s = p.ju8 + p.sa8 + p.ju7 + p.sa7*2 + p.ve8*6 + p.dk;
-            if(!l7_eq_l8){
-                s += p.ra_l7 - p.ra_l8*2;
-                if(p.ra_l7>250) s -= (p.ra_l7-250)*2; // excessive Rahu malefic
-            }
-            if(is_candidate(p)) s += 500; // VIVAHA bonus
+        auto finalScore = [&](PeakInfo &p){
+            int min5 = min({p.ju8,p.sa8,p.ju7,p.sa7,p.ve8});
+            double bal = balanceScore(p);
+            int ideal = is_female?20:30;
+            double s = bal + min5 + p.ve8*3 + p.ra_l7 + p.sa7 - p.ra_l8*2 - abs(p.age-ideal)*40;
+            if(l7_eq_l8) s += p.sa7*4; // Karka only: L7==L8==Shani
+            if(!h8_lord_shukra && p.sa8==0) s -= 500; // Sa8 must unless H8 lord Shukra (Tula)
             return s;
         };
-        int sa = score(a), sb = score(b);
-        if(sa!=sb) return sa>sb;
-        return a.year<b.year;
-    });
-	
+        return finalScore(a) > finalScore(b);
+    });	
+
     sort(allYears.begin(), allYears.end(), [](auto &a, auto &b){return a.year<b.year;});
 
     int topN = min((int)byScore.size(), 3);
@@ -5886,7 +5889,7 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
 
     struct Range{string label; string start; string end; int days; bool retro;};
     char input[32];
-    while(true){
+    /* while(true){
         printf("\nEnter year to drill (e.g. 2020) or 'exit': "); fflush(stdout);
         if(!fgets(input, sizeof(input), stdin)) break;
         string s=input; s.erase(remove(s.begin(), s.end(), '\n'), s.end()); s.erase(remove(s.begin(), s.end(), '\r'), s.end());
@@ -6101,7 +6104,8 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
         for(auto &df:dflags){ bool dbl = df.j_h7 && df.s_h7; if(dbl &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; in=true; } else if(dbl && in){ cur_e=df.date; cnt++; } else if(!dbl && in){ printf(" %-50s ==> %s - %s (%d days)\n", ("DOUBLE Ju+Sa("+string(rashi_name(h7_rashi))+")").c_str(), cur_s.c_str(), cur_e.c_str(), cnt); in=false; } } if(in) printf(" %-50s ==> %s - %s (%d days)\n", ("DOUBLE Ju+Sa("+string(rashi_name(h7_rashi))+")").c_str(), cur_s.c_str(), cur_e.c_str(), cnt);
         printf("--- END %d ---\n", qyear);
     }
-    printf("Exited interactive loop.\n");
+    */
+	printf("Exited interactive loop.\n");
 }
 
 void predict_job(int start_year, int end_year) {

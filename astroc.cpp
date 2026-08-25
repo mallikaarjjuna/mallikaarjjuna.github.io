@@ -221,11 +221,15 @@ public:
     int sav_scores[12] = {0}; 
     int bav_scores[7][12] = {0};
     bool av_calculated = false; 
-    
+    int node_calc_type;
+	
     string json_output = "{\n";
 
-    JyotishaEngine(int y, int m, int d, int h, int min, int sec, City loc, bool j_mode, bool t_mode = false, bool h_mode = false, bool savana_mode = false) {
+    JyotishaEngine(int y, int m, int d, int h, int min, int sec, City loc, bool j_mode, bool t_mode = false, bool h_mode = false, bool savana_mode = false, bool use_true_node = false) {
         location = loc; json_mode = j_mode; telugu_mode = t_mode; html_mode = h_mode;
+        
+        // Dynamically assign True Node or Mean Node
+        node_calc_type = use_true_node ? 11 : 10; // 11 = SE_TRUE_NODE, 10 = SE_MEAN_NODE
         
         // Set dynamic dasha year length (360 for Savana, Exact Sidereal otherwise)
         dasha_year_len = savana_mode ? 360.0 : TRUE_SIDEREAL_YEAR;
@@ -243,9 +247,10 @@ public:
             printf("Local Date: %02d/%02d/%04d | Local Time: %02d:%02d:%02d\n", d, m, y, h, min, sec);
             printf("Location: %s (Lat: %f, Lon: %f, TZ: %+.1f)\n", location.name.c_str(), location.lat, location.lon, location.tz_offset);
             printf("Time Protocol: %s Year (%.4f Days)\n", savana_mode ? "Savana" : "Sidereal", dasha_year_len);
+            printf("Node Protocol: %s\n", use_true_node ? "True Node" : "Mean Node"); // <--- UI CONFIRMATION
         }
     }
-
+	
     ~JyotishaEngine() { swe_close(); }
 	
     string format_time_only(double jd) {
@@ -276,7 +281,7 @@ public:
     }
 
     double get_planet_lon_on_jd(int p_idx, double jd) {
-        int planets[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, SE_TRUE_NODE};
+        int planets[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type};
         double xx[6]; char serr[256];
         if (p_idx == 0) {
             double cusps[13], ascmc[10];
@@ -286,7 +291,7 @@ public:
             swe_calc_ut(jd, planets[p_idx-1], iflag, xx, serr);
             return xx[0];
         } else { 
-            swe_calc_ut(jd, SE_TRUE_NODE, iflag, xx, serr);
+            swe_calc_ut(jd, node_calc_type, iflag, xx, serr);
             return fmod(xx[0] + 180.0, 360.0);
         }
     }
@@ -350,7 +355,7 @@ public:
             process_planet(0, lagna_lon); 
         }
 
-        int planets[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, SE_TRUE_NODE};
+        int planets[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type};
         double xx[6]; char serr[256];
 
         for (int i = 0; i < 8; i++) {
@@ -360,7 +365,7 @@ public:
                 if (planets[i] == SE_SUN) sun_lon = xx[0]; if (planets[i] == SE_MOON) moon_lon = xx[0]; 
             }
         }
-        swe_calc_ut(tjd_ut, SE_TRUE_NODE, iflag, xx, serr);
+        swe_calc_ut(tjd_ut, node_calc_type, iflag, xx, serr);
         planet_lons[9] = fmod(xx[0] + 180.0, 360.0); planet_rashis[9] = (int)(planet_lons[9] / 30.0);
         process_planet(9, planet_lons[9]);
         
@@ -1614,13 +1619,31 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         printf("---------------------------------------------------------------------------------\n");
     }
 	
-void search_planet_conjunct_planet(string src_name, string tgt_name, int search_year, int search_month, int search_day) {
+void search_planet_conjunct_planet(string src_name, string tgt_name, int search_year, int search_month, int search_day, bool include_aspects = false) {
         int src_idx = get_planet_idx(src_name);
         int tgt_idx = get_planet_idx(tgt_name);
         if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
         if (tgt_idx == -1) { printf("Error: Target planet '%s' not recognized.\n", tgt_name.c_str()); return; }
 
-        double target_lon = planet_lons[tgt_idx];
+        double base_target_lon = planet_lons[tgt_idx];
+
+        struct AspectTarget { double lon; string name; };
+        vector<AspectTarget> targets;
+        targets.push_back({base_target_lon, "1st (Conjunction)"});
+        
+        if (include_aspects) {
+            targets.push_back({fmod(base_target_lon + 180.0, 360.0), "7th Aspect"});
+            if (src_idx == 3) {
+                targets.push_back({fmod(base_target_lon + 270.0, 360.0), "4th Aspect"});
+                targets.push_back({fmod(base_target_lon + 150.0, 360.0), "8th Aspect"});
+            } else if (src_idx == 5 || src_idx == 8 || src_idx == 9) {
+                targets.push_back({fmod(base_target_lon + 240.0, 360.0), "5th Aspect"});
+                targets.push_back({fmod(base_target_lon + 120.0, 360.0), "9th Aspect"});
+            } else if (src_idx == 7) {
+                targets.push_back({fmod(base_target_lon + 300.0, 360.0), "3rd Aspect"});
+                targets.push_back({fmod(base_target_lon + 90.0, 360.0), "10th Aspect"});
+            }
+        }
 
         double start_jd, end_jd;
         string scope_str = "";
@@ -1658,13 +1681,13 @@ void search_planet_conjunct_planet(string src_name, string tgt_name, int search_
         string print_src = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
         string print_tgt = (tgt_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[tgt_idx]);
 
-        printf("\n=== PLANET CONJUNCTION SEARCH (2° ORB) ===\n");
+        printf("\n=== PLANET %s SEARCH (2° ORB) ===\n", include_aspects ? "ASPECT" : "CONJUNCTION");
         printf("Transit Source : %s\n", print_src.c_str());
-        printf("Natal Target   : %s (%.2f°)\n", print_tgt.c_str(), target_lon);
+        printf("Natal Target   : %s (%.2f°)\n", print_tgt.c_str(), base_target_lon);
         printf("Scope          : %s\n", scope_str.c_str());
-        printf("----------------------------------------------------------------------------------------------------------------\n");
-        printf("%-20s | %-20s | %-20s | %-15s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Movement");
-        printf("----------------------------------------------------------------------------------------------------------------\n");
+        printf("--------------------------------------------------------------------------------------------------------------------------------\n");
+        printf("%-20s | %-20s | %-20s | %-15s | %-20s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Movement", "Aspect Type");
+        printf("--------------------------------------------------------------------------------------------------------------------------------\n");
 
         double step = (src_idx == 2) ? (1.0 / 24.0) : (4.0 / 24.0);
         if (src_idx == 0) step = 1.0 / 1440.0;
@@ -1674,26 +1697,30 @@ void search_planet_conjunct_planet(string src_name, string tgt_name, int search_
 
         for (double jd = start_jd; jd < end_jd; jd += step) {
             double trans_lon = get_planet_lon_on_jd(src_idx, jd);
-            double dist = get_dist(trans_lon, target_lon);
-            if (dist <= orb) {
-                double e_in, e_peak, e_out;
-                refine_bubble(src_idx, target_lon, jd, orb, e_in, e_peak, e_out, 1);
-                
-                double lon1 = get_planet_lon_on_jd(src_idx, e_in);
-                double lon2 = get_planet_lon_on_jd(src_idx, e_out);
-                double d_move = fmod(lon2 - lon1 + 360.0, 360.0);
-                if (d_move > 180.0) d_move -= 360.0;
-                string dir = (d_move < 0) ? "Retrograde" : "Direct";
+            
+            for (const auto& tgt : targets) {
+                double dist = get_dist(trans_lon, tgt.lon);
+                if (dist <= orb) {
+                    double e_in, e_peak, e_out;
+                    refine_bubble(src_idx, tgt.lon, jd, orb, e_in, e_peak, e_out, 1);
+                    
+                    double lon1 = get_planet_lon_on_jd(src_idx, e_in);
+                    double lon2 = get_planet_lon_on_jd(src_idx, e_out);
+                    double d_move = fmod(lon2 - lon1 + 360.0, 360.0);
+                    if (d_move > 180.0) d_move -= 360.0;
+                    string dir = (d_move < 0) ? "Retrograde" : "Direct";
 
-                if (e_peak >= start_jd && e_peak <= end_jd) {
-                    printf(" %-19s | %-19s | %-19s | %-15s\n", jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dir.c_str());
-                    hits++;
+                    if (e_peak >= start_jd && e_peak <= end_jd) {
+                        printf(" %-19s | %-19s | %-19s | %-15s | %-20s\n", jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dir.c_str(), tgt.name.c_str());
+                        hits++;
+                    }
+                    jd = e_out; 
+                    break;
                 }
-                jd = e_out; 
             }
         }
-        if (hits == 0) printf(" No conjunctions found within the 2° orb in this timeframe.\n");
-        printf("----------------------------------------------------------------------------------------------------------------\n");
+        if (hits == 0) printf(" No events found within the 2° orb in this timeframe.\n");
+        printf("--------------------------------------------------------------------------------------------------------------------------------\n");
     }
 
 void search_planet_all_transits(string p_name, int search_year) {
@@ -1715,8 +1742,7 @@ void search_planet_all_transits(string p_name, int search_year) {
         double step = (p_idx == 2) ? 0.05 : 0.25; 
         if (p_idx == 0) step = 1.0 / 1440.0;
         
-        // FIX: Correctly map custom planet index to Swiss Ephemeris ID!
-        int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, SE_TRUE_NODE, SE_TRUE_NODE};
+        int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type, node_calc_type};
         int se_p = (p_idx > 0 && p_idx <= 9) ? planets_se[p_idx - 1] : 0;
         
         double prev_xx[6]; char serr[256];
@@ -1756,7 +1782,10 @@ void search_planet_all_transits(string p_name, int search_year) {
                 }
                 double exact_jd = (t_low + t_high)/2.0;
                 if (exact_jd >= start_jd && exact_jd <= end_jd) {
-                    char buf[128]; snprintf(buf, sizeof(buf), "Enters Rashi: %s", rashi_names[curr_rashi]);
+                    double check_jd = exact_jd + 0.005; // Time moves forward by 7.2 minutes to anchor safely
+                    double stable_lon = get_planet_lon_on_jd(p_idx, check_jd);
+                    int stable_rashi = (int)(stable_lon / 30.0);
+                    char buf[128]; snprintf(buf, sizeof(buf), "Enters Rashi: %s", rashi_names[stable_rashi]);
                     events.push_back({exact_jd, dir, string(buf)});
                 }
             }
@@ -1771,9 +1800,11 @@ void search_planet_all_transits(string p_name, int search_year) {
                 }
                 double exact_jd = (t_low + t_high)/2.0;
                 if (exact_jd >= start_jd && exact_jd <= end_jd) {
-                    double exact_lon = get_planet_lon_on_jd(p_idx, exact_jd);
-                    int exact_rashi = (int)(exact_lon / 30.0);
-                    char buf[128]; snprintf(buf, sizeof(buf), "Enters Nak: %s (%s)", nak_names[curr_nak], rashi_names[exact_rashi]);
+                    double check_jd = exact_jd + 0.005; // Time moves forward by 7.2 minutes to anchor safely
+                    double stable_lon = get_planet_lon_on_jd(p_idx, check_jd);
+                    int stable_rashi = (int)(stable_lon / 30.0);
+                    int stable_nak = (int)(stable_lon / (360.0 / 27.0));
+                    char buf[128]; snprintf(buf, sizeof(buf), "Enters Nak: %s (%s)", nak_names[stable_nak], rashi_names[stable_rashi]);
                     events.push_back({exact_jd, dir, string(buf)});
                 }
             }
@@ -1820,11 +1851,27 @@ void search_planet_all_transits(string p_name, int search_year) {
         printf("------------------------------------------------------------------------------------------------------\n");
     }
 
-    void search_planet_transit_rashi(string src_name, string rashi_name, int search_year, int search_month, int search_day) {
+    void search_planet_transit_rashi(string src_name, string rashi_name, int search_year, int search_month, int search_day, bool include_aspects = false) {
         int src_idx = get_planet_idx(src_name);
-        int rashi_idx = get_rashi_idx(rashi_name);
+        int target_rashi_idx = get_rashi_idx(rashi_name);
         if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
-        if (rashi_idx == -1) { printf("Error: Sign '%s' not recognized.\n", rashi_name.c_str()); return; }
+        if (target_rashi_idx == -1) { printf("Error: Sign '%s' not recognized.\n", rashi_name.c_str()); return; }
+
+        map<int, string> aspect_map;
+        aspect_map[target_rashi_idx] = "1st (Conjunction)";
+        if (include_aspects) {
+            aspect_map[(target_rashi_idx + 6) % 12] = "7th Aspect";
+            if (src_idx == 3) {
+                aspect_map[(target_rashi_idx + 9) % 12] = "4th Aspect";
+                aspect_map[(target_rashi_idx + 5) % 12] = "8th Aspect";
+            } else if (src_idx == 5 || src_idx == 8 || src_idx == 9) {
+                aspect_map[(target_rashi_idx + 8) % 12] = "5th Aspect";
+                aspect_map[(target_rashi_idx + 4) % 12] = "9th Aspect";
+            } else if (src_idx == 7) {
+                aspect_map[(target_rashi_idx + 10) % 12] = "3rd Aspect";
+                aspect_map[(target_rashi_idx + 3) % 12] = "10th Aspect";
+            }
+        }
 
         double start_jd, end_jd;
         string scope_str = "";
@@ -1861,50 +1908,61 @@ void search_planet_all_transits(string p_name, int search_year) {
 
         string print_src = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
 
-        printf("\n=== RASHI TRANSIT SEARCH (0° to 30°) ===\n");
+        printf("\n=== RASHI %s SEARCH (0° to 30°) ===\n", include_aspects ? "ASPECT" : "TRANSIT");
         printf("Transit Source : %s\n", print_src.c_str());
-        printf("Target Sign    : %s\n", rashi_names[rashi_idx]);
+        printf("Target Sign    : %s\n", rashi_names[target_rashi_idx]);
         printf("Scope          : %s\n", scope_str.c_str());
-        printf("---------------------------------------------------------------------------------\n");
-        printf("%-20s | %-15s | %-20s\n", "Date & Time", "Event", "Position");
-        printf("---------------------------------------------------------------------------------\n");
+        printf("--------------------------------------------------------------------------------------------------------\n");
+        printf("%-20s | %-16s | %-20s | %-20s\n", "Date & Time", "Event", "Position", "Aspect Type");
+        printf("--------------------------------------------------------------------------------------------------------\n");
 
         double step = (src_idx == 2) ? 0.05 : 0.25; 
         if (src_idx == 0) step = 1.0 / 1440.0;
         
         double prev_lon = get_planet_lon_on_jd(src_idx, start_jd - step);
-        bool prev_in = ((int)(prev_lon / 30.0) == rashi_idx);
+        int prev_rashi = (int)(prev_lon / 30.0);
         int hits = 0;
         
         for (double jd = start_jd; jd < end_jd; jd += step) {
             double lon = get_planet_lon_on_jd(src_idx, jd);
-            bool curr_in = ((int)(lon / 30.0) == rashi_idx);
+            int curr_rashi = (int)(lon / 30.0);
             
             double d_move = fmod(lon - prev_lon + 360.0, 360.0);
             if (d_move > 180.0) d_move -= 360.0;
             bool is_retro = (d_move < 0);
             
-            if (curr_in != prev_in) {
+            if (curr_rashi != prev_rashi) {
                 double t_low = jd - step, t_high = jd;
                 for (int i=0; i<40; i++) {
                     double t_mid = (t_low + t_high)/2.0;
                     double mid_lon = get_planet_lon_on_jd(src_idx, t_mid);
-                    bool mid_in = ((int)(mid_lon / 30.0) == rashi_idx);
-                    if (mid_in == prev_in) t_low = t_mid; else t_high = t_mid;
+                    int mid_rashi = (int)(mid_lon / 30.0);
+                    if (mid_rashi == prev_rashi) t_low = t_mid; else t_high = t_mid;
                 }
                 double exact_jd = (t_low + t_high)/2.0;
                 
-                if (curr_in) {
-                    printf(" %-19s | %-15s | %s 00° 00' 00\"\n", jd_to_string(exact_jd).c_str(), is_retro ? "ENTER (Retro)" : "ENTER (Direct)", rashi_names[rashi_idx]);
-                } else {
-                    printf(" %-19s | %-15s | %s 30° 00' 00\"\n", jd_to_string(exact_jd).c_str(), is_retro ? "EXIT (Retro)" : "EXIT (Direct)", rashi_names[rashi_idx]);
+                bool prev_in = aspect_map.count(prev_rashi) > 0;
+                bool curr_in = aspect_map.count(curr_rashi) > 0;
+
+                if (prev_in && exact_jd >= start_jd && exact_jd <= end_jd) {
+                    char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° 00' 00\"", rashi_names[prev_rashi], is_retro ? 0 : 30);
+                    printf(" %-19s | %-16s | %-20s | %-20s\n", 
+                           jd_to_string(exact_jd).c_str(), is_retro ? "EXIT (Retro)" : "EXIT (Direct)", buf, aspect_map[prev_rashi].c_str());
+                    hits++;
                 }
-                hits++;
+
+                if (curr_in && exact_jd >= start_jd && exact_jd <= end_jd) {
+                    char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° 00' 00\"", rashi_names[curr_rashi], is_retro ? 30 : 0);
+                    printf(" %-19s | %-16s | %-20s | %-20s\n", 
+                           jd_to_string(exact_jd).c_str(), is_retro ? "ENTER (Retro)" : "ENTER (Direct)", buf, aspect_map[curr_rashi].c_str());
+                    hits++;
+                }
             }
             
+            bool curr_in = aspect_map.count(curr_rashi) > 0;
+            
             if (curr_in && src_idx != 0 && src_idx != 1 && src_idx != 2 && src_idx != 8 && src_idx != 9) {
-                // FIX: Correct Swiss Ephemeris Mapping
-                int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, SE_TRUE_NODE, SE_TRUE_NODE};
+                int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type, node_calc_type};
                 int se_p = planets_se[src_idx - 1];
                 
                 double xx[6]; char serr[256];
@@ -1930,17 +1988,21 @@ void search_planet_all_transits(string p_name, int search_year) {
                     if(s>=60){s-=60;m++;} if(m>=60){m-=60;d++;}
                     
                     string stat_str = (speed < 0) ? "STATION (-> R)" : "STATION (-> D)";
-                    char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° %02d' %02d\"", rashi_names[rashi_idx], d, m, s);
-                    printf(" %-19s | %-15s | %s\n", jd_to_string(exact_jd).c_str(), stat_str.c_str(), buf);
-                    hits++;
+                    char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° %02d' %02d\"", rashi_names[curr_rashi], d, m, s);
+                    
+                    if (exact_jd >= start_jd && exact_jd <= end_jd) {
+                        printf(" %-19s | %-16s | %-20s | %-20s\n", 
+                               jd_to_string(exact_jd).c_str(), stat_str.c_str(), buf, aspect_map[curr_rashi].c_str());
+                        hits++;
+                    }
                 }
             }
             prev_lon = lon;
-            prev_in = curr_in;
+            prev_rashi = curr_rashi;
         }
         
         if (hits == 0) printf(" No transit events found in the specified timeframe.\n");
-        printf("---------------------------------------------------------------------------------\n");
+        printf("--------------------------------------------------------------------------------------------------------\n");
     }
 	
 	void analyze_varga_synthesis(int v_num, int d1_lagna, int v_lagna, int* d1_rasi, int* v_rasi) {
@@ -3730,6 +3792,84 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         printf("----------------------------------------------------------------------------------------------------\n");
     }
 
+void calculate_target_panchang(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool use_current_date) {
+        if (json_mode) return;
+        
+        double trans_jd;
+        int p_y = t_year, p_m = t_month, p_d = t_day, p_h = t_hour, p_min = t_min, p_s = t_sec;
+        
+        if (use_current_date) {
+            time_t t = time(nullptr); tm* now_utc = gmtime(&t);
+            double ut_dec = now_utc->tm_hour + (now_utc->tm_min / 60.0) + (now_utc->tm_sec / 3600.0);
+            trans_jd = swe_julday(now_utc->tm_year + 1900, now_utc->tm_mon + 1, now_utc->tm_mday, ut_dec, SE_GREG_CAL);
+            int y, m, d; double jut; swe_revjul(trans_jd + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+            p_y = y; p_m = m; p_d = d; p_h = (int)jut; p_min = (int)((jut - p_h) * 60.0); p_s = (int)round((((jut - p_h) * 60.0) - p_min) * 60.0);
+        } else {
+            double ut_dec = t_hour + (t_min / 60.0) + (t_sec / 3600.0) - location.tz_offset;
+            trans_jd = swe_julday(t_year, t_month, t_day, ut_dec, SE_GREG_CAL);
+        }
+
+        double xx_su[6], xx_mo[6]; char serr[256];
+        swe_calc_ut(trans_jd, SE_SUN, iflag, xx_su, serr);
+        swe_calc_ut(trans_jd, SE_MOON, iflag, xx_mo, serr);
+
+        double t_su = xx_su[0];
+        double t_mo = xx_mo[0];
+
+        // 1. Calculate Exact Tithi
+        double tithi_angle = fmod((t_mo - t_su + 360.0), 360.0);
+        int tithi_index = (int)(tithi_angle / 12.0); 
+        string paksha = (tithi_index < 15) ? (telugu_mode ? "శుక్ల పక్షం" : "Shukla") : (telugu_mode ? "కృష్ణ పక్షం" : "Krishna");
+        
+        // 2. Calculate Exact Yoga
+        double yoga_angle = fmod((t_mo + t_su), 360.0);
+        int yoga_index = (int)(yoga_angle / (10.0 / 3.0 * 4.0)); 
+
+        // 3. Calculate Exact Nakshatra & Pada
+        int nak_index = (int)(t_mo / (360.0 / 27.0));
+        int pada = (int)((t_mo - (nak_index * (360.0 / 27.0))) / ((360.0 / 27.0) / 4.0)) + 1;
+
+        // 4. Calculate Weekday (Vara)
+        double noon_jd = swe_julday(p_y, p_m, p_d, 12.0, SE_GREG_CAL);
+        int calc_weekday = (int)(floor(noon_jd + 1.5)) % 7; 
+
+        // --- PRINT THE EXACT MOMENT PANCHANG ---
+        if (html_mode) {
+            printf("<h2 style='margin-top: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s %02d/%02d/%04d %02d:%02d:%02d</h2>", 
+                   telugu_mode ? "పంచాంగం (Panchang) -" : "EXACT PANCHANG FOR", p_d, p_m, p_y, p_h, p_min, p_s);
+            printf("<div style='background: #1e1e24; padding: 15px; border-radius: 6px; border: 1px solid var(--border); margin-bottom: 20px;'>");
+            printf("<table style='width:100%%; text-align:left; border-collapse:collapse; font-size: 14px;'>");
+            printf("<tr><td style='padding:8px 0; color:#888; border-bottom: 1px solid #333; width: 40%%;'>%s</td><td style='padding:8px 0; color:#fff; border-bottom: 1px solid #333;'>%s</td></tr>", 
+                   telugu_mode ? "వారం (Vara):" : "Vara (Weekday):", get_weekday(calc_weekday).c_str());
+            printf("<tr><td style='padding:8px 0; color:#888; border-bottom: 1px solid #333;'>%s</td><td style='padding:8px 0; color:#fff; border-bottom: 1px solid #333;'>%s (%s)</td></tr>", 
+                   telugu_mode ? "తిథి (Tithi):" : "Tithi:", get_tithi(tithi_index).c_str(), paksha.c_str());
+            printf("<tr><td style='padding:8px 0; color:#888; border-bottom: 1px solid #333;'>%s</td><td style='padding:8px 0; color:#fff; border-bottom: 1px solid #333;'>%s (Pada %d)</td></tr>", 
+                   telugu_mode ? "నక్షత్రం (Nakshatra):" : "Nakshatra:", get_nak_name(nak_index).c_str(), pada);
+            printf("<tr><td style='padding:8px 0; color:#888;'>%s</td><td style='padding:8px 0; color:#fff;'>%s</td></tr>", 
+                   telugu_mode ? "యోగం (Yoga):" : "Yoga:", get_yoga(yoga_index).c_str());
+            printf("</table></div>\n");
+        } else {
+            if (telugu_mode) {
+                printf("\n=== పంచాంగం (PANCHANG) %02d/%02d/%04d %02d:%02d:%02d ===\n", p_d, p_m, p_y, p_h, p_min, p_s);
+                printf("వారం (Vara)       : %s\n", get_weekday(calc_weekday).c_str());
+                printf("తిథి (Tithi)      : %s (%s)\n", get_tithi(tithi_index).c_str(), paksha.c_str());
+                printf("నక్షత్రం (Nakshatra): %s (%dవ పాదం)\n", get_nak_name(nak_index).c_str(), pada);
+                printf("యోగం (Yoga)       : %s\n", get_yoga(yoga_index).c_str());
+            } else {
+                printf("\n=== EXACT PANCHANG FOR %02d/%02d/%04d %02d:%02d:%02d ===\n", p_d, p_m, p_y, p_h, p_min, p_s);
+                printf("Vara (Weekday)    : %s\n", weekdays[calc_weekday]);
+                printf("Tithi             : %s (%s)\n", tithi_names[tithi_index], paksha.c_str());
+                printf("Nakshatra         : %s (Pada %d)\n", nak_names[nak_index], pada);
+                printf("Yoga              : %s\n", yoga_names[yoga_index]);
+            }
+            printf("----------------------------------------------------------------------------------------------------\n");
+        }
+
+        // --- INVOKE THE DAILY SWEEPERS FOR FULL DETAILS ---
+        calculate_muhurat(p_y, p_m, p_d, true);
+        calculate_daily_panchang_transitions(p_y, p_m, p_d);
+    }
+
 void calculate_dasha_balance() {
         if (json_mode) return;
         double nak_size = 360.0 / 27.0; 
@@ -4485,7 +4625,7 @@ double calculate_tithi_return(int target_year) {
         char serr[256];
         
         // FIX: Correct Swiss Ephemeris Mapping
-        int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, SE_TRUE_NODE, SE_TRUE_NODE};
+        int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type, node_calc_type};
         int se_p = (p_idx > 0 && p_idx <= 9) ? planets_se[p_idx - 1] : 0;
 
         // Helper lambda to instantly fetch longitude and auto-correct for Ketu
@@ -4603,7 +4743,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
             printf("%-8s | %-15s | %-20s | %-20s | %-12s | %-13s | %-13s | %-25s\n", telugu_mode ? "లగ్నం" : "Lagna", t_lagna_sign.c_str(), "-", "-", "-", "-", "-", "-");
         }
         
-        int planets[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, SE_TRUE_NODE};
+        int planets[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type};
         double xx[6]; char serr[256];
         int natal_mo_rashi = planet_rashis[2]; int natal_asc_rashi = planet_rashis[0]; 
         int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0));
@@ -4614,7 +4754,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
         for (int i = 1; i <= 9; i++) {
             double trans_lon;
             if (i < 9) { swe_calc_ut(trans_jd, planets[i-1], iflag, xx, serr); trans_lon = xx[0]; } 
-            else { swe_calc_ut(trans_jd, SE_TRUE_NODE, iflag, xx, serr); trans_lon = fmod(xx[0] + 180.0, 360.0); }
+            else { swe_calc_ut(trans_jd, node_calc_type, iflag, xx, serr); trans_lon = fmod(xx[0] + 180.0, 360.0); }
             
             int trans_rashi = (int)(trans_lon / 30.0); t_rashis[i] = trans_rashi;
             double trans_deg = trans_lon - (trans_rashi * 30.0);
@@ -5050,7 +5190,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
             for (int m_idx : t_planets) {
                 double t_lon;
                 if (m_idx < 9) { swe_calc_ut(trans_jd, planets[m_idx-1], iflag, xx, serr); t_lon = xx[0]; } 
-                else { swe_calc_ut(trans_jd, SE_TRUE_NODE, iflag, xx, serr); t_lon = fmod(xx[0] + 180.0, 360.0); }
+                else { swe_calc_ut(trans_jd, node_calc_type, iflag, xx, serr); t_lon = fmod(xx[0] + 180.0, 360.0); }
 
                 int t_rashi = (int)(t_lon / 30.0);
                 double t_deg_in_rashi = t_lon - (t_rashi * 30.0);
@@ -5183,7 +5323,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
             for (int m_idx : unique_benefics) {
                 double t_lon;
                 if (m_idx < 9) { swe_calc_ut(trans_jd, planets[m_idx-1], iflag, xx, serr); t_lon = xx[0]; } 
-                else { swe_calc_ut(trans_jd, SE_TRUE_NODE, iflag, xx, serr); t_lon = fmod(xx[0] + 180.0, 360.0); }
+                else { swe_calc_ut(trans_jd, node_calc_type, iflag, xx, serr); t_lon = fmod(xx[0] + 180.0, 360.0); }
 
                 int t_rashi = (int)(t_lon / 30.0);
                 double t_deg_in_rashi = t_lon - (t_rashi * 30.0);
@@ -5352,7 +5492,7 @@ void predict_marriage_general(int start_year, int end_year, string gender_input)
         swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr);
         swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr);
         swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
-        swe_calc_ut(jd,SE_TRUE_NODE,iflag,xx_ra,serr);
+        swe_calc_ut(jd,node_calc_type,iflag,xx_ra,serr);
 
         int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ma=(int)(xx_ma[0]/30),t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_ra=(int)(xx_ra[0]/30);
         bool jup_retro=xx_ju[3]<0;
@@ -5516,7 +5656,7 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
     if(g!="female" && g!="f" && g!="male" && g!="m"){ printf("ERROR gender\n"); return; }
 
     double xx_ra_nat[6]; char serr_nat[256];
-    swe_calc_ut(tjd_ut, SE_TRUE_NODE, iflag, xx_ra_nat, serr_nat);
+    swe_calc_ut(tjd_ut, node_calc_type, iflag, xx_ra_nat, serr_nat);
     planet_lons[8]=xx_ra_nat[0]; planet_rashis[8]=(int)(xx_ra_nat[0]/30);
     planet_lons[9]=fmod(xx_ra_nat[0]+180,360); planet_rashis[9]=(planet_rashis[8]+6)%12;
 
@@ -5576,7 +5716,7 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
         swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr);
         swe_calc_ut(jd,SE_MOON,iflag,xx_mo,serr);
         swe_calc_ut(jd,SE_MERCURY,iflag,xx_me,serr);
-        swe_calc_ut(jd,SE_TRUE_NODE,iflag,xx_ra,serr);
+        swe_calc_ut(jd,node_calc_type,iflag,xx_ra,serr);
         int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_ma=(int)(xx_ma[0]/30),t_mo=(int)(xx_mo[0]/30),t_me=(int)(xx_me[0]/30);
         int t_ra=(int)(xx_ra[0]/30); int t_ke=(t_ra+6)%12;
         double ke_lon = fmod(xx_ra[0]+180,360);
@@ -5664,7 +5804,7 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
         all_daily.push_back({y,m,d,p_score,daily_score,string(date_str),xx_ju[0],xx_sa[0],xx_ve[0],xx_su[0],xx_ma[0],xx_mo[0],xx_me[0],xx_ra[0],t_ju,t_sa,t_ve,t_su,t_ma,t_mo,t_me,t_ra,t_ke});
     }
 
-    struct PeakInfo{
+        struct PeakInfo{
         int year; int pScore; int baseTotal; int days;
         int ju8, sa8, ju7, sa7, ra, ve8, dk;
         int ra_l7, ra_l8;
@@ -5676,20 +5816,27 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
         allYears.push_back({y, year_p[y], year_base[y], kv.second, year_ju8[y], year_sa8[y], year_ju7[y], year_sa7[y], year_ra[y], year_ve8[y], year_dk[y], year_ra_l7[y], year_ra_l8[y], year_daily_max[y], year_reason[y], y-b_y, year_first[y], year_last[y]});
         if((y-b_y)>=14) byScore.push_back({y, year_p[y], year_base[y], kv.second, year_ju8[y], year_sa8[y], year_ju7[y], year_sa7[y], year_ra[y], year_ve8[y], year_dk[y], year_ra_l7[y], year_ra_l8[y], year_daily_max[y], year_reason[y], y-b_y, year_first[y], year_last[y]});
     }
-    // Ra over L7 good, Ke over L8 bad -> 2025 wins over 2022
-    sort(byScore.begin(), byScore.end(), [](auto &a, auto &b){
-        if(a.ra_l7!=b.ra_l7) return a.ra_l7>b.ra_l7; // 2025 216 vs 2022 0
-        if(a.ra_l8!=b.ra_l8) return a.ra_l8<b.ra_l8; // less L8 malefic better
-        int cntA = (a.ju8>0)+(a.sa8>0)+(a.ju7>0)+(a.sa7>0)+(a.ve8>0)+(a.dk>0);
-        int cntB = (b.ju8>0)+(b.sa8>0)+(b.ju7>0)+(b.sa7>0)+(b.ve8>0)+(b.dk>0);
-        if(cntA!=cntB) return cntA>cntB;
-        if((a.ju8+a.sa8)!=(b.ju8+b.sa8)) return (a.ju8+a.sa8)>(b.ju8+b.sa8);
-        if((a.ju7+a.sa7)!=(b.ju7+b.sa7)) return (a.ju7+a.sa7)>(b.ju7+b.sa7);
-        if(a.ve8!=b.ve8) return a.ve8>b.ve8;
-        if(a.dk!=b.dk) return a.dk>b.dk;
-        if(a.pScore!=b.pScore) return a.pScore>b.pScore;
+    // Universal: Ve8*12 + Sa7*2 + RaL7 good, RaL8 bad, L7==L8 -> Ra ignored
+    bool l7_eq_l8 = (l7_rashi_val==l8_rashi_val);
+    sort(byScore.begin(), byScore.end(), [&](auto &a, auto &b){
+        auto is_candidate = [&](PeakInfo &p){
+            if(l7_eq_l8) return p.ju8>0 && p.sa8>0 && p.ju7>0 && p.ve8>0;
+            else return p.ju8>0 && p.sa8>0 && p.ju7>0 && p.ra_l7>0 && p.ve8>0;
+        };
+        auto score = [&](PeakInfo &p){
+            int s = p.ju8 + p.sa8 + p.ju7 + p.sa7*2 + p.ve8*6 + p.dk;
+            if(!l7_eq_l8){
+                s += p.ra_l7 - p.ra_l8*2;
+                if(p.ra_l7>250) s -= (p.ra_l7-250)*2; // excessive Rahu malefic
+            }
+            if(is_candidate(p)) s += 500; // VIVAHA bonus
+            return s;
+        };
+        int sa = score(a), sb = score(b);
+        if(sa!=sb) return sa>sb;
         return a.year<b.year;
     });
+	
     sort(allYears.begin(), allYears.end(), [](auto &a, auto &b){return a.year<b.year;});
 
     int topN = min((int)byScore.size(), 3);
@@ -5781,7 +5928,7 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
             swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr); swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
             swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr); swe_calc_ut(jd,SE_MOON,iflag,xx_mo,serr);
             swe_calc_ut(jd,SE_MERCURY,iflag,xx_me,serr);
-            swe_calc_ut(jd,SE_TRUE_NODE,iflag,xx_ra,serr);
+            swe_calc_ut(jd,node_calc_type,iflag,xx_ra,serr);
             int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_ma=(int)(xx_ma[0]/30),t_mo=(int)(xx_mo[0]/30),t_me=(int)(xx_me[0]/30);
             int t_ra=(int)(xx_ra[0]/30); int t_ke=(t_ra+6)%12;
             bool ju_ret=xx_ju[3]<0, sa_ret=xx_sa[3]<0; int t_ju_prev=(t_ju+11)%12;
@@ -5957,6 +6104,506 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
     printf("Exited interactive loop.\n");
 }
 
+void predict_job(int start_year, int end_year) {
+        int b_y, b_m, b_d; double b_jut;
+        swe_revjul(tjd_ut + (location.tz_offset/24.0), SE_GREG_CAL, &b_y, &b_m, &b_d, &b_jut);
+
+        printf("\n=================================================================================================================================\n");
+        printf("=== CAREER & JOB PREDICTION ENGINE (NADI & PARASHARI) ===\n");
+        printf("=================================================================================================================================\n");
+        printf("Scanning %d to %d for New Jobs, Promotions, Career Breaks, and Transitions...\n", start_year, end_year);
+        printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+
+        int asc_rashi = planet_rashis[0];
+        int mo_rashi = planet_rashis[2];
+        int h10_rashi = (asc_rashi + 9) % 12;
+        int l10_idx = 1; for(int p=1; p<=7; p++) if(string(rashi_lords[h10_rashi]) == p_names_full[p]) l10_idx = p;
+        int l10_rashi = planet_rashis[l10_idx];
+        int nat_sa_rashi = planet_rashis[7];
+        int nat_ke_rashi = planet_rashis[9];
+        int nat_su_rashi = planet_rashis[1];
+
+        double start_jd = swe_julday(start_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+        double end_jd = swe_julday(end_year, 12, 31, 0.0 - location.tz_offset, SE_GREG_CAL);
+
+        struct Phase { double start_jd; double end_jd; int peak_pos; int peak_neg; string status; string reason; };
+        vector<Phase> phases;
+        Phase cur = {0, 0, 0, 0, "", ""};
+
+        auto dist = [](int from, int to) { return (to - from + 12) % 12; };
+        auto is_conj = [&](int t, int n) { return t == n; };
+        auto is_jup_asp = [&](int t, int n) { int d = dist(t, n); return d==0 || d==4 || d==6 || d==8; }; 
+        auto is_sat_asp = [&](int t, int n) { int d = dist(t, n); return d==0 || d==2 || d==6 || d==9; };
+
+        for (double jd = start_jd; jd <= end_jd; jd += 1.0) {
+            double xx_ju[6], xx_sa[6], xx_su[6], xx_ra[6]; char serr[256];
+            swe_calc_ut(jd, SE_JUPITER, iflag, xx_ju, serr);
+            swe_calc_ut(jd, SE_SATURN, iflag, xx_sa, serr);
+            swe_calc_ut(jd, SE_SUN, iflag, xx_su, serr);
+            swe_calc_ut(jd, node_calc_type, iflag, xx_ra, serr);
+
+            int t_ju = (int)(xx_ju[0] / 30.0), t_sa = (int)(xx_sa[0] / 30.0);
+            int t_su = (int)(xx_su[0] / 30.0), t_ra = (int)(xx_ra[0] / 30.0);
+            int t_ke = (t_ra + 6) % 12;
+
+            int pos_score = 0; int neg_score = 0; string reason = ""; string status = "";
+
+            // --- NEGATIVE TRIGGERS (Breaks / Friction / Resignations) ---
+            if (t_ke == nat_sa_rashi) { neg_score -= 1000; reason += "[Ketu over Natal Saturn (Loss of Interest/Break)] "; }
+            if (t_ke == h10_rashi) { neg_score -= 1000; reason += "[Ketu in 10th House (Detachment from Work)] "; }
+            if (t_sa == nat_sa_rashi) { neg_score -= 800; reason += "[Saturn Return (Heavy Career Restructuring/Pressure)] "; }
+            if (t_sa == nat_ke_rashi) { neg_score -= 800; reason += "[Saturn over Natal Ketu (Career Block/Resignation)] "; }
+            if (t_ra == h10_rashi) { neg_score -= 600; reason += "[Rahu in 10th House (Office Politics/Instability)] "; }
+            if (t_ra == nat_sa_rashi) { neg_score -= 600; reason += "[Rahu over Natal Saturn (Sudden Shift/Illusion)] "; }
+            
+            int sat_moon_dist = dist(mo_rashi, t_sa) + 1;
+            if (sat_moon_dist == 8) { neg_score -= 600; reason += "[Ashtama Shani (Heavy Work Stress)] "; }
+            else if (sat_moon_dist == 12 || sat_moon_dist == 1 || sat_moon_dist == 2) { 
+                neg_score -= 300; reason += "[Sade Sati Phase (Structural Changes/Pressure)] "; 
+            }
+
+            // --- POSITIVE TRIGGERS (New Job / Promotion) ---
+            if (is_jup_asp(t_ju, nat_sa_rashi)) { pos_score += 800; reason += "[Jup blesses Natal Sat (NEW JOB/Expansion)] "; }
+            if (is_jup_asp(t_ju, h10_rashi)) { pos_score += 600; reason += "[Jup blesses 10th House (Status Elevation)] "; }
+            if (is_jup_asp(t_ju, l10_rashi)) { pos_score += 500; reason += "[Jup blesses 10th Lord (Favorable Authority)] "; }
+            if (is_sat_asp(t_sa, nat_su_rashi)) { pos_score += 400; reason += "[Sat activates Natal Sun (Govt/MNC Role/Promotion)] "; }
+            if (t_ju == nat_su_rashi) { pos_score += 300; reason += "[Jup over Natal Sun (Recognition/Appreciation)] "; }
+            
+            if (is_jup_asp(t_ju, h10_rashi) && is_sat_asp(t_sa, h10_rashi)) { pos_score += 500; reason += "[DOUBLE TRANSIT on 10H (Major Career Milestone)] "; }
+
+            if (pos_score >= 500 && (is_conj(t_su, h10_rashi) || is_conj(t_su, nat_sa_rashi))) { 
+                pos_score += 200; reason += "[Sun Triggers Exact Timing] "; 
+            }
+
+            // --- DETERMINE BROAD PHASE (Bipolar check) ---
+            if (neg_score <= -1000) {
+                if (pos_score >= 800) status = "CAREER TRANSITION (Resignation + New Offer)";
+                else status = "CRITICAL BREAK / RESIGNATION";
+            }
+            else if (neg_score <= -600) {
+                if (pos_score >= 800) status = "HEAVY STRESS / NEW OPPORTUNITY EMERGES";
+                else status = "HEAVY STRESS / POLITICS / INSTABILITY";
+            }
+            else if (pos_score >= 1000) status = "MAJOR PROMOTION / NEW JOB";
+            else if (pos_score >= 600) status = "CAREER GROWTH / OFFERS";
+            else if (pos_score >= 300 || neg_score <= -300) status = "FAVORABLE & STABLE";
+            else status = "Neutral";
+
+            bool is_active = (pos_score >= 300 || neg_score <= -300);
+
+            if (cur.start_jd == 0 && is_active) {
+                cur = {jd, jd, pos_score, neg_score, status, reason};
+            } else if (is_active) {
+                if (status == cur.status && reason == cur.reason) {
+                    cur.end_jd = jd;
+                    if (pos_score > cur.peak_pos) cur.peak_pos = pos_score;
+                    if (neg_score < cur.peak_neg) cur.peak_neg = neg_score;
+                } else {
+                    if (cur.end_jd - cur.start_jd >= 15.0) phases.push_back(cur);
+                    cur = {jd, jd, pos_score, neg_score, status, reason};
+                }
+            } else {
+                if (cur.start_jd != 0) {
+                    if (cur.end_jd - cur.start_jd >= 15.0) phases.push_back(cur);
+                    cur = {0, 0, 0, 0, "", ""};
+                }
+            }
+        }
+        if (cur.start_jd != 0 && cur.end_jd - cur.start_jd >= 15.0) phases.push_back(cur);
+
+        int max_positive_score = 0;
+        for (const auto& p : phases) {
+            if (p.peak_pos > max_positive_score && (p.status.find("PROMOTION") != string::npos || p.status.find("TRANSITION") != string::npos)) {
+                max_positive_score = p.peak_pos;
+            }
+        }
+
+        if (max_positive_score >= 1000) {
+            printf(">> TOP PRIORITY WINDOW(S) FOR NEW JOB / MAJOR SHIFT (Peak Positive Power: %d pts) <<\n", max_positive_score);
+            for (const auto& p : phases) {
+                if (p.peak_pos == max_positive_score && (p.status.find("PROMOTION") != string::npos || p.status.find("TRANSITION") != string::npos)) {
+                    int y1, m1, d1, y2, m2, d2; double jut;
+                    swe_revjul(p.start_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y1, &m1, &d1, &jut);
+                    swe_revjul(p.end_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y2, &m2, &d2, &jut);
+                    printf(" ⭐ %02d/%02d/%04d to %02d/%02d/%04d -> %s\n", d1, m1, y1, d2, m2, y2, p.reason.c_str());
+                }
+            }
+            printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+        }
+
+        printf("%-25s | %-45s | %s\n", "Window [Start - End]", "Career Phase", "Astrological Triggers");
+        printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+
+        for (const auto& p : phases) {
+            int y1, m1, d1, y2, m2, d2; double jut;
+            swe_revjul(p.start_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y1, &m1, &d1, &jut);
+            swe_revjul(p.end_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y2, &m2, &d2, &jut);
+            char s_buf[32], e_buf[32];
+            snprintf(s_buf, sizeof(s_buf), "%02d/%02d/%04d", d1, m1, y1);
+            snprintf(e_buf, sizeof(e_buf), "%02d/%02d/%04d", d2, m2, y2);
+            string win_str = "[ " + string(s_buf) + " - " + string(e_buf) + " ]";
+            
+            string status_str = p.status;
+            if (p.peak_pos == max_positive_score && max_positive_score >= 1000 && (p.status.find("PROMOTION") != string::npos || p.status.find("TRANSITION") != string::npos)) {
+                status_str += " ⭐ HIGHEST CHANCE";
+            }
+
+            if (html_mode) {
+                string color = "#bdc3c7";
+                if (p.status.find("CRITICAL BREAK") != string::npos) color = "#e74c3c";
+                else if (p.status.find("TRANSITION") != string::npos) color = "#f39c12"; 
+                else if (p.status.find("PROMOTION") != string::npos) color = "#2ecc71";
+                else if (p.status.find("GROWTH") != string::npos) color = "#27ae60";
+                else if (p.status.find("STRESS") != string::npos) color = "#e67e22";
+                
+                printf("<tr><td>%s</td><td><b style='color:%s;'>%s</b></td><td>%s</td></tr>\n", win_str.c_str(), color.c_str(), status_str.c_str(), p.reason.c_str());
+            } else {
+                printf("%-25s | %-45s | %s\n", win_str.c_str(), status_str.c_str(), p.reason.c_str());
+            }
+        }
+
+        if (phases.empty()) {
+            printf(" No major career fluctuations or job breaks detected in this timeframe. Stable period.\n");
+        }
+        printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+    }
+
+void predict_business(int start_year, int end_year) {
+        int b_y, b_m, b_d; double b_jut;
+        swe_revjul(tjd_ut + (location.tz_offset/24.0), SE_GREG_CAL, &b_y, &b_m, &b_d, &b_jut);
+
+        printf("\n=================================================================================================================================\n");
+        printf("=== BUSINESS & WEALTH PREDICTION ENGINE (NADI & PARASHARI) ===\n");
+        printf("=================================================================================================================================\n");
+        printf("Scanning %d to %d for New Business, Expansion, Partnerships, and Friction...\n", start_year, end_year);
+        printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+
+        int asc_rashi = planet_rashis[0];
+        int mo_rashi = planet_rashis[2];
+        
+        int h7_rashi = (asc_rashi + 6) % 12; // Business / Partnerships
+        int l7_idx = 1; for(int p=1; p<=7; p++) if(string(rashi_lords[h7_rashi]) == p_names_full[p]) l7_idx = p;
+        int l7_rashi = planet_rashis[l7_idx];
+        
+        int h11_rashi = (asc_rashi + 10) % 12; // Gains / Network
+        
+        int nat_me_rashi = planet_rashis[4]; // Mercury = Karaka for Business/Trade
+        int nat_sa_rashi = planet_rashis[7]; // Saturn = Karaka for Karma/Work
+        int nat_ke_rashi = planet_rashis[9];
+        int nat_su_rashi = planet_rashis[1];
+
+        double start_jd = swe_julday(start_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+        double end_jd = swe_julday(end_year, 12, 31, 0.0 - location.tz_offset, SE_GREG_CAL);
+
+        struct Phase { double start_jd; double end_jd; int peak_pos; int peak_neg; string status; string reason; };
+        vector<Phase> phases;
+        Phase cur = {0, 0, 0, 0, "", ""};
+
+        auto dist = [](int from, int to) { return (to - from + 12) % 12; };
+        auto is_conj = [&](int t, int n) { return t == n; };
+        auto is_jup_asp = [&](int t, int n) { int d = dist(t, n); return d==0 || d==4 || d==6 || d==8; }; 
+        auto is_sat_asp = [&](int t, int n) { int d = dist(t, n); return d==0 || d==2 || d==6 || d==9; };
+
+        for (double jd = start_jd; jd <= end_jd; jd += 1.0) {
+            double xx_ju[6], xx_sa[6], xx_su[6], xx_ra[6]; char serr[256];
+            swe_calc_ut(jd, SE_JUPITER, iflag, xx_ju, serr);
+            swe_calc_ut(jd, SE_SATURN, iflag, xx_sa, serr);
+            swe_calc_ut(jd, SE_SUN, iflag, xx_su, serr);
+            swe_calc_ut(jd, node_calc_type, iflag, xx_ra, serr);
+
+            int t_ju = (int)(xx_ju[0] / 30.0), t_sa = (int)(xx_sa[0] / 30.0);
+            int t_su = (int)(xx_su[0] / 30.0), t_ra = (int)(xx_ra[0] / 30.0);
+            int t_ke = (t_ra + 6) % 12;
+
+            int pos_score = 0; int neg_score = 0; string reason = ""; string status = "";
+
+            // --- NEGATIVE TRIGGERS (Breaks / Friction / Losses) ---
+            if (t_ke == nat_me_rashi) { neg_score -= 1000; reason += "[Ketu over Natal Mercury (Business Break/Losses)] "; }
+            if (t_ke == h7_rashi) { neg_score -= 1000; reason += "[Ketu in 7th House (Partnership Friction/Detachment)] "; }
+            if (t_sa == nat_me_rashi) { neg_score -= 800; reason += "[Saturn over Natal Mercury (Heavy Business Pressure/Delays)] "; }
+            if (t_sa == h7_rashi) { neg_score -= 800; reason += "[Saturn in 7th House (Strict Tests on Partnerships)] "; }
+            if (t_ra == h7_rashi) { neg_score -= 600; reason += "[Rahu in 7th House (Deception/Unstable Partners)] "; }
+            if (t_ra == nat_me_rashi) { neg_score -= 600; reason += "[Rahu over Natal Mercury (Risky Investments/Instability)] "; }
+            
+            int sat_moon_dist = dist(mo_rashi, t_sa) + 1;
+            if (sat_moon_dist == 8) { neg_score -= 500; reason += "[Ashtama Shani (Heavy Business Stress)] "; }
+            else if (sat_moon_dist == 12 || sat_moon_dist == 1 || sat_moon_dist == 2) { 
+                neg_score -= 300; reason += "[Sade Sati Phase (Financial Pressure)] "; 
+            }
+
+            // --- POSITIVE TRIGGERS (New Business / Expansion) ---
+            if (is_jup_asp(t_ju, nat_me_rashi)) { pos_score += 800; reason += "[Jup blesses Natal Merc (NEW BUSINESS/Expansion)] "; }
+            if (is_jup_asp(t_ju, h7_rashi)) { pos_score += 600; reason += "[Jup blesses 7th House (Partnership/Trade Growth)] "; }
+            if (is_jup_asp(t_ju, h11_rashi)) { pos_score += 500; reason += "[Jup blesses 11th House (Major Financial Gains)] "; }
+            if (is_sat_asp(t_sa, nat_me_rashi)) { pos_score += 400; reason += "[Sat activates Natal Merc (Structured Business Growth)] "; }
+            
+            if (is_jup_asp(t_ju, h7_rashi) && is_sat_asp(t_sa, h7_rashi)) { pos_score += 500; reason += "[DOUBLE TRANSIT on 7H (Major Business Milestone)] "; }
+
+            if (pos_score >= 500 && (is_conj(t_su, h7_rashi) || is_conj(t_su, nat_me_rashi))) { 
+                pos_score += 200; reason += "[Sun Triggers Exact Timing] "; 
+            }
+
+            // --- DETERMINE BROAD PHASE (Bipolar check) ---
+            if (neg_score <= -1000) {
+                if (pos_score >= 800) status = "BUSINESS RESTRUCTURING (Losses + New Pivot)";
+                else status = "CRITICAL BREAK / SEVERE LOSSES";
+            }
+            else if (neg_score <= -600) {
+                if (pos_score >= 800) status = "HEAVY FRICTION / SAVED BY NEW DEAL";
+                else status = "HEAVY FRICTION / INSTABILITY";
+            }
+            else if (pos_score >= 1000) status = "MAJOR EXPANSION / NEW BUSINESS";
+            else if (pos_score >= 600) status = "BUSINESS GROWTH / PROFITS";
+            else if (pos_score >= 300 || neg_score <= -300) status = "FAVORABLE & STABLE";
+            else status = "Neutral";
+
+            bool is_active = (pos_score >= 300 || neg_score <= -300);
+
+            if (cur.start_jd == 0 && is_active) {
+                cur = {jd, jd, pos_score, neg_score, status, reason};
+            } else if (is_active) {
+                if (status == cur.status && reason == cur.reason) {
+                    cur.end_jd = jd;
+                    if (pos_score > cur.peak_pos) cur.peak_pos = pos_score;
+                    if (neg_score < cur.peak_neg) cur.peak_neg = neg_score;
+                } else {
+                    if (cur.end_jd - cur.start_jd >= 15.0) phases.push_back(cur);
+                    cur = {jd, jd, pos_score, neg_score, status, reason};
+                }
+            } else {
+                if (cur.start_jd != 0) {
+                    if (cur.end_jd - cur.start_jd >= 15.0) phases.push_back(cur);
+                    cur = {0, 0, 0, 0, "", ""};
+                }
+            }
+        }
+        if (cur.start_jd != 0 && cur.end_jd - cur.start_jd >= 15.0) phases.push_back(cur);
+
+        // --- FIND THE TOP PRIORITY HIGHEST PEAK SCORE ---
+        int max_positive_score = 0;
+        for (const auto& p : phases) {
+            if (p.peak_pos > max_positive_score && (p.status.find("EXPANSION") != string::npos || p.status.find("RESTRUCTURING") != string::npos)) {
+                max_positive_score = p.peak_pos;
+            }
+        }
+
+        if (max_positive_score >= 1000) {
+            printf(">> TOP PRIORITY WINDOW(S) FOR NEW BUSINESS / EXPANSION (Peak Positive Power: %d pts) <<\n", max_positive_score);
+            for (const auto& p : phases) {
+                if (p.peak_pos == max_positive_score && (p.status.find("EXPANSION") != string::npos || p.status.find("RESTRUCTURING") != string::npos)) {
+                    int y1, m1, d1, y2, m2, d2; double jut;
+                    swe_revjul(p.start_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y1, &m1, &d1, &jut);
+                    swe_revjul(p.end_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y2, &m2, &d2, &jut);
+                    printf(" ⭐ %02d/%02d/%04d to %02d/%02d/%04d -> %s\n", d1, m1, y1, d2, m2, y2, p.reason.c_str());
+                }
+            }
+            printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+        }
+
+        printf("%-25s | %-45s | %s\n", "Window [Start - End]", "Business Phase", "Astrological Triggers");
+        printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+
+        for (const auto& p : phases) {
+            int y1, m1, d1, y2, m2, d2; double jut;
+            swe_revjul(p.start_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y1, &m1, &d1, &jut);
+            swe_revjul(p.end_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y2, &m2, &d2, &jut);
+            char s_buf[32], e_buf[32];
+            snprintf(s_buf, sizeof(s_buf), "%02d/%02d/%04d", d1, m1, y1);
+            snprintf(e_buf, sizeof(e_buf), "%02d/%02d/%04d", d2, m2, y2);
+            string win_str = "[ " + string(s_buf) + " - " + string(e_buf) + " ]";
+            
+            string status_str = p.status;
+            if (p.peak_pos == max_positive_score && max_positive_score >= 1000 && (p.status.find("EXPANSION") != string::npos || p.status.find("RESTRUCTURING") != string::npos)) {
+                status_str += " ⭐ HIGHEST CHANCE";
+            }
+
+            if (html_mode) {
+                string color = "#bdc3c7";
+                if (p.status.find("CRITICAL BREAK") != string::npos) color = "#e74c3c";
+                else if (p.status.find("RESTRUCTURING") != string::npos) color = "#f39c12"; 
+                else if (p.status.find("EXPANSION") != string::npos) color = "#2ecc71";
+                else if (p.status.find("GROWTH") != string::npos) color = "#27ae60";
+                else if (p.status.find("FRICTION") != string::npos) color = "#e67e22";
+                
+                printf("<tr><td>%s</td><td><b style='color:%s;'>%s</b></td><td>%s</td></tr>\n", win_str.c_str(), color.c_str(), status_str.c_str(), p.reason.c_str());
+            } else {
+                printf("%-25s | %-45s | %s\n", win_str.c_str(), status_str.c_str(), p.reason.c_str());
+            }
+        }
+
+        if (phases.empty()) {
+            printf(" No major business fluctuations detected in this timeframe. Stable period.\n");
+        }
+        printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+    }
+	
+void predict_study(int start_year, int end_year) {
+        int b_y, b_m, b_d; double b_jut;
+        swe_revjul(tjd_ut + (location.tz_offset/24.0), SE_GREG_CAL, &b_y, &b_m, &b_d, &b_jut);
+
+        printf("\n=================================================================================================================================\n");
+        printf("=== EDUCATION & STUDY PREDICTION ENGINE (NADI & PARASHARI) ===\n");
+        printf("=================================================================================================================================\n");
+        printf("Scanning %d to %d for Academic Success, Admissions, Focus, Distractions, and Study Breaks...\n", start_year, end_year);
+        printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+
+        int asc_rashi = planet_rashis[0];
+        int mo_rashi = planet_rashis[2];
+        
+        int h4_rashi = (asc_rashi + 3) % 12; // Primary Education
+        int l4_idx = 1; for(int p=1; p<=7; p++) if(string(rashi_lords[h4_rashi]) == p_names_full[p]) l4_idx = p;
+        int l4_rashi = planet_rashis[l4_idx];
+
+        int h5_rashi = (asc_rashi + 4) % 12; // Undergraduate / Intellect
+        int l5_idx = 1; for(int p=1; p<=7; p++) if(string(rashi_lords[h5_rashi]) == p_names_full[p]) l5_idx = p;
+        int l5_rashi = planet_rashis[l5_idx];
+        
+        int h9_rashi = (asc_rashi + 8) % 12; // Masters / Higher Education
+        int l9_idx = 1; for(int p=1; p<=7; p++) if(string(rashi_lords[h9_rashi]) == p_names_full[p]) l9_idx = p;
+        int l9_rashi = planet_rashis[l9_idx];
+
+        int nat_me_rashi = planet_rashis[4]; // Mercury = Karaka for Schooling/Intellect
+        int nat_ju_rashi = planet_rashis[5]; // Jupiter = Karaka for Higher Education/Wisdom
+        
+        double start_jd = swe_julday(start_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+        double end_jd = swe_julday(end_year, 12, 31, 0.0 - location.tz_offset, SE_GREG_CAL);
+
+        struct Phase { double start_jd; double end_jd; int peak_score; string status; string reason; };
+        vector<Phase> phases;
+        Phase cur = {0, 0, 0, "", ""};
+
+        auto dist = [](int from, int to) { return (to - from + 12) % 12; };
+        auto is_conj = [&](int t, int n) { return t == n; };
+        auto is_jup_asp = [&](int t, int n) { int d = dist(t, n); return d==0 || d==4 || d==6 || d==8; }; 
+        auto is_sat_asp = [&](int t, int n) { int d = dist(t, n); return d==0 || d==2 || d==6 || d==9; };
+
+        for (double jd = start_jd; jd <= end_jd; jd += 1.0) {
+            double xx_ju[6], xx_sa[6], xx_su[6], xx_ra[6]; char serr[256];
+            swe_calc_ut(jd, SE_JUPITER, iflag, xx_ju, serr);
+            swe_calc_ut(jd, SE_SATURN, iflag, xx_sa, serr);
+            swe_calc_ut(jd, SE_SUN, iflag, xx_su, serr);
+            swe_calc_ut(jd, node_calc_type, iflag, xx_ra, serr);
+
+            int t_ju = (int)(xx_ju[0] / 30.0), t_sa = (int)(xx_sa[0] / 30.0);
+            int t_su = (int)(xx_su[0] / 30.0), t_ra = (int)(xx_ra[0] / 30.0);
+            int t_ke = (t_ra + 6) % 12;
+
+            int pos_score = 0; int neg_score = 0; string reason = ""; string status = "";
+
+            // --- NEGATIVE TRIGGERS (Breaks / Friction / Loss of Focus) ---
+            if (t_ke == nat_me_rashi) { neg_score -= 1000; reason += "[Ketu over Natal Mercury (Loss of Focus/Study Break)] "; }
+            if (t_ke == h4_rashi || t_ke == h5_rashi) { neg_score -= 1000; reason += "[Ketu hits 4H/5H (Academic Detachment/Failures)] "; }
+            
+            if (t_sa == nat_me_rashi) { neg_score -= 800; reason += "[Saturn over Natal Mercury (Heavy Academic Pressure/Delays)] "; }
+            if (t_sa == h4_rashi || t_sa == h5_rashi) { neg_score -= 800; reason += "[Saturn hits 4H/5H (Strict Evaluation/Obstacles)] "; }
+            
+            if (t_ra == mo_rashi || t_ra == nat_me_rashi) { neg_score -= 600; reason += "[Rahu hits Mind/Mercury (Distractions/Overthinking)] "; }
+            
+            int sat_moon_dist = dist(mo_rashi, t_sa) + 1;
+            if (sat_moon_dist == 8) { neg_score -= 500; reason += "[Ashtama Shani (Heavy Exam Pressure/Stress)] "; }
+            
+            if (is_sat_asp(t_sa, nat_me_rashi)) { neg_score -= 400; reason += "[Saturn restricts Natal Mercury (Hard Syllabus/Delays)] "; }
+            if (is_sat_asp(t_sa, h4_rashi) || is_sat_asp(t_sa, h5_rashi)) { neg_score -= 400; reason += "[Saturn aspects 4H/5H (Slow Progress)] "; }
+
+            // --- POSITIVE TRIGGERS (Academic Success / Admissions) ---
+            if (is_jup_asp(t_ju, h4_rashi) || is_jup_asp(t_ju, nat_me_rashi)) { pos_score += 500; reason += "[Jup blesses 4H/Mercury (Excellent Basic Education Focus)] "; }
+            if (is_jup_asp(t_ju, h5_rashi) || is_jup_asp(t_ju, l5_rashi)) { pos_score += 600; reason += "[Jup blesses 5H (Success in Exams/Undergrad Admission)] "; }
+            if (is_jup_asp(t_ju, h9_rashi) || is_jup_asp(t_ju, nat_ju_rashi)) { pos_score += 600; reason += "[Jup blesses 9H/Jupiter (Masters/Higher Education)] "; }
+            
+            // Double transit on 5H/9H
+            if (is_jup_asp(t_ju, h5_rashi) && is_sat_asp(t_sa, h5_rashi)) { pos_score += 400; reason += "[DOUBLE TRANSIT on 5H (Major Undergrad Milestone)] "; }
+            if (is_jup_asp(t_ju, h9_rashi) && is_sat_asp(t_sa, h9_rashi)) { pos_score += 400; reason += "[DOUBLE TRANSIT on 9H (Major Masters Study Milestone)] "; }
+
+            // Sun acts as a monthly timing detonator
+            if (pos_score >= 500 && (is_conj(t_su, h5_rashi) || is_conj(t_su, h9_rashi) || is_conj(t_su, nat_me_rashi))) { 
+                pos_score += 200; reason += "[Sun Triggers Exact Timing] "; 
+            }
+
+            int score = pos_score + neg_score;
+
+            // --- DETERMINE BROAD PHASE ---
+            if (neg_score <= -1000 && score < 0) status = "SEVERE STUDY BREAK / EXAM FAILURES";
+            else if (score <= -600) status = "ACADEMIC STRUGGLE / LOSS OF INTEREST";
+            else if (score <= -300) status = "DISTRACTIONS / EXAM STRESS";
+            else if (score >= 1000 && neg_score >= -400) status = "MAJOR ACADEMIC SUCCESS / ADMISSION";
+            else if (score >= 600 && neg_score >= -400) status = "EXCELLENT FOCUS / EXAM CLEARANCE";
+            else if (score >= 300) status = "STABLE LEARNING & HARD WORK";
+            else status = "MIXED RESULTS / AVERAGE FOCUS";
+
+            int effective_score = (score >= 300 || score <= -300) ? score : 0;
+
+            if (cur.start_jd == 0 && effective_score != 0) {
+                cur = {jd, jd, effective_score, status, reason};
+            } else if (effective_score != 0) {
+                if (status == cur.status && reason == cur.reason) {
+                    cur.end_jd = jd;
+                    if (abs(effective_score) > abs(cur.peak_score)) { cur.peak_score = effective_score; }
+                } else {
+                    if (cur.end_jd - cur.start_jd >= 15.0) phases.push_back(cur); // Only keep periods > 15 days
+                    cur = {jd, jd, effective_score, status, reason};
+                }
+            } else {
+                if (cur.start_jd != 0) {
+                    if (cur.end_jd - cur.start_jd >= 15.0) phases.push_back(cur);
+                    cur = {0, 0, 0, "", ""};
+                }
+            }
+        }
+        if (cur.start_jd != 0 && cur.end_jd - cur.start_jd >= 15.0) phases.push_back(cur);
+
+        // --- FIND THE TOP PRIORITY HIGHEST PEAK SCORE ---
+        int max_positive_score = 0;
+        for (const auto& p : phases) {
+            if (p.peak_score > max_positive_score && p.status.find("MAJOR ACADEMIC SUCCESS") != string::npos) {
+                max_positive_score = p.peak_score;
+            }
+        }
+
+        // Print Top Priority Highlights at the top
+        if (max_positive_score >= 1000) {
+            printf(">> TOP PRIORITY WINDOW(S) FOR HIGHER EDUCATION / ADMISSION (Peak Power: %d pts) <<\n", max_positive_score);
+            for (const auto& p : phases) {
+                if (p.peak_score == max_positive_score && p.status.find("MAJOR ACADEMIC SUCCESS") != string::npos) {
+                    int y1, m1, d1, y2, m2, d2; double jut;
+                    swe_revjul(p.start_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y1, &m1, &d1, &jut);
+                    swe_revjul(p.end_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y2, &m2, &d2, &jut);
+                    printf(" ⭐ %02d/%02d/%04d to %02d/%02d/%04d -> %s\n", d1, m1, y1, d2, m2, y2, p.reason.c_str());
+                }
+            }
+            printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+        }
+
+        printf("%-25s | %-42s | %s\n", "Window [Start - End]", "Study Phase", "Astrological Triggers");
+        printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+
+        // --- OUTPUT PRINTING ---
+        for (const auto& p : phases) {
+            int y1, m1, d1, y2, m2, d2; double jut;
+            swe_revjul(p.start_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y1, &m1, &d1, &jut);
+            swe_revjul(p.end_jd + (location.tz_offset/24.0), SE_GREG_CAL, &y2, &m2, &d2, &jut);
+            char s_buf[32], e_buf[32];
+            snprintf(s_buf, sizeof(s_buf), "%02d/%02d/%04d", d1, m1, y1);
+            snprintf(e_buf, sizeof(e_buf), "%02d/%02d/%04d", d2, m2, y2);
+            string win_str = "[ " + string(s_buf) + " - " + string(e_buf) + " ]";
+            
+            string status_str = p.status;
+            if (p.peak_score == max_positive_score && max_positive_score >= 1000 && p.status.find("MAJOR ACADEMIC SUCCESS") != string::npos) {
+                status_str += " ⭐ HIGHEST CHANCE";
+            }
+
+            if (html_mode) {
+                string color = (p.peak_score > 0) ? "#2ecc71" : "#e74c3c";
+                printf("<tr><td>%s</td><td><b style='color:%s;'>%s</b></td><td>%s</td></tr>\n", win_str.c_str(), color.c_str(), status_str.c_str(), p.reason.c_str());
+            } else {
+                printf("%-25s | %-42s | %s\n", win_str.c_str(), status_str.c_str(), p.reason.c_str());
+            }
+        }
+
+        if (phases.empty()) {
+            printf(" No major academic fluctuations detected in this timeframe. Stable period.\n");
+        }
+        printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+    }
 void finalize_json() { json_output += "}"; printf("%s\n", json_output.c_str()); }
 // Helper to safely access array strings
 string safe_str(const string* arr, int idx, int size) {
@@ -7194,7 +7841,8 @@ int main(int argc, char *argv[]) {
     // --- FLAG INTERCEPTOR ---
     bool telugu_ui = false;
     bool html_ui = false;
-    bool use_savana = false; // NEW FLAG
+    bool use_savana = false;
+	bool use_true_node = false;
     vector<char*> clean_args;
     clean_args.push_back(argv[0]);
     
@@ -7202,9 +7850,11 @@ int main(int argc, char *argv[]) {
         if (strcasecmp(argv[i], "telugu") == 0 || strcasecmp(argv[i], "--te") == 0) {
             telugu_ui = true;
         } else if (strcasecmp(argv[i], "html") == 0) {
-            html_ui = true; // CATCH THE HTML FLAG
+            html_ui = true; 
         } else if (strcasecmp(argv[i], "savana") == 0 || strcasecmp(argv[i], "--savana") == 0) {
-            use_savana = true; // CATCH THE SAVANA FLAG
+            use_savana = true; 
+        } else if (strcasecmp(argv[i], "true_node") == 0 || strcasecmp(argv[i], "--true-node") == 0) {
+            use_true_node = true; // <--- CATCH THE COMMAND
         } else {
             clean_args.push_back(argv[i]);
         }
@@ -7243,7 +7893,7 @@ int main(int argc, char *argv[]) {
     if (clean_argc >= 9 && strcasecmp(clean_argv[8], "json") == 0) json_mode = true;
 
     // 4. Initialize Core Engine (Global Access for all commands)
-    JyotishaEngine engine(year, month, day, hour, minute, second, *it, json_mode, telugu_ui, html_ui, use_savana);
+	JyotishaEngine engine(year, month, day, hour, minute, second, *it, json_mode, telugu_ui, html_ui, use_savana, use_true_node);
     
     // We run calculate_chart() here because 99% of commands rely on the Natal arrays being populated!
     engine.calculate_chart(); 
@@ -7477,6 +8127,18 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
+		else if (strcasecmp(cmd.c_str(), "panchang") == 0) {
+            if (clean_argc >= 12) { 
+                t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); 
+                parse_target_time(12); // Defaults to 12:00:00 noon if exact time isn't passed
+                engine.calculate_target_panchang(t_year, t_month, t_day, t_hour, t_min, t_sec, false);
+            } else {
+                // If no date is passed, use the current system date & time
+                engine.calculate_target_panchang(0, 0, 0, 0, 0, 0, true);
+            }
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
         else if (strcasecmp(cmd.c_str(), "dasha") == 0) {
             if (clean_argc >= 10 && strcasecmp(clean_argv[9], "all") == 0) engine.export_all_dashas_csv();
             else if (clean_argc >= 12) { 
@@ -7519,6 +8181,7 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
+		
 		else if (strcasecmp(cmd.c_str(), "degree") == 0) {
             if (clean_argc >= 11) {
                 string arg1 = clean_argv[9];
@@ -7530,37 +8193,46 @@ int main(int argc, char *argv[]) {
                 bool is_year_only = true;
                 for(char c : arg2) if(!isdigit(c)) { is_year_only = false; break; }
 
+                bool include_aspects = false;
+                vector<int> nums;
+                for (int k = 11; k < clean_argc; k++) {
+                    string a = clean_argv[k];
+                    if (strcasecmp(a.c_str(), "aspects") == 0) include_aspects = true;
+                    else if (isdigit(a[0]) || (a[0] == '-' && a.length() > 1 && isdigit(a[1]))) {
+                        nums.push_back(stoi(a));
+                    }
+                }
+
                 if (tgt_p_idx != -1) {
                     // MODE 1: Planet to Natal Planet
                     int s_year = 0, s_month = 0, s_day = 0;
-                    if (clean_argc >= 12) s_year = stoi(clean_argv[11]);
-                    if (clean_argc >= 13) s_month = stoi(clean_argv[12]);
-                    if (clean_argc >= 14) s_day = stoi(clean_argv[13]);
-                    engine.search_planet_conjunct_planet(arg1, arg2, s_year, s_month, s_day);
+                    if (nums.size() >= 1) s_year = nums[0];
+                    if (nums.size() >= 2) s_month = nums[1];
+                    if (nums.size() >= 3) s_day = nums[2];
+                    engine.search_planet_conjunct_planet(arg1, arg2, s_year, s_month, s_day, include_aspects);
                 } 
                 else if (tgt_s_idx != -1) {
-                    if (clean_argc >= 12 && isdigit(clean_argv[11][0])) {
-                        int val = stoi(clean_argv[11]);
-                        if (val > 1000 || clean_argc < 14) {
+                    if (nums.size() > 0) {
+                        if (nums[0] > 1000 || nums.size() < 3) {
                             // MODE 2: Planet to Rashi Boundary
-                            int s_year = val, s_month = 0, s_day = 0;
-                            if (clean_argc >= 13) s_month = stoi(clean_argv[12]);
-                            if (clean_argc >= 14) s_day = stoi(clean_argv[13]);
-                            engine.search_planet_transit_rashi(arg1, arg2, s_year, s_month, s_day);
+                            int s_year = nums[0], s_month = 0, s_day = 0;
+                            if (nums.size() >= 2) s_month = nums[1];
+                            if (nums.size() >= 3) s_day = nums[2];
+                            engine.search_planet_transit_rashi(arg1, arg2, s_year, s_month, s_day, include_aspects);
                         } else {
                             // MODE 3: Old Exact Degree
-                            int s_deg = val;
-                            int s_min = stoi(clean_argv[12]);
-                            int s_sec = stoi(clean_argv[13]);
+                            int s_deg = nums[0];
+                            int s_min = nums[1];
+                            int s_sec = nums[2];
                             int s_year = 0, s_month = 0, s_day = 0;
-                            if (clean_argc >= 15) s_year = stoi(clean_argv[14]);
-                            if (clean_argc >= 16) s_month = stoi(clean_argv[15]);
-                            if (clean_argc >= 17) s_day = stoi(clean_argv[16]);
+                            if (nums.size() >= 4) s_year = nums[3];
+                            if (nums.size() >= 5) s_month = nums[4];
+                            if (nums.size() >= 6) s_day = nums[5];
                             engine.search_exact_degree(arg1, arg2, s_deg, s_min, s_sec, s_year, s_month, s_day);
                         }
                     } else {
                         // MODE 2: Planet to Rashi Boundary (Lifespan default)
-                        engine.search_planet_transit_rashi(arg1, arg2, 0, 0, 0);
+                        engine.search_planet_transit_rashi(arg1, arg2, 0, 0, 0, include_aspects);
                     }
                 } 
                 else if (is_year_only) {
@@ -7573,8 +8245,8 @@ int main(int argc, char *argv[]) {
                 }
             } else {
                 printf("Error: 'degree' requires at least a Source Planet and a Target (Planet, Sign, or Year).\n");
-                printf("Usage 1: degree sun moon 2026\n");
-                printf("Usage 2: degree jupiter aries 2026\n");
+                printf("Usage 1: degree sun moon 2026 [aspects]\n");
+                printf("Usage 2: degree jupiter aries 2026 [aspects]\n");
                 printf("Usage 3: degree lagna tula 11 41 09\n");
                 printf("Usage 4: degree jupiter 2010\n");
             }
@@ -7603,7 +8275,7 @@ int main(int argc, char *argv[]) {
                 auto it2 = find_if(city_db.begin(), city_db.end(), [&](const City& c) { return strcasecmp(c.name.c_str(), m_city.c_str()) == 0; });
                 if (it2 == city_db.end()) { printf("Error: Person 2 City '%s' not found.\n", m_city.c_str()); return 1; }
                 
-                JyotishaEngine p2_engine(m_y, m_m, m_d, m_h, m_min, m_s, *it2, json_mode, telugu_ui, html_ui, use_savana);
+                JyotishaEngine p2_engine(m_y, m_m, m_d, m_h, m_min, m_s, *it2, json_mode, telugu_ui, html_ui, use_savana, use_true_node);
                 p2_engine.calculate_chart();
                 
                 
@@ -7631,7 +8303,7 @@ int main(int argc, char *argv[]) {
                         printf("=================================================================\n");
                     }
                     
-                    JyotishaEngine annual_engine(ty, tm, td, th, tmin, tsec, *it, json_mode, telugu_ui, html_ui, use_savana);
+                    JyotishaEngine annual_engine(ty, tm, td, th, tmin, tsec, *it, json_mode, telugu_ui, html_ui, use_savana, use_true_node);
                     annual_engine.calculate_chart();
                     
                     // --- FIX: Print the actual Rasi Chart Grid so it doesn't look empty! ---
@@ -7728,6 +8400,39 @@ int main(int argc, char *argv[]) {
                 engine.scan_rasi_tulya_varga_collisions(target_planet_all, target_year, t_month, t_day, v_num);
             }
             
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+		else if (strcasecmp(cmd.c_str(), "job") == 0) {
+            int s_year = year;
+            int e_year = year + 10; // Default to a 10-year span
+            
+            if (clean_argc >= 10) s_year = stoi(clean_argv[9]);
+            if (clean_argc >= 11) e_year = stoi(clean_argv[10]);
+            
+            engine.predict_job(s_year, e_year);
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+		else if (strcasecmp(cmd.c_str(), "business") == 0) {
+            int s_year = year;
+            int e_year = year + 10; // Default to a 10-year span
+            
+            if (clean_argc >= 10) s_year = stoi(clean_argv[9]);
+            if (clean_argc >= 11) e_year = stoi(clean_argv[10]);
+            
+            engine.predict_business(s_year, e_year);
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+		else if (strcasecmp(cmd.c_str(), "study") == 0) {
+            int s_year = year;
+            int e_year = year + 25; // Default to a 25-year span to cover childhood to masters
+            
+            if (clean_argc >= 10) s_year = stoi(clean_argv[9]);
+            if (clean_argc >= 11) e_year = stoi(clean_argv[10]);
+            
+            engine.predict_study(s_year, e_year);
             printf("\n"); fflush(stdout); 
             return 0;
         }

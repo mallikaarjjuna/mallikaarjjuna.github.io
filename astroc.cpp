@@ -5821,6 +5821,7 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
     bool l7_eq_l8 = (l7_rashi_val==l8_rashi_val);
     bool h8_lord_shukra = (lower(rashi_lords[h8_rashi])=="shukra");
     bool h8_lord_budha = (lower(rashi_lords[h8_rashi])=="budha");
+    bool h8_lord_mangal = (lower(rashi_lords[h8_rashi])=="mangal");
     auto balanceScore = [](PeakInfo &p){
         double a[8]={(double)p.ju8,(double)p.sa8,(double)p.ju7,(double)p.sa7,
                      (double)p.ra_l7,(double)p.ra_l8,(double)p.ve8,(double)p.dk};
@@ -5833,16 +5834,15 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
             int min5 = min({p.ju8,p.sa8,p.ju7,p.sa7,p.ve8});
             double bal = balanceScore(p);
             int ideal = is_female?20:30;
-            int ve8_w = h8_lord_budha? 20 : 3;
+            int ve8_w = h8_lord_mangal? 50 : (h8_lord_budha? 20 : 3);
             int sa7_w = h8_lord_budha? 0 : 1;
             double s = bal + min5 + p.ve8*ve8_w + p.ra_l7 + p.sa7*sa7_w - p.ra_l8*2 - abs(p.age-ideal)*40;
-            if(l7_eq_l8) s += p.sa7*4; // Karka only
+            if(l7_eq_l8) s += p.sa7*4; // Karka
             if(!h8_lord_shukra && p.sa8==0) s -= 500;
             return s;
         };
         return finalScore(a) > finalScore(b);
-    });
-	
+    });	
     sort(allYears.begin(), allYears.end(), [](auto &a, auto &b){return a.year<b.year;});
 
     int topN = min((int)byScore.size(), 3);

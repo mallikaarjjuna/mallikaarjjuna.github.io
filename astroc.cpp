@@ -33,6 +33,9 @@ const vector<City> city_db = {
 	{"Kavali", 14.913181, 79.992981, 5.5},
 	{"Atmakur", 14.616700, 79.616700, 5.5},
     {"Kovur", 14.483333, 79.983333, 5.5},
+	{"Madanapalle", 13.553956, 78.502394, 5.5},
+
+
 	{"Guntur", 16.306700, 80.436500, 5.5},
 	{"Mumbai", 19.076000, 72.877700, 5.5},
 	{"Guwahati", 26.144500, 91.736200, 5.5},
@@ -5374,7 +5377,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
 struct DayScore{string date; int score; string reason; double jd;};
 
 void decode_exact_date(int target_year, int asc_rashi, int h7_rashi, int h8_rashi, int dk_rashi, int l7_rashi_val, int l8_rashi_val, int target_natal_rashi, int planet_rashis[]){
-    printf("\n=== DECODING EXACT DATE IN %d [8TH HOUSE LOCK] ===\n", target_year);
+    printf("\n=== DECODING EXACT DATE IN %d [8TH HOUSE LOCK - SHUDDHI + PANCHANG] ===\n", target_year);
     double jd_start = swe_julday(target_year,1,1,12.0-location.tz_offset,SE_GREG_CAL);
     double jd_end = swe_julday(target_year,12,31,12.0-location.tz_offset,SE_GREG_CAL);
 
@@ -5384,18 +5387,21 @@ void decode_exact_date(int target_year, int asc_rashi, int h7_rashi, int h8_rash
     auto bnn=[&](int t,int n){int d=dist(t,n); return d==0||d==1||d==4||d==6||d==8||d==11;};
 
     vector<DayScore> days;
+    bool panchang_mode = true; // your area - poojari uses panchang list, ignores 8th
 
     for(double jd=jd_start; jd<=jd_end; jd+=1.0){
-        double xx_ju[6],xx_sa[6],xx_ma[6],xx_ve[6],xx_su[6],xx_mo[6]; char serr[256];
+        double xx_ju[6],xx_sa[6],xx_ma[6],xx_ve[6],xx_su[6],xx_mo[6],xx_ra[6]; char serr[256];
         swe_calc_ut(jd,SE_JUPITER,iflag,xx_ju,serr);
         swe_calc_ut(jd,SE_SATURN,iflag,xx_sa,serr);
         swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr);
         swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr);
         swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
         swe_calc_ut(jd,SE_MOON,iflag,xx_mo,serr);
+        swe_calc_ut(jd,SE_MEAN_NODE,iflag,xx_ra,serr);
 
         int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ma=(int)(xx_ma[0]/30);
         int t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_mo=(int)(xx_mo[0]/30);
+        int t_ra=(int)(xx_ra[0]/30),t_ke=(t_ra+6)%12;
 
         int y,m,d; double jut;
         swe_revjul(jd+(location.tz_offset/24.0),SE_GREG_CAL,&y,&m,&d,&jut);
@@ -5404,35 +5410,62 @@ void decode_exact_date(int target_year, int asc_rashi, int h7_rashi, int h8_rash
         int score=0; string reason;
         bool j_p = p_jup(t_ju,asc_rashi)||p_jup(t_ju,h7_rashi)||p_jup(t_ju,l7_rashi_val)||p_jup(t_ju,dk_rashi);
         bool s_p = p_sat(t_sa,asc_rashi)||p_sat(t_sa,h7_rashi)||p_sat(t_sa,l7_rashi_val)||p_sat(t_sa,dk_rashi);
-        if(!j_p &&!s_p) continue;
+        bool hasVe7 = bnn(t_ve,h7_rashi)||bnn(t_ve,asc_rashi)||bnn(t_ve,dk_rashi);
+        if(!j_p &&!s_p &&!hasVe7) continue;
+		
         if(j_p){score+=500; reason+="[Ju-7] ";}
         if(s_p){score+=400; reason+="[Sa-7] ";}
         if(j_p&&s_p){score+=300; reason+="[DOUBLE] ";}
-
-        if(bnn(t_ve,h7_rashi)||bnn(t_ve,asc_rashi)||bnn(t_ve,dk_rashi)){score+=300; reason+="[Ve->7] ";}
+        if(hasVe7){score+=300; reason+="[Ve->7] ";}
         if(bnn(t_su,h7_rashi)){score+=200; reason+="[Sun->7] ";}
 
-        bool h8_intimacy=false;
-        if(t_ve==h8_rashi){score+=1000; reason+="[Ve IN 8TH-SHAYANA] "; h8_intimacy=true;}
-        if(t_mo==h8_rashi){score+=800; reason+="[Moon IN 8TH] "; h8_intimacy=true;}
-        //if(t_ma==h8_rashi){score+=600; reason+="[Mars IN 8TH] "; h8_intimacy=true;}
-        if(bnn(t_ve,h8_rashi)){score+=500; reason+="[Ve->8TH] "; h8_intimacy=true;}
-        if(bnn(t_mo,h8_rashi)){score+=400; reason+="[Moon->8TH] "; h8_intimacy=true;}
-        if(t_ve==l8_rashi_val||t_mo==l8_rashi_val){score+=700; reason+="[Ve/Mo with Natal L8] "; h8_intimacy=true;}
+        // --- 8TH SHUDDHI ---
+        int malefic_in_8th=0;
+        if(t_sa==h8_rashi){malefic_in_8th++; reason+="[Sa IN 8TH] ";}
+        if(!panchang_mode){
+            if(t_su==h8_rashi){malefic_in_8th++; reason+="[Su IN 8TH] ";}
+            if(t_ra==h8_rashi||t_ke==h8_rashi){malefic_in_8th++; reason+="[Ra/Ke IN 8TH] ";}
+        }
+        // Allow list for your area
+        if(t_ma==h8_rashi){reason+="[Ma IN 8TH-ALLOWED] ";}
+        if(t_mo==h8_rashi){reason+="[Moon IN 8TH-ALLOWED] ";}
+        if(t_ve==h8_rashi){score+=400; reason+="[Ve IN 8TH-BENEFIC] ";}
+        if(t_ju==h8_rashi){score+=400; reason+="[Ju IN 8TH-BENEFIC] ";}
 
+        if(!panchang_mode){
+            if(malefic_in_8th>0) score -= 1000*malefic_in_8th;
+            else {score+=800; reason+="[8TH-SHUDDHI] ";}
+        } else {
+            score+=400; reason+="[PANCHANG-MUHURTA] "; // ignore 8th
+        }
+
+        if(bnn(t_ve,h8_rashi)){score+=300; reason+="[Ve->8TH] ";}
+        if(bnn(t_mo,h8_rashi)){score+=200; reason+="[Moon->8TH] ";}
+        if(t_ve==l8_rashi_val||t_mo==l8_rashi_val){score+=400; reason+="[Ve/Mo with Natal L8] ";}
         if(t_su==t_ve){score+=500; reason+="[SUN-VENUS YUTI] ";}
         if(dist(t_su,t_ve)==1||dist(t_su,t_ve)==11){score+=250; reason+="[Sun-Ve Adj] ";}
 
-        if(!h8_intimacy) continue;
-        if(score>=1800) days.push_back({dstr,score,reason,jd});
+        string h8_lord = rashi_lords[h8_rashi];
+        transform(h8_lord.begin(), h8_lord.end(), h8_lord.begin(), ::tolower);
+        bool is_shani_mangal = (h8_lord=="shani" || h8_lord=="mangal");
+        int minScore = is_shani_mangal? 1200 : 1800;
+        if(panchang_mode) minScore = 1000; // relaxed for panchang
+        if(score < minScore) continue;
+		
+        days.push_back({dstr,score,reason,jd});
     }
     sort(days.begin(),days.end(),[](auto &a,auto &b){return a.score>b.score;});
     printf("Isolated night muhurta in %d:\n",target_year);
     for(int i=0;i<min(10,(int)days.size());i++){
         printf("%-12s Score %-4d %s\n",days[i].date.c_str(),days[i].score,days[i].reason.c_str());
     }
+    /*printf("--- November %d check ---\n",target_year);
+    for(auto &d: days){
+        if(d.date.find("/11/")!=string::npos){
+            printf("%-12s Score %-4d %s\n",d.date.c_str(),d.score,d.reason.c_str());
+        }
+    }*/
 }
-
 
 void predict_marriage_general(int start_year, int end_year, string gender_input) {
     int b_y, b_m, b_d; double b_jut;
@@ -5661,11 +5694,6 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
     planet_lons[8]=xx_ra_nat[0]; planet_rashis[8]=(int)(xx_ra_nat[0]/30);
     planet_lons[9]=fmod(xx_ra_nat[0]+180,360); planet_rashis[9]=(planet_rashis[8]+6)%12;
 
-    printf("\n=================================================================\n");
-    printf("=== PURE 8TH HOUSE + JU/SA + RAHU/KETU + BUDHA + DEG-HIT ENGINE ===\n");
-    printf("=================================================================\n");
-    printf("Native: %s | BYear %d | Scan %d to %d\n", is_female?"FEMALE":"MALE", b_y, start_year, end_year);
-
     int asc_rashi = planet_rashis[0];
     int h7_rashi = (asc_rashi + 6) % 12;
     int h8_rashi = (asc_rashi + 7) % 12;
@@ -5680,48 +5708,32 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
     double l7_lon_val = planet_lons[l7_idx];
     double l8_lon_val = planet_lons[l8_idx];
 
-    // FIXED DK - degree inside rashi, not rashi*30
     vector<pair<int,double>> k_list;
-    for(int i=1;i<=7;i++){
-        double deg = fmod(planet_lons[i],30.0);
-        if(deg<0) deg+=30;
-        k_list.push_back({i,deg});
-    }
+    for(int i=1;i<=7;i++){ double deg=fmod(planet_lons[i],30.0); if(deg<0) deg+=30; k_list.push_back({i,deg}); }
     sort(k_list.begin(), k_list.end(), [](auto &a, auto &b){return a.second>b.second;});
-    int dk_rashi = planet_rashis[k_list[6].first]; // lowest deg = DK = Sun=Meena for 1994
+    int dk_rashi = planet_rashis[k_list[6].first];
     int target_natal_rashi = is_female? planet_rashis[3] : planet_rashis[6];
     double target_natal_lon = is_female? planet_lons[3] : planet_lons[6];
-    string target_name = is_female? "Ma(Mangal-Husband BNN)" : "Ve(Shukra-Wife BNN)";
 
     double start_jd = swe_julday(start_year,1,1,12.0-location.tz_offset,SE_GREG_CAL);
     double end_jd = swe_julday(end_year,12,31,12.0-location.tz_offset,SE_GREG_CAL);
 
     map<int,int> year_days, year_p, year_base, year_daily_max;
     map<int,int> year_ju8, year_sa8, year_ju7, year_sa7, year_ra, year_ve8, year_dk;
-    map<int,int> year_ra_l7, year_ra_l8; // NEW split
+    map<int,int> year_ra_l7, year_ra_l8;
     map<int,string> year_reason, year_first, year_last;
-    struct DailyRec{int y,m,d; int p; int daily; string date; double ju, sa, ve, su, ma, mo, me, ra; int t_ju, t_sa, t_ve, t_su, t_ma, t_mo, t_me, t_ra, t_ke;};
+    struct DailyRec{int y,m,d; int p; int daily; string date;};
     vector<DailyRec> all_daily;
-    auto within_orb = [](double t_lon, double n_lon, double orb){
-        double diff = fabs(t_lon - n_lon);
-        if(diff>180) diff=360-diff;
-        return diff<=orb;
-    };
+    auto within_orb = [](double t_lon, double n_lon, double orb){ double diff=fabs(t_lon-n_lon); if(diff>180) diff=360-diff; return diff<=orb; };
 
     for(double jd=start_jd; jd<=end_jd; jd+=1.0){
         double xx_ju[6],xx_sa[6],xx_ve[6],xx_su[6],xx_ma[6],xx_mo[6],xx_me[6],xx_ra[6]; char serr[256];
-        swe_calc_ut(jd,SE_JUPITER,iflag,xx_ju,serr);
-        swe_calc_ut(jd,SE_SATURN,iflag,xx_sa,serr);
-        swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr);
-        swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
-        swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr);
-        swe_calc_ut(jd,SE_MOON,iflag,xx_mo,serr);
-        swe_calc_ut(jd,SE_MERCURY,iflag,xx_me,serr);
-        swe_calc_ut(jd,node_calc_type,iflag,xx_ra,serr);
+        swe_calc_ut(jd,SE_JUPITER,iflag,xx_ju,serr); swe_calc_ut(jd,SE_SATURN,iflag,xx_sa,serr);
+        swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr); swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
+        swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr); swe_calc_ut(jd,SE_MOON,iflag,xx_mo,serr);
+        swe_calc_ut(jd,SE_MERCURY,iflag,xx_me,serr); swe_calc_ut(jd,node_calc_type,iflag,xx_ra,serr);
         int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_ma=(int)(xx_ma[0]/30),t_mo=(int)(xx_mo[0]/30),t_me=(int)(xx_me[0]/30);
         int t_ra=(int)(xx_ra[0]/30); int t_ke=(t_ra+6)%12;
-        double ke_lon = fmod(xx_ra[0]+180,360);
-        bool jup_retro=xx_ju[3]<0; int t_ju_prev=(t_ju+11)%12;
         auto dist2=[](int f,int t){return (t-f+12)%12;};
         auto p_jup2=[&](int t,int n){int d=dist2(t,n); return d==0||d==4||d==6||d==8;};
         auto p_sat2=[&](int t,int n){int d=dist2(t,n); return d==0||d==2||d==6||d==9;};
@@ -5733,383 +5745,109 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
         bool s_p = p_sat2(t_sa,asc_rashi)||p_sat2(t_sa,h7_rashi)||p_sat2(t_sa,planet_rashis[l7_idx])||p_sat2(t_sa,dk_rashi);
         bool ju_h8_lock = p_jup2(t_ju,h8_rashi)||p_jup2(t_ju,planet_rashis[l8_idx]);
         bool sa_h8_lock = p_sat2(t_sa,h8_rashi)||p_sat2(t_sa,planet_rashis[l8_idx]);
-        bool int_active = ju_h8_lock || sa_h8_lock;
-        if(!j_p &&!s_p) continue; if(!int_active) continue;
+        if(!j_p &&!s_p) continue; if(!(ju_h8_lock||sa_h8_lock)) continue;
 
         bool ju_over=(t_ju==l7_rashi_val||t_ju==l8_rashi_val);
-        bool ju_deg=within_orb(xx_ju[0], l7_lon_val, 8.0)||within_orb(xx_ju[0], l8_lon_val, 8.0);
         bool sa_over=(t_sa==l7_rashi_val||t_sa==l8_rashi_val);
-        bool sa_deg=within_orb(xx_sa[0], l7_lon_val, 5.0)||within_orb(xx_sa[0], l8_lon_val, 5.0);
         bool ra_over=(t_ra==l7_rashi_val||t_ra==l8_rashi_val||t_ke==l7_rashi_val||t_ke==l8_rashi_val);
-        bool ra_deg=within_orb(xx_ra[0], l7_lon_val,5.0)||within_orb(ke_lon, l7_lon_val,5.0)||within_orb(xx_ra[0], l8_lon_val,5.0)||within_orb(ke_lon, l8_lon_val,5.0);
         bool ra_h7=(t_ra==h7_rashi||t_ke==h7_rashi);
-
         bool ra_l7 = (t_ra==l7_rashi_val||t_ke==l7_rashi_val||t_ra==h7_rashi||t_ke==h7_rashi);
         bool ra_l8 = (t_ra==l8_rashi_val||t_ke==l8_rashi_val);
 
-        // H7/H8 + L7/L8 combined
         bool ju_h8_all = p_jup2(t_ju,h8_rashi)||p_jup2(t_ju,planet_rashis[l8_idx]);
         bool sa_h8_all = p_sat2(t_sa,h8_rashi)||p_sat2(t_sa,planet_rashis[l8_idx]);
         bool ju_h7_all = p_jup2(t_ju,h7_rashi)||p_jup2(t_ju,planet_rashis[l7_idx]);
         bool sa_h7_all = p_sat2(t_sa,h7_rashi)||p_sat2(t_sa,planet_rashis[l7_idx]);
 
-        if(ju_h8_all) year_ju8[y]++;
-        if(sa_h8_all) year_sa8[y]++;
-        if(ju_h7_all) year_ju7[y]++;
-        if(sa_h7_all) year_sa7[y]++;
-        if(ra_over || ra_h7 || ra_deg) year_ra[y]++;
-        if(ra_l7) year_ra_l7[y]++;
-        if(ra_l8) year_ra_l8[y]++;
-        if(t_ve==h8_rashi) year_ve8[y]++;
-        if(p_jup2(t_ju,dk_rashi)||p_sat2(t_sa,dk_rashi)) year_dk[y]++;
+        if(ju_h8_all) year_ju8[y]++; if(sa_h8_all) year_sa8[y]++;
+        if(ju_h7_all) year_ju7[y]++; if(sa_h7_all) year_sa7[y]++;
+        if(ra_over||ra_h7) year_ra[y]++; if(ra_l7) year_ra_l7[y]++; if(ra_l8) year_ra_l8[y]++;
+        if(t_ve==h8_rashi) year_ve8[y]++; if(p_jup2(t_ju,dk_rashi)||p_sat2(t_sa,dk_rashi)) year_dk[y]++;
 
-        int p_score=0; string rsn="";
-        if(j_p && s_p){ p_score+=600; rsn+="[DOUBLE Ju+Sa] "; }
-        else { p_score+=500; rsn+=j_p?"[Ju->H7] ":"[Sa->H7] "; }
-        if(ju_h8_lock && sa_h8_lock){ p_score+=400; rsn+="[DOUBLE 8TH] "; }
-        else if(ju_h8_lock || sa_h8_lock){ p_score+=200; rsn+="[8TH LOCK] "; }
-        int over=0;
-        if(ju_over||ju_deg) over = max(over,800);
-        if(ra_over||ra_deg) over = max(over,800);
-        if(ra_h7) over = max(over,500);
-        if(sa_over||sa_deg) over = max(over,400);
-        if(ra_over) over+=100;
-        p_score+=over;
-
-        bool j_b = within_orb(xx_ju[0], target_natal_lon, 5.0) || (jup_retro && bnn2(t_ju_prev,target_natal_rashi));
-        bool su_b = within_orb(xx_su[0], target_natal_lon, 2.0) || within_orb(xx_su[0], xx_ju[0], 5.0);
-        bool ve_b = within_orb(xx_ve[0], target_natal_lon, 2.0) || within_orb(xx_ve[0], xx_ju[0], 5.0);
-        if(!j_b) j_b = bnn2(t_ju,target_natal_rashi) || (jup_retro&&bnn2(t_ju_prev,target_natal_rashi));
-        if(!su_b) su_b = bnn2(t_su,target_natal_rashi)||bnn2(t_su,t_ju);
-        if(!ve_b) ve_b = bnn2(t_ve,target_natal_rashi)||bnn2(t_ve,t_ju);
+        int p_score=0; string rsn=""; if(j_p&&s_p){p_score+=600; rsn+="[DOUBLE] ";} else p_score+=500;
+        bool ju_deg=within_orb(xx_ju[0],l7_lon_val,8.0)||within_orb(xx_ju[0],l8_lon_val,8.0);
+        bool sa_deg=within_orb(xx_sa[0],l7_lon_val,5.0)||within_orb(xx_sa[0],l8_lon_val,5.0);
+        bool ra_deg=within_orb(xx_ra[0],l7_lon_val,5.0);
+        bool j_b = within_orb(xx_ju[0],target_natal_lon,5.0) || bnn2(t_ju,target_natal_rashi);
+        bool su_b = within_orb(xx_su[0],target_natal_lon,2.0) || bnn2(t_su,target_natal_rashi);
+        bool ve_b = within_orb(xx_ve[0],target_natal_lon,2.0) || bnn2(t_ve,target_natal_rashi);
         int b_score=0; if(j_b&&su_b&&ve_b) b_score=700; else if(j_b&&(su_b||ve_b)) b_score=400; else if(j_b||ve_b) b_score=200; else continue;
         int base_total = p_score + b_score;
-        auto is_core=[&](int p){return p==asc_rashi||p==h7_rashi||p==h8_rashi||p==dk_rashi||p==planet_rashis[l7_idx]||p==target_natal_rashi;};
-        if(is_core(t_su)) base_total+=150; if(is_core(t_ve)) base_total+=250;
-        if(is_core(t_me)) base_total+=200; if(is_core(t_ra)||is_core(t_ke)) base_total+=200;
-        if(base_total < 500) continue;
+        if(base_total<500) continue;
+        int daily_score = p_score + b_score + (t_ve==h8_rashi?500:0);
 
-        int daily_score = 0;
-        if(j_p && s_p) daily_score+=600; else daily_score+=500;
-        if(ju_over||ju_deg) daily_score+=800; else if(ra_over||ra_deg) daily_score+=800;
-        if(b_score>=700) daily_score+=700; else if(b_score>=400) daily_score+=400; else daily_score+=200;
-        if(t_ve==h8_rashi) daily_score+=500; if(t_mo==h8_rashi) daily_score+=250;
-
-        year_days[y]++; year_daily_max[y] = max(year_daily_max[y], daily_score);
-        if(year_first[y].empty()) year_first[y]=string(date_str);
-        year_last[y]=string(date_str);
-        if(p_score > year_p[y] || (p_score==year_p[y] && base_total>year_base[y])){
-            year_p[y]=p_score; year_base[y]=base_total;
-            year_reason[y]=rsn+"[P-"+to_string(p_score)+"] [B-"+to_string(b_score)+"]";
-        }
-        all_daily.push_back({y,m,d,p_score,daily_score,string(date_str),xx_ju[0],xx_sa[0],xx_ve[0],xx_su[0],xx_ma[0],xx_mo[0],xx_me[0],xx_ra[0],t_ju,t_sa,t_ve,t_su,t_ma,t_mo,t_me,t_ra,t_ke});
+        year_days[y]++; year_daily_max[y]=max(year_daily_max[y],daily_score);
+        if(year_first[y].empty()) year_first[y]=string(date_str); year_last[y]=string(date_str);
+        if(p_score>year_p[y]){ year_p[y]=p_score; year_base[y]=base_total; year_reason[y]=rsn; }
+        all_daily.push_back({y,m,d,p_score,daily_score,string(date_str)});
     }
 
-        struct PeakInfo{
-        int year; int pScore; int baseTotal; int days;
-        int ju8, sa8, ju7, sa7, ra, ve8, dk;
-        int ra_l7, ra_l8;
-        int dailyMax; string reason; int age; string first; string last;
-    };
+    struct PeakInfo{int year; int pScore; int baseTotal; int days; int ju8,sa8,ju7,sa7,ra_l7,ra_l8,ve8,dk; int dailyMax; string reason; int age; string first; string last;};
     vector<PeakInfo> byScore, allYears;
     for(auto &kv:year_days){
         int y=kv.first;
-        allYears.push_back({y, year_p[y], year_base[y], kv.second, year_ju8[y], year_sa8[y], year_ju7[y], year_sa7[y], year_ra[y], year_ve8[y], year_dk[y], year_ra_l7[y], year_ra_l8[y], year_daily_max[y], year_reason[y], y-b_y, year_first[y], year_last[y]});
-        if((y-b_y)>=14) byScore.push_back({y, year_p[y], year_base[y], kv.second, year_ju8[y], year_sa8[y], year_ju7[y], year_sa7[y], year_ra[y], year_ve8[y], year_dk[y], year_ra_l7[y], year_ra_l8[y], year_daily_max[y], year_reason[y], y-b_y, year_first[y], year_last[y]});
+        allYears.push_back({y,year_p[y],year_base[y],kv.second,year_ju8[y],year_sa8[y],year_ju7[y],year_sa7[y],year_ra_l7[y],year_ra_l8[y],year_ve8[y],year_dk[y],year_daily_max[y],year_reason[y],y-b_y,year_first[y],year_last[y]});
+        if((y-b_y)>=14) byScore.push_back({y,year_p[y],year_base[y],kv.second,year_ju8[y],year_sa8[y],year_ju7[y],year_sa7[y],year_ra_l7[y],year_ra_l8[y],year_ve8[y],year_dk[y],year_daily_max[y],year_reason[y],y-b_y,year_first[y],year_last[y]});
     }
-    // Universal: Ve8*12 + Sa7*2 + RaL7 good, RaL8 bad, L7==L8 -> Ra ignored
-
+    auto lower2=lower;
     bool l7_eq_l8 = (l7_rashi_val==l8_rashi_val);
-    bool h8_lord_shukra = (lower(rashi_lords[h8_rashi])=="shukra");
-    bool h8_lord_budha = (lower(rashi_lords[h8_rashi])=="budha");
-    bool h8_lord_mangal = (lower(rashi_lords[h8_rashi])=="mangal");
-    auto balanceScore = [](PeakInfo &p){
-        double a[8]={(double)p.ju8,(double)p.sa8,(double)p.ju7,(double)p.sa7,
-                     (double)p.ra_l7,(double)p.ra_l8,(double)p.ve8,(double)p.dk};
-        double m=0; for(int i=0;i<8;i++) m+=a[i]; m/=8;
-        double v=0; for(int i=0;i<8;i++) v+=(a[i]-m)*(a[i]-m); v/=8;
-        return 1000.0 - sqrt(v);
-    };
+    bool h8_lord_mangal = (lower2(rashi_lords[h8_rashi])=="mangal");
+    bool h8_lord_budha = (lower2(rashi_lords[h8_rashi])=="budha");
+    bool h8_lord_shani = (lower2(rashi_lords[h8_rashi])=="shani");
+    bool h8_lord_shukra = (lower2(rashi_lords[h8_rashi])=="shukra");
+    auto balanceScore = [](PeakInfo &p){ double a[8]={(double)p.ju8,(double)p.sa8,(double)p.ju7,(double)p.sa7,(double)p.ra_l7,(double)p.ra_l8,(double)p.ve8,(double)p.dk}; double m=0; for(int i=0;i<8;i++) m+=a[i]; m/=8; double v=0; for(int i=0;i<8;i++) v+=(a[i]-m)*(a[i]-m); v/=8; return 1000.0 - sqrt(v); };
     sort(byScore.begin(), byScore.end(), [&](auto &a, auto &b){
         auto finalScore = [&](PeakInfo &p){
             int min5 = min({p.ju8,p.sa8,p.ju7,p.sa7,p.ve8});
             double bal = balanceScore(p);
-            int ideal = is_female?20:30;
-            int ve8_w = h8_lord_mangal? 50 : (h8_lord_budha? 20 : 3);
-            int sa7_w = h8_lord_budha? 0 : 1;
-            double s = bal + min5 + p.ve8*ve8_w + p.ra_l7 + p.sa7*sa7_w - p.ra_l8*2 - abs(p.age-ideal)*40;
-            if(l7_eq_l8) s += p.sa7*4; // Karka
-            if(!h8_lord_shukra && p.sa8==0) s -= 500;
+            int ve8_w=3, sa7_w=1;
+            if(l7_eq_l8){ve8_w=3;} else if(h8_lord_mangal){ve8_w=50;} else if(h8_lord_budha){ve8_w=20; sa7_w=0;} else if(h8_lord_shani){ve8_w=10;}
+            double s = bal + min5 + p.ve8*ve8_w + p.ra_l7 + p.sa7*sa7_w - p.ra_l8*2 - abs(p.age-(is_female?20:30))*40;
+            if(!h8_lord_shukra && p.sa8==0) s-=500;
             return s;
         };
-        return finalScore(a) > finalScore(b);
-    });	
+        return finalScore(a)>finalScore(b);
+    });
     sort(allYears.begin(), allYears.end(), [](auto &a, auto &b){return a.year<b.year;});
+    int topN = min((int)byScore.size(),3);
 
-    int topN = min((int)byScore.size(), 3);
-    printf(">> TOP 3 PEAKS: "); for(int i=0;i<topN;i++) printf("%d (Ju8 %d Sa8 %d Ju7 %d Sa7 %d RaL7 %d RaL8 %d Ve8 %d DK %d) | ", byScore[i].year, byScore[i].ju8, byScore[i].sa8, byScore[i].ju7, byScore[i].sa7, byScore[i].ra_l7, byScore[i].ra_l8, byScore[i].ve8, byScore[i].dk); printf("<<\n");
-    if(topN>0) printf(">> ULTIMATE: %d Ju8 %d Sa8 %d Ju7 %d Sa7 %d RaL7 %d RaL8 %d Ve8 %d DK %d <<\n", byScore[0].year, byScore[0].ju8, byScore[0].sa8, byScore[0].ju7, byScore[0].sa7, byScore[0].ra_l7, byScore[0].ra_l8, byScore[0].ve8, byScore[0].dk);
-    for(auto &pk:allYears){
-        string st="[OTHER]"; for(int i=0;i<topN;i++) if(pk.year==byScore[i].year) st= (i==0?"[EPOCH 1] VIVAHA": i==1?"[EPOCH 2]":"[EPOCH 3]");
-        printf(" %-4d | Age %-2d | Ju8 %-3d Sa8 %-3d Ju7 %-3d Sa7 %-3d RaL7 %-3d RaL8 %-3d Ve8 %-3d DK %-3d Tot:%d | P %-4d | %s -> %s | %s\n", pk.year,pk.age,pk.ju8,pk.sa8,pk.ju7,pk.sa7,pk.ra_l7,pk.ra_l8,pk.ve8,pk.dk,(pk.ju8+pk.sa8+pk.ju7+pk.sa7),pk.pScore,pk.first.c_str(),pk.last.c_str(),st.c_str());
+    // ==== WEB-UI MODE LIKE predict_job ====
+    if(html_mode){
+        printf("<div style='font-family:Inter,Arial;padding:10px'>");
+        printf("<h2 style='color:#2c3e50'>💍 Marriage Prediction Engine [8TH LOCK]</h2>");
+        printf("<p>Native: <b>%s</b> | BYear %d | Scan %d to %d | H8 Lord=%s</p>", is_female?"FEMALE":"MALE", b_y, start_year, end_year, rashi_lords[h8_rashi]);
+        if(topN>0){
+            printf("<div style='background:#e8f8f5;border-left:5px solid #1abc9c;padding:8px;margin:10px 0'>");
+            printf("<b>⭐ ULTIMATE: %d (Ju8 %d Sa8 %d Ju7 %d Sa7 %d RaL7 %d RaL8 %d Ve8 %d)</b><br>", byScore[0].year,byScore[0].ju8,byScore[0].sa8,byScore[0].ju7,byScore[0].sa7,byScore[0].ra_l7,byScore[0].ra_l8,byScore[0].ve8);
+            printf("TOP 3: "); for(int i=0;i<topN;i++) printf("%d ",byScore[i].year); printf("</div>");
+        }
+        printf("<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%%;font-size:13px'>");
+        printf("<tr style='background:#2c3e50;color:white'><th>Year</th><th>Age</th><th>Ju8</th><th>Sa8</th><th>Ju7</th><th>Sa7</th><th>RaL7</th><th>RaL8</th><th>Ve8</th><th>P-Score</th><th>Window</th><th>Status</th></tr>");
+        for(auto &pk:allYears){
+            string st="OTHER"; string color="#bdc3c7";
+            for(int i=0;i<topN;i++) if(pk.year==byScore[i].year){ st = (i==0?"EPOCH 1 VIVAHA ⭐ HIGHEST": i==1?"EPOCH 2":"EPOCH 3"); color = (i==0?"#2ecc71": i==1?"#f1c40f":"#3498db"); break; }
+            printf("<tr><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s → %s</td><td><b style='color:%s'>%s</b></td></tr>",
+                pk.year,pk.age,pk.ju8,pk.sa8,pk.ju7,pk.sa7,pk.ra_l7,pk.ra_l8,pk.ve8,pk.pScore,pk.first.c_str(),pk.last.c_str(),color.c_str(),st.c_str());
+        }
+        printf("</table></div>");
+    } else {
+        printf(">> TOP 3 PEAKS: "); for(int i=0;i<topN;i++) printf("%d ",byScore[i].year); printf("<<\n");
+        if(topN>0) printf(">> ULTIMATE: %d <<\n",byScore[0].year);
+        for(auto &pk:allYears) printf("%d Age %d Ju8 %d Sa8 %d Ju7 %d Sa7 %d RaL7 %d RaL8 %d Ve8 %d P %d %s -> %s\n",pk.year,pk.age,pk.ju8,pk.sa8,pk.ju7,pk.sa7,pk.ra_l7,pk.ra_l8,pk.ve8,pk.pScore,pk.first.c_str(),pk.last.c_str());
     }
-    
 
-    sort(all_daily.begin(), all_daily.end(), [](auto &a, auto &b){ if(a.y!=b.y) return a.y<b.y; if(a.m!=b.m) return a.m<b.m; return a.d<b.d; });
+    // 180-day yoga - same as job phases
     struct Dur{string start; string end; int pmax; int dmax; int cnt;}; vector<Dur> durs;
+    sort(all_daily.begin(), all_daily.end(), [](auto &a, auto &b){ if(a.y!=b.y) return a.y<b.y; if(a.m!=b.m) return a.m<b.m; return a.d<b.d; });
     for(int i=0;i<(int)all_daily.size();i++){ int maxP=0,maxD=0,cnt=0; string s=all_daily[i].date, e=s; for(int j=i;j<min(i+180,(int)all_daily.size());j++){ maxP=max(maxP,all_daily[j].p); maxD=max(maxD,all_daily[j].daily); cnt++; e=all_daily[j].date; } if(cnt>=30 && maxP>=1000) durs.push_back({s,e,maxP,maxD,cnt}); }
     sort(durs.begin(), durs.end(), [](auto &a, auto &b){ if(a.pmax!=b.pmax) return a.pmax>b.pmax; return a.dmax>b.dmax; });
-    vector<Dur> uniq; for(auto &du:durs){ if(uniq.empty() || du.start!=uniq.back().start) uniq.push_back(du); if((int)uniq.size()>=10) break; }
-    printf("\n=== BEST CONTINUOUS 180-DAY YOGA ===\n"); for(int i=0;i<min(3,(int)uniq.size());i++) printf("%d. %s -> %s | Pmax %d | DailyMax %d | ActiveDays %d\n", i+1, uniq[i].start.c_str(), uniq[i].end.c_str(), uniq[i].pmax, uniq[i].dmax, uniq[i].cnt);
-    for(int i=0;i<topN;i++) decode_exact_date(byScore[i].year, asc_rashi, h7_rashi, h8_rashi, dk_rashi, l7_rashi_val, l8_rashi_val, target_natal_rashi, planet_rashis);
-
-    const char* rashi_names[12]={"Mesha","Vrisha","Mithuna","Karka","Simha","Kanya","Tula","Vrishchika","Dhanu","Makara","Kumbha","Meena"};
-    auto rashi_name = [&](int r){return rashi_names[r];};
-    auto dist2=[&](int f,int t){return (t-f+12)%12;};
-    auto p_jup=[&](int t,int n){int d=dist2(t,n); return d==0||d==4||d==6||d==8;};
-    auto p_sat=[&](int t,int n){int d=dist2(t,n); return d==0||d==2||d==6||d==9;};
-
-    printf("\n=================================================================\n");
-    printf("=== INTERACTIVE YEAR ANALYSIS ===\n");
-    printf("=================================================================\n");
-    printf("\nNatal Chart:\n");
-    printf(" Asc : %s (%d)\n", rashi_name(asc_rashi), asc_rashi);
-    printf(" H7 : %s (%d) Lord=%s => %s (%d) [L7=%s] Lon=%.2f\n", rashi_name(h7_rashi), h7_rashi, rashi_lords[h7_rashi], rashi_name(planet_rashis[l7_idx]), planet_rashis[l7_idx], p_names_full[l7_idx], planet_lons[l7_idx]);
-    printf(" H8 : %s (%d) Lord=%s => %s (%d) [L8=%s] Lon=%.2f\n", rashi_name(h8_rashi), h8_rashi, rashi_lords[h8_rashi], rashi_name(planet_rashis[l8_idx]), planet_rashis[l8_idx], p_names_full[l8_idx], planet_lons[l8_idx]);
-    printf(" DK : %s (%d) = %s\n", rashi_name(dk_rashi), dk_rashi, p_names_full[k_list[6].first]);
-    auto house_deg = [](double lon){ double d=fmod(lon,30.0); if(d<0) d+=30; return d; };
-    printf(" Target : %s = %s (%d) %.2f° [%.2f° total]\n", target_name.c_str(), rashi_name(target_natal_rashi), target_natal_rashi, house_deg(target_natal_lon), target_natal_lon);
-    printf(" Planets: Lagna=%s(%d) %.2f° | Sun=%s(%d) %.2f° | Moon=%s(%d) %.2f° | Mars=%s(%d) %.2f° | Merc=%s(%d) %.2f° | Jup=%s(%d) %.2f° | Ven=%s(%d) %.2f° | Sat=%s(%d) %.2f° | Rahu=%s(%d) %.2f° | Ketu=%s(%d) %.2f°\n",
-    rashi_name(planet_rashis[0]),planet_rashis[0],house_deg(planet_lons[0]),
-    rashi_name(planet_rashis[1]),planet_rashis[1],house_deg(planet_lons[1]),
-    rashi_name(planet_rashis[2]),planet_rashis[2],house_deg(planet_lons[2]),
-    rashi_name(planet_rashis[3]),planet_rashis[3],house_deg(planet_lons[3]),
-    rashi_name(planet_rashis[4]),planet_rashis[4],house_deg(planet_lons[4]),
-    rashi_name(planet_rashis[5]),planet_rashis[5],house_deg(planet_lons[5]),
-    rashi_name(planet_rashis[6]),planet_rashis[6],house_deg(planet_lons[6]),
-    rashi_name(planet_rashis[7]),planet_rashis[7],house_deg(planet_lons[7]),
-    rashi_name(planet_rashis[8]),planet_rashis[8],house_deg(planet_lons[8]),
-    rashi_name(planet_rashis[9]),planet_rashis[9],house_deg(planet_lons[9]));
-
-    struct Range{string label; string start; string end; int days; bool retro;};
-    char input[32];
-    /* while(true){
-        printf("\nEnter year to drill (e.g. 2020) or 'exit': "); fflush(stdout);
-        if(!fgets(input, sizeof(input), stdin)) break;
-        string s=input; s.erase(remove(s.begin(), s.end(), '\n'), s.end()); s.erase(remove(s.begin(), s.end(), '\r'), s.end());
-        for(auto &c:s) c=tolower(c); if(s=="exit"||s=="q"||s=="quit") break;
-        int qyear = atoi(s.c_str()); if(qyear<1900 || qyear>2100){ printf("Invalid year\n"); continue; }
-        double qs = swe_julday(qyear,1,1,12.0-location.tz_offset,SE_GREG_CAL);
-        double qe = swe_julday(qyear,12,31,12.0-location.tz_offset,SE_GREG_CAL);
-
-        struct DayFlag{
-            string date;
-            int t_ju,t_sa,t_ve,t_mo,t_su,t_ma,t_me,t_ra,t_ke;
-            bool ju_retro,sa_retro;
-            bool j_h7,s_h7,j_h8,s_h8, ju_over,sa_over,ra_over,ra_h7;
-            bool ju_deg_l7,ju_deg_l8,sa_deg_l7,sa_deg_l8,ra_deg_l7,ra_deg_l8;
-            bool j_tar,su_tar,ve_tar;
-            int j_prev, s_prev;
-            double ju_lon, ve_lon, su_lon, ra_lon, ke_lon, sa_lon;
-            int j_h7_dist, s_h7_dist, j_h8_dist, s_h8_dist;
-        };
-        vector<DayFlag> dflags;
-        auto aspect_name_ju = [&](int dist)->string{
-            if(dist==0) return "1st/Direct";
-            if(dist==4) return "5th";
-            if(dist==6) return "7th";
-            if(dist==8) return "9th";
-            return "5th/7th/9th";
-        };
-        auto aspect_name_sa = [&](int dist)->string{
-            if(dist==0) return "1st/Direct";
-            if(dist==2) return "3rd";
-            if(dist==6) return "7th";
-            if(dist==9) return "10th";
-            return "3rd/7th/10th";
-        };
-
-        for(double jd=qs;jd<=qe;jd+=1.0){
-            double xx_ju[6],xx_sa[6],xx_ve[6],xx_su[6],xx_ma[6],xx_mo[6],xx_me[6],xx_ra[6]; char serr[256];
-            swe_calc_ut(jd,SE_JUPITER,iflag,xx_ju,serr); swe_calc_ut(jd,SE_SATURN,iflag,xx_sa,serr);
-            swe_calc_ut(jd,SE_VENUS,iflag,xx_ve,serr); swe_calc_ut(jd,SE_SUN,iflag,xx_su,serr);
-            swe_calc_ut(jd,SE_MARS,iflag,xx_ma,serr); swe_calc_ut(jd,SE_MOON,iflag,xx_mo,serr);
-            swe_calc_ut(jd,SE_MERCURY,iflag,xx_me,serr);
-            swe_calc_ut(jd,node_calc_type,iflag,xx_ra,serr);
-            int t_ju=(int)(xx_ju[0]/30),t_sa=(int)(xx_sa[0]/30),t_ve=(int)(xx_ve[0]/30),t_su=(int)(xx_su[0]/30),t_ma=(int)(xx_ma[0]/30),t_mo=(int)(xx_mo[0]/30),t_me=(int)(xx_me[0]/30);
-            int t_ra=(int)(xx_ra[0]/30); int t_ke=(t_ra+6)%12;
-            bool ju_ret=xx_ju[3]<0, sa_ret=xx_sa[3]<0; int t_ju_prev=(t_ju+11)%12;
-            int y,m,d; double jut; swe_revjul(jd+(location.tz_offset/24.0),SE_GREG_CAL,&y,&m,&d,&jut);
-            char ds[16]; sprintf(ds,"%02d/%02d/%04d",d,m,y);
-            int dj_h7 = -1, ds_h7 = -1, dj_h8 = -1, ds_h8 = -1;
-            if(p_jup(t_ju,h7_rashi)) dj_h7 = dist2(t_ju,h7_rashi);
-            else if(p_jup(t_ju,asc_rashi)) dj_h7 = dist2(t_ju,asc_rashi);
-            else if(p_jup(t_ju,planet_rashis[l7_idx])) dj_h7 = dist2(t_ju,planet_rashis[l7_idx]);
-            else if(p_jup(t_ju,dk_rashi)) dj_h7 = dist2(t_ju,dk_rashi);
-            if(p_sat(t_sa,h7_rashi)) ds_h7 = dist2(t_sa,h7_rashi);
-            else if(p_sat(t_sa,asc_rashi)) ds_h7 = dist2(t_sa,asc_rashi);
-            else if(p_sat(t_sa,planet_rashis[l7_idx])) ds_h7 = dist2(t_sa,planet_rashis[l7_idx]);
-            else if(p_sat(t_sa,dk_rashi)) ds_h7 = dist2(t_sa,dk_rashi);
-            if(p_jup(t_ju,h8_rashi)) dj_h8 = dist2(t_ju,h8_rashi);
-            else if(p_jup(t_ju,planet_rashis[l8_idx])) dj_h8 = dist2(t_ju,planet_rashis[l8_idx]);
-            if(p_sat(t_sa,h8_rashi)) ds_h8 = dist2(t_sa,h8_rashi);
-            else if(p_sat(t_sa,planet_rashis[l8_idx])) ds_h8 = dist2(t_sa,planet_rashis[l8_idx]);
-            bool j_h7 = p_jup(t_ju,asc_rashi)||p_jup(t_ju,h7_rashi)||p_jup(t_ju,planet_rashis[l7_idx])||p_jup(t_ju,dk_rashi);
-            bool s_h7 = p_sat(t_sa,asc_rashi)||p_sat(t_sa,h7_rashi)||p_sat(t_sa,planet_rashis[l7_idx])||p_sat(t_sa,dk_rashi);
-            bool j_h8 = p_jup(t_ju,h8_rashi)||p_jup(t_ju,planet_rashis[l8_idx]);
-            bool s_h8 = p_sat(t_sa,h8_rashi)||p_sat(t_sa,planet_rashis[l8_idx]);
-            bool ju_over=(t_ju==l7_rashi_val||t_ju==l8_rashi_val);
-            bool sa_over=(t_sa==l7_rashi_val||t_sa==l8_rashi_val);
-            bool ra_over=(t_ra==l7_rashi_val||t_ra==l8_rashi_val||t_ke==l7_rashi_val||t_ke==l8_rashi_val);
-            bool ra_h7=(t_ra==h7_rashi||t_ke==h7_rashi);
-            bool ju_dl7 = within_orb(xx_ju[0], l7_lon_val,5.0);
-            bool ju_dl8 = within_orb(xx_ju[0], l8_lon_val,5.0);
-            bool sa_dl7 = within_orb(xx_sa[0], l7_lon_val,5.0);
-            bool sa_dl8 = within_orb(xx_sa[0], l8_lon_val,5.0);
-            bool ra_dl7 = within_orb(xx_ra[0], l7_lon_val,5.0)||within_orb(fmod(xx_ra[0]+180,360), l7_lon_val,5.0);
-            bool ra_dl8 = within_orb(xx_ra[0], l8_lon_val,5.0)||within_orb(fmod(xx_ra[0]+180,360), l8_lon_val,5.0);
-            bool j_t = within_orb(xx_ju[0], target_natal_lon, 5.0);
-            bool su_t = within_orb(xx_su[0], target_natal_lon, 2.0) || within_orb(xx_su[0], xx_ju[0], 5.0);
-            bool ve_t = within_orb(xx_ve[0], target_natal_lon, 2.0) || within_orb(xx_ve[0], xx_ju[0], 5.0);
-            dflags.push_back({ds,t_ju,t_sa,t_ve,t_mo,t_su,t_ma,t_me,t_ra,t_ke,ju_ret,sa_ret,j_h7,s_h7,j_h8,s_h8,ju_over,sa_over,ra_over,ra_h7,ju_dl7,ju_dl8,sa_dl7,sa_dl8,ra_dl7,ra_dl8,j_t,su_t,ve_t,t_ju_prev,0,xx_ju[0],xx_ve[0],xx_su[0],xx_ra[0],fmod(xx_ra[0]+180,360),xx_sa[0],dj_h7,ds_h7,dj_h8,ds_h8});
-        }
-
-        auto print_ranges = [&](string title, vector<Range> &rs){
-            if(rs.empty()) return;
-            printf("\n%s:\n", title.c_str());
-            for(auto &r:rs) printf(" %-50s ==> %s - %s (%d days)%s\n", r.label.c_str(), r.start.c_str(), r.end.c_str(), r.days, r.retro?" [R]":"");
-        };
-        auto build_with_aspect = [&](auto getter, string planetKey, bool isJu)->vector<Range>{
-            vector<Range> out; string cur_s="", cur_e=""; int cnt=0; bool in=false; bool cur_r=false; string cur_lab=""; int cur_dist=-2;
-            for(auto &df:dflags){
-                bool active = getter(df);
-                int dist = -1;
-                if(planetKey=="Ju-H7") dist=df.j_h7_dist;
-                else if(planetKey=="Sa-H7") dist=df.s_h7_dist;
-                else if(planetKey=="Ju-H8") dist=df.j_h8_dist;
-                else if(planetKey=="Sa-H8") dist=df.s_h8_dist;
-                bool retro = (planetKey.find("Ju")==0? df.ju_retro : (planetKey.find("Sa")==0? df.sa_retro : false));
-                string asp = isJu? aspect_name_ju(dist) : aspect_name_sa(dist);
-                string base;
-                if(planetKey=="Ju-H7"||planetKey=="Sa-H7") base = planetKey.substr(0,2)+"("+asp+")->H7("+string(rashi_name(h7_rashi))+")";
-                else base = planetKey.substr(0,2)+"("+asp+")->H8("+string(rashi_name(h8_rashi))+")";
-                if(active &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; cur_r=retro; cur_lab=base; cur_dist=dist; in=true; }
-                else if(active && in){
-                    if(retro!=cur_r || dist!=cur_dist){ out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r}); cur_s=df.date; cur_e=df.date; cnt=1; cur_r=retro; cur_lab=base; cur_dist=dist; }
-                    else { cur_e=df.date; cnt++; }
-                }
-                else if(!active && in){ out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r}); in=false; }
-            }
-            if(in) out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r});
-            return out;
-        };
-        auto build_simple = [&](auto getter, string base_label)->vector<Range>{
-            vector<Range> out; string cur_s=""; string cur_e=""; int cnt=0; bool in=false; bool cur_r=false; string cur_lab="";
-            for(auto &df:dflags){
-                bool active = getter(df);
-                bool retro = (base_label.find("Ju")==0? df.ju_retro : (base_label.find("Sa")==0? df.sa_retro : false));
-                string label = base_label;
-                if(active &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; cur_r=retro; cur_lab=label; in=true; }
-                else if(active && in){
-                    if(retro!=cur_r){ out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r}); cur_s=df.date; cur_e=df.date; cnt=1; cur_r=retro; cur_lab=label; }
-                    else { cur_e=df.date; cnt++; }
-                }
-                else if(!active && in){ out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r}); in=false; }
-            }
-            if(in) out.push_back({cur_lab,cur_s,cur_e,cnt,cur_r});
-            return out;
-        };
-        auto build_split_deg = [&](auto getter_l7, auto getter_l8, string planet, int l_idx, int l_rashi, double l_lon)->vector<Range>{
-            vector<Range> out; string cur_s="",cur_e=""; int cnt=0; bool in=false; string cur_lab=""; bool cur_is_l7=false;
-            for(auto &df:dflags){
-                bool is_l7 = getter_l7(df);
-                bool is_l8 = getter_l8(df);
-                string lab="";
-                if(is_l7) lab=planet+" DEG-HIT L7("+string(rashi_name(l7_rashi_val))+" L7="+p_names_full[l7_idx]+" "+to_string((int)house_deg(l7_lon_val))+"°)";
-                else if(is_l8) lab=planet+" DEG-HIT L8("+string(rashi_name(l8_rashi_val))+" L8="+p_names_full[l8_idx]+" "+to_string((int)house_deg(l8_lon_val))+"°)";
-                bool active = is_l7||is_l8;
-                bool is_l7_now = is_l7;
-                if(active &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; cur_lab=lab; cur_is_l7=is_l7_now; in=true; }
-                else if(active && in){
-                    if(lab!=cur_lab){ out.push_back({cur_lab,cur_s,cur_e,cnt,false}); cur_s=df.date; cur_e=df.date; cnt=1; cur_lab=lab; cur_is_l7=is_l7_now; }
-                    else { cur_e=df.date; cnt++; }
-                }
-                else if(!active && in){ out.push_back({cur_lab,cur_s,cur_e,cnt,false}); in=false; }
-            }
-            if(in) out.push_back({cur_lab,cur_s,cur_e,cnt,false});
-            return out;
-        };
-
-        printf("\n--- YEAR %d RANGE ANALYSIS [8TH + BUDHA + RA/KE + DEG-HIT SPLIT] ---\n", qyear);
-        auto r_ju_h7 = build_with_aspect([](DayFlag &d){return d.j_h7;}, "Ju-H7", true);
-        auto r_sa_h7 = build_with_aspect([](DayFlag &d){return d.s_h7;}, "Sa-H7", false);
-        auto r_ju_h8 = build_with_aspect([](DayFlag &d){return d.j_h8;}, "Ju-H8", true);
-        auto r_sa_h8 = build_with_aspect([](DayFlag &d){return d.s_h8;}, "Sa-H8", false);
-        auto r_ve_h8 = build_simple([&](DayFlag &d){return d.t_ve==h8_rashi;}, "Ve IN 8TH SHAYANA("+string(rashi_name(h8_rashi))+")");
-        auto r_mo_h8 = build_simple([&](DayFlag &d){return d.t_mo==h8_rashi;}, "Mo IN 8TH("+string(rashi_name(h8_rashi))+")");
-        auto r_su_h8 = build_simple([&](DayFlag &d){return d.t_su==h8_rashi;}, "Su IN 8TH("+string(rashi_name(h8_rashi))+")");
-        auto r_ma_h8 = build_simple([&](DayFlag &d){return d.t_ma==h8_rashi;}, "Ma IN 8TH("+string(rashi_name(h8_rashi))+")");
-        auto r_me_h7 = build_simple([&](DayFlag &d){return d.t_me==h7_rashi;}, "Me IN H7 [Budha]("+string(rashi_name(h7_rashi))+")");
-        auto r_me_h8 = build_simple([&](DayFlag &d){return d.t_me==h8_rashi;}, "Me IN 8TH("+string(rashi_name(h8_rashi))+")");
-        auto r_su_h7 = build_simple([&](DayFlag &d){return d.t_su==h7_rashi;}, "Su IN H7("+string(rashi_name(h7_rashi))+")");
-
-        auto build_ra_split = [&](void)->vector<Range>{
-            vector<Range> out; string cur_s="", cur_e=""; int cnt=0; bool in=false; string cur_lab="";
-            for(auto &df:dflags){
-                string lab="";
-                if(df.t_ra==l7_rashi_val) lab="Ra OVER L7("+string(rashi_name(l7_rashi_val))+" L7="+p_names_full[l7_idx]+")";
-                else if(df.t_ke==l7_rashi_val) lab="Ke OVER L7("+string(rashi_name(l7_rashi_val))+" L7="+p_names_full[l7_idx]+")";
-                else if(df.t_ra==l8_rashi_val) lab="Ra OVER L8("+string(rashi_name(l8_rashi_val))+" L8="+p_names_full[l8_idx]+")";
-                else if(df.t_ke==l8_rashi_val) lab="Ke OVER L8("+string(rashi_name(l8_rashi_val))+" L8="+p_names_full[l8_idx]+")";
-                else if(df.t_ra==h7_rashi) lab="Ra IN H7("+string(rashi_name(h7_rashi))+")";
-                else if(df.t_ke==h7_rashi) lab="Ke IN H7("+string(rashi_name(h7_rashi))+")";
-                bool active=!lab.empty();
-                if(active &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; cur_lab=lab; in=true; }
-                else if(active && in){
-                    if(lab!=cur_lab){ out.push_back({cur_lab,cur_s,cur_e,cnt,false}); cur_s=df.date; cur_e=df.date; cnt=1; cur_lab=lab; }
-                    else { cur_e=df.date; cnt++; }
-                }
-                else if(!active && in){ out.push_back({cur_lab,cur_s,cur_e,cnt,false}); in=false; }
-            }
-            if(in) out.push_back({cur_lab,cur_s,cur_e,cnt,false});
-            return out;
-        };
-
-        auto r_ra_split = build_ra_split();
-        auto r_ju_deg = build_split_deg([](DayFlag &d){return d.ju_deg_l7;}, [](DayFlag &d){return d.ju_deg_l8;}, "Ju", l7_idx, l7_rashi_val, l7_lon_val);
-        auto r_sa_deg = build_split_deg([](DayFlag &d){return d.sa_deg_l7;}, [](DayFlag &d){return d.sa_deg_l8;}, "Sa", l8_idx, l8_rashi_val, l8_lon_val);
-        auto r_ra_deg = build_split_deg([](DayFlag &d){return d.ra_deg_l7;}, [](DayFlag &d){return d.ra_deg_l8;}, "Ra/Ke", l7_idx, l7_rashi_val, l7_lon_val);
-        auto r_ju_tar = build_simple([](DayFlag &d){return d.j_tar;}, "BNN Ju->Target 2deg");
-        auto r_su_tar = build_simple([](DayFlag &d){return d.su_tar;}, "BNN Su->Target 2deg");
-        auto r_ve_tar = build_simple([](DayFlag &d){return d.ve_tar;}, "BNN Ve->Target 2deg");
-
-        print_ranges("1. JUPITER H7 BLESSING (with aspect)", r_ju_h7);
-        print_ranges("2. SATURN H7 BLESSING (with aspect)", r_sa_h7);
-        print_ranges("3. JUPITER 8TH LOCK (with aspect)", r_ju_h8);
-        print_ranges("4. SATURN 8TH LOCK [NECESSARY] (with aspect)", r_sa_h8);
-        print_ranges("5. VENUS 8TH [SHAYANA]", r_ve_h8);
-        print_ranges("6. MOON 8TH [MANA]", r_mo_h8);
-        print_ranges("7. SUN 8TH", r_su_h8);
-        print_ranges("8. MARS 8TH", r_ma_h8);
-        print_ranges("9. MERCURY H7 [AGREEMENT]", r_me_h7);
-        print_ranges("10. MERCURY 8TH", r_me_h8);
-        print_ranges("11. SUN H7", r_su_h7);
-        print_ranges("12. RAHU/KETU SPLIT [EXACT HIT]", r_ra_split);
-        print_ranges("13. JU DEG-HIT L7/L8 SPLIT (5deg orb)", r_ju_deg);
-        print_ranges("14. SA DEG-HIT L7/L8 SPLIT (5deg orb)", r_sa_deg);
-        print_ranges("15. RA/KE DEG-HIT L7/L8 SPLIT (5deg orb)", r_ra_deg);
-        printf("\n16. BNN BLESSINGS Target=%s=%s %.2f deg (2deg orb):\n", target_name.c_str(), rashi_name(target_natal_rashi), target_natal_lon);
-        for(auto &r:r_ju_tar) printf(" %-50s ==> %s - %s (%3d days)%s\n", r.label.c_str(), r.start.c_str(), r.end.c_str(), r.days, r.retro?" [R]":"");
-        for(auto &r:r_su_tar) printf(" %-50s ==> %s - %s (%3d days)\n", r.label.c_str(), r.start.c_str(), r.end.c_str(), r.days);
-        for(auto &r:r_ve_tar) printf(" %-50s ==> %s - %s (%3d days)\n", r.label.c_str(), r.start.c_str(), r.end.c_str(), r.days);
-
-        printf("\n17. DOUBLE YOGA (Ju+Sa both H7 direct):\n");
-        string cur_s=""; string cur_e=""; int cnt=0; bool in=false;
-        for(auto &df:dflags){ bool dbl = df.j_h7 && df.s_h7; if(dbl &&!in){ cur_s=df.date; cur_e=df.date; cnt=1; in=true; } else if(dbl && in){ cur_e=df.date; cnt++; } else if(!dbl && in){ printf(" %-50s ==> %s - %s (%d days)\n", ("DOUBLE Ju+Sa("+string(rashi_name(h7_rashi))+")").c_str(), cur_s.c_str(), cur_e.c_str(), cnt); in=false; } } if(in) printf(" %-50s ==> %s - %s (%d days)\n", ("DOUBLE Ju+Sa("+string(rashi_name(h7_rashi))+")").c_str(), cur_s.c_str(), cur_e.c_str(), cnt);
-        printf("--- END %d ---\n", qyear);
+    if(html_mode){
+        printf("<h3>Best 180-Day Yoga</h3><table border=1 cellpadding=5><tr><th>Window</th><th>Pmax</th><th>DailyMax</th></tr>");
+        for(int i=0;i<min(3,(int)durs.size());i++) printf("<tr><td>%s → %s</td><td>%d</td><td>%d</td></tr>",durs[i].start.c_str(),durs[i].end.c_str(),durs[i].pmax,durs[i].dmax);
+        printf("</table>");
     }
-    */
-	printf("Exited interactive loop.\n");
+    for(int i=0;i<topN;i++) decode_exact_date(byScore[i].year, asc_rashi, h7_rashi, h8_rashi, dk_rashi, l7_rashi_val, l8_rashi_val, target_natal_rashi, planet_rashis);
+    printf("Exited interactive loop.\n");
 }
 
 void predict_job(int start_year, int end_year) {

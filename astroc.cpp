@@ -28,7 +28,8 @@ const double TRUE_SIDEREAL_YEAR = 365.256363004;
 struct City { string name; double lat; double lon; double tz_offset; };
 
 const vector<City> city_db = {
-    {"Nellore", 14.450000, 79.986944, 5.5},
+    //{"Nellore", 14.450000, 79.986944, 5.5},
+	{"Nellore", 14.442599, 79.986458, 5.5},
 	{"Kavali", 14.913181, 79.992981, 5.5},
 	{"Atmakur", 14.616700, 79.616700, 5.5},
     {"Kovur", 14.483333, 79.983333, 5.5},

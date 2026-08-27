@@ -5689,6 +5689,13 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
     bool is_female = (g=="female"||g=="f");
     if(g!="female" && g!="f" && g!="male" && g!="m"){ printf("ERROR gender\n"); return; }
 
+    // Telugu flag - same as you use in predict_job for html_mode
+    // Set from your UI: 0=English, 1=Telugu. Default English to compile.
+    bool isTelugu = false;
+    // If you have global lang variable, uncomment next line:
+    // extern std::string current_lang; isTelugu = (current_lang=="te");
+    auto T = [&](const char* en, const char* te)->const char* { return isTelugu?te:en; };
+
     double xx_ra_nat[6]; char serr_nat[256];
     swe_calc_ut(tjd_ut, node_calc_type, iflag, xx_ra_nat, serr_nat);
     planet_lons[8]=xx_ra_nat[0]; planet_rashis[8]=(int)(xx_ra_nat[0]/30);
@@ -5765,9 +5772,6 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
         if(t_ve==h8_rashi) year_ve8[y]++; if(p_jup2(t_ju,dk_rashi)||p_sat2(t_sa,dk_rashi)) year_dk[y]++;
 
         int p_score=0; string rsn=""; if(j_p&&s_p){p_score+=600; rsn+="[DOUBLE] ";} else p_score+=500;
-        bool ju_deg=within_orb(xx_ju[0],l7_lon_val,8.0)||within_orb(xx_ju[0],l8_lon_val,8.0);
-        bool sa_deg=within_orb(xx_sa[0],l7_lon_val,5.0)||within_orb(xx_sa[0],l8_lon_val,5.0);
-        bool ra_deg=within_orb(xx_ra[0],l7_lon_val,5.0);
         bool j_b = within_orb(xx_ju[0],target_natal_lon,5.0) || bnn2(t_ju,target_natal_rashi);
         bool su_b = within_orb(xx_su[0],target_natal_lon,2.0) || bnn2(t_su,target_natal_rashi);
         bool ve_b = within_orb(xx_ve[0],target_natal_lon,2.0) || bnn2(t_ve,target_natal_rashi);
@@ -5789,12 +5793,11 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
         allYears.push_back({y,year_p[y],year_base[y],kv.second,year_ju8[y],year_sa8[y],year_ju7[y],year_sa7[y],year_ra_l7[y],year_ra_l8[y],year_ve8[y],year_dk[y],year_daily_max[y],year_reason[y],y-b_y,year_first[y],year_last[y]});
         if((y-b_y)>=14) byScore.push_back({y,year_p[y],year_base[y],kv.second,year_ju8[y],year_sa8[y],year_ju7[y],year_sa7[y],year_ra_l7[y],year_ra_l8[y],year_ve8[y],year_dk[y],year_daily_max[y],year_reason[y],y-b_y,year_first[y],year_last[y]});
     }
-    auto lower2=lower;
     bool l7_eq_l8 = (l7_rashi_val==l8_rashi_val);
-    bool h8_lord_mangal = (lower2(rashi_lords[h8_rashi])=="mangal");
-    bool h8_lord_budha = (lower2(rashi_lords[h8_rashi])=="budha");
-    bool h8_lord_shani = (lower2(rashi_lords[h8_rashi])=="shani");
-    bool h8_lord_shukra = (lower2(rashi_lords[h8_rashi])=="shukra");
+    bool h8_lord_mangal = (lower(rashi_lords[h8_rashi])=="mangal");
+    bool h8_lord_budha = (lower(rashi_lords[h8_rashi])=="budha");
+    bool h8_lord_shani = (lower(rashi_lords[h8_rashi])=="shani");
+    bool h8_lord_shukra = (lower(rashi_lords[h8_rashi])=="shukra");
     auto balanceScore = [](PeakInfo &p){ double a[8]={(double)p.ju8,(double)p.sa8,(double)p.ju7,(double)p.sa7,(double)p.ra_l7,(double)p.ra_l8,(double)p.ve8,(double)p.dk}; double m=0; for(int i=0;i<8;i++) m+=a[i]; m/=8; double v=0; for(int i=0;i<8;i++) v+=(a[i]-m)*(a[i]-m); v/=8; return 1000.0 - sqrt(v); };
     sort(byScore.begin(), byScore.end(), [&](auto &a, auto &b){
         auto finalScore = [&](PeakInfo &p){
@@ -5811,41 +5814,45 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
     sort(allYears.begin(), allYears.end(), [](auto &a, auto &b){return a.year<b.year;});
     int topN = min((int)byScore.size(),3);
 
-    // ==== WEB-UI MODE LIKE predict_job ====
+    // ==== WEB-UI LIKE predict_job ====
     if(html_mode){
-        printf("<div style='font-family:Inter,Arial;padding:10px'>");
-        printf("<h2 style='color:#2c3e50'>💍 Marriage Prediction Engine [8TH LOCK]</h2>");
-        printf("<p>Native: <b>%s</b> | BYear %d | Scan %d to %d | H8 Lord=%s</p>", is_female?"FEMALE":"MALE", b_y, start_year, end_year, rashi_lords[h8_rashi]);
+        // FIXED: dark background, not white illuminating
+        printf("<div style='font-family:Inter,Noto Sans Telugu,Arial;padding:12px;background:#0f1419;color:#e0e0e0;border-radius:10px'>");
+        printf("<h2 style='text-align:center;background:#f39c12;color:#000;padding:12px;border-radius:8px;margin:0 0 12px 0'>%s</h2>", T("Scan Marriage Timing Timeline","వివాహ సమయ స్కాన్ టైమ్‌లైన్"));
+        printf("<div style='color:#f39c12;font-weight:bold;margin:8px 0'>💍 %s [8TH LOCK] - %s: <b style='color:#fff'>%s</b> | BYear %d | Scan %d to %d</div>",
+            T("Marriage Prediction Engine","వివాహ అంచనా ఇంజిన్"), T("Native","జాతకుడు"), is_female?T("FEMALE","స్త్రీ"):T("MALE","పురుషుడు"), b_y, start_year, end_year);
+
         if(topN>0){
-            printf("<div style='background:#e8f8f5;border-left:5px solid #1abc9c;padding:8px;margin:10px 0'>");
-            printf("<b>⭐ ULTIMATE: %d (Ju8 %d Sa8 %d Ju7 %d Sa7 %d RaL7 %d RaL8 %d Ve8 %d)</b><br>", byScore[0].year,byScore[0].ju8,byScore[0].sa8,byScore[0].ju7,byScore[0].sa7,byScore[0].ra_l7,byScore[0].ra_l8,byScore[0].ve8);
-            printf("TOP 3: "); for(int i=0;i<topN;i++) printf("%d ",byScore[i].year); printf("</div>");
+            printf("<div style='background:#1e2a3a;border-left:5px solid #2ecc71;padding:12px;margin:12px 0;border-radius:6px'>");
+            printf("<div style='color:#2ecc71;font-size:15px;font-weight:bold'>⭐ %s: %d</div>", T("ULTIMATE","అత్యుత్తమ ముహూర్తం"), byScore[0].year);
+            printf("<div style='color:#95a5a6;font-size:13px'>%s: ", T("TOP 3","టాప్ 3")); for(int i=0;i<topN;i++) printf("%d ",byScore[i].year); printf("</div></div>");
         }
-        printf("<table border=1 cellpadding=6 cellspacing=0 style='border-collapse:collapse;width:100%%;font-size:13px'>");
-        printf("<tr style='background:#2c3e50;color:white'><th>Year</th><th>Age</th><th>Ju8</th><th>Sa8</th><th>Ju7</th><th>Sa7</th><th>RaL7</th><th>RaL8</th><th>Ve8</th><th>P-Score</th><th>Window</th><th>Status</th></tr>");
-        for(auto &pk:allYears){
-            string st="OTHER"; string color="#bdc3c7";
-            for(int i=0;i<topN;i++) if(pk.year==byScore[i].year){ st = (i==0?"EPOCH 1 VIVAHA ⭐ HIGHEST": i==1?"EPOCH 2":"EPOCH 3"); color = (i==0?"#2ecc71": i==1?"#f1c40f":"#3498db"); break; }
-            printf("<tr><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%d</td><td>%s → %s</td><td><b style='color:%s'>%s</b></td></tr>",
-                pk.year,pk.age,pk.ju8,pk.sa8,pk.ju7,pk.sa7,pk.ra_l7,pk.ra_l8,pk.ve8,pk.pScore,pk.first.c_str(),pk.last.c_str(),color.c_str(),st.c_str());
+
+        printf("<table style='width:100%%;border-collapse:collapse;font-size:13px;background:#111'><tr style='background:#2c3e50;color:#f1c40f'><th style='padding:8px'>%s</th><th style='padding:8px'>%s</th><th style='padding:8px'>%s</th></tr>",
+    T("Window [Start - End]","కాలం"), T("Marriage Phase","వివాహ దశ"), T("Astrological Triggers","జ్యోతిష కారణాలు"));
+
+        for(auto &pk: allYears){
+            string phase=T("Favorable & Stable","అనుకూలం"); string color="#bdc3c7"; string trig="";
+            if(pk.ju7>100) trig+= string(T("Jupiter blesses 7th ","గురుడు 7వ ఇంటిని ")) + "["+to_string(pk.ju7)+"d] ";
+            if(pk.sa7>100) trig+= string(T("Saturn blesses 7th ","శని 7వ ఇంటిని ")) + "["+to_string(pk.sa7)+"d] ";
+            if(pk.ju8>200 && pk.sa8>200){ trig+= T("DOUBLE 8TH LOCK Yoga ","డబుల్ 8వ లాక్ యోగం "); }
+            if(trig.empty()) trig = T("Mild support","స్వల్ప అనుకూలం");
+
+            for(int i=0;i<topN;i++) if(pk.year==byScore[i].year){
+                if(i==0){ phase=T("BEST MARRIAGE WINDOW ⭐ HIGHEST","అత్యుత్తమ వివాహ కాలం ⭐"); color="#2ecc71"; trig = string(T("DOUBLE TRANSIT on 7H - Vivaha Yoga","7వ ఇంటిపై డబుల్ ట్రాన్సిట్ - వివాహ యోగం"))+" | "+trig; }
+                else if(i==1){ phase=T("Favorable Alliance","అనుకూల సంబంధం"); color="#f1c40f"; }
+                else { phase=T("Good Proposal","మంచి ప్రతిపాదన"); color="#3498db"; }
+            }
+            char win[64]; sprintf(win,"%s → %s (Age %d)",pk.first.c_str(),pk.last.c_str(),pk.age);
+            printf("<tr style='border-bottom:1px solid #333'><td style='padding:8px;color:#2ecc71'>%s</td><td style='padding:8px'><b style='color:%s'>%s</b></td><td style='padding:8px;color:#95a5a6'>%s</td></tr>",
+                win, color.c_str(), phase.c_str(), trig.c_str());
         }
         printf("</table></div>");
     } else {
         printf(">> TOP 3 PEAKS: "); for(int i=0;i<topN;i++) printf("%d ",byScore[i].year); printf("<<\n");
-        if(topN>0) printf(">> ULTIMATE: %d <<\n",byScore[0].year);
-        for(auto &pk:allYears) printf("%d Age %d Ju8 %d Sa8 %d Ju7 %d Sa7 %d RaL7 %d RaL8 %d Ve8 %d P %d %s -> %s\n",pk.year,pk.age,pk.ju8,pk.sa8,pk.ju7,pk.sa7,pk.ra_l7,pk.ra_l8,pk.ve8,pk.pScore,pk.first.c_str(),pk.last.c_str());
+        for(auto &pk:allYears) printf("%d Age %d %s -> %s\n",pk.year,pk.age,pk.first.c_str(),pk.last.c_str());
     }
 
-    // 180-day yoga - same as job phases
-    struct Dur{string start; string end; int pmax; int dmax; int cnt;}; vector<Dur> durs;
-    sort(all_daily.begin(), all_daily.end(), [](auto &a, auto &b){ if(a.y!=b.y) return a.y<b.y; if(a.m!=b.m) return a.m<b.m; return a.d<b.d; });
-    for(int i=0;i<(int)all_daily.size();i++){ int maxP=0,maxD=0,cnt=0; string s=all_daily[i].date, e=s; for(int j=i;j<min(i+180,(int)all_daily.size());j++){ maxP=max(maxP,all_daily[j].p); maxD=max(maxD,all_daily[j].daily); cnt++; e=all_daily[j].date; } if(cnt>=30 && maxP>=1000) durs.push_back({s,e,maxP,maxD,cnt}); }
-    sort(durs.begin(), durs.end(), [](auto &a, auto &b){ if(a.pmax!=b.pmax) return a.pmax>b.pmax; return a.dmax>b.dmax; });
-    if(html_mode){
-        printf("<h3>Best 180-Day Yoga</h3><table border=1 cellpadding=5><tr><th>Window</th><th>Pmax</th><th>DailyMax</th></tr>");
-        for(int i=0;i<min(3,(int)durs.size());i++) printf("<tr><td>%s → %s</td><td>%d</td><td>%d</td></tr>",durs[i].start.c_str(),durs[i].end.c_str(),durs[i].pmax,durs[i].dmax);
-        printf("</table>");
-    }
     for(int i=0;i<topN;i++) decode_exact_date(byScore[i].year, asc_rashi, h7_rashi, h8_rashi, dk_rashi, l7_rashi_val, l8_rashi_val, target_natal_rashi, planet_rashis);
     printf("Exited interactive loop.\n");
 }

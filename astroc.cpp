@@ -5849,8 +5849,8 @@ void predict_marriage(int start_year, int end_year, string gender_input) {
             if(trig.empty()) trig="Mild support";
             for(int i=0;i<topN;i++) if(pk.year==byScore[i].year){
                 if(i==0) phase="BEST MARRIAGE WINDOW ⭐ HIGHEST";
-                else if(i==1) phase="Favorable Alliance";
-                else phase="Good Proposal";
+                else if(i==1) phase="[+] Favorable Alliance";
+                else phase=">>> Good Proposal";
             }
             char win[64]; sprintf(win,"%s -> %s (Age %d)",pk.first.c_str(),pk.last.c_str(),pk.age);
             printf("%-35s | %-30s | %s\n", win, phase.c_str(), trig.c_str());

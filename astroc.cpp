@@ -1026,7 +1026,7 @@ void print_birth_chart_ui() {
         if (html_mode) printf("</table>\n");
         else printf("-------------------------------------------------------------------------------------------------\n");
         
-        // --- DYNAMIC COLORED RASI CHART GENERATOR ---
+        // --- DYNAMIC COLORED RASI CHART GENERATOR (No Rashi Names) ---
         auto get_planets = [&](int rashi) -> string {
             string res = "";
             const char* p_colors[] = {
@@ -1059,14 +1059,14 @@ void print_birth_chart_ui() {
         if (html_mode) {
             printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "రాశి చక్రం (D1)" : "Rasi Chart (D1)");
             printf("<table class='rasi-table'>");
-            printf("<tr><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
-                telugu_mode ? "మీనం" : "Pisces", get_planets(11).c_str(), telugu_mode ? "మేషం" : "Aries", get_planets(0).c_str(), telugu_mode ? "వృషభం" : "Taurus", get_planets(1).c_str(), telugu_mode ? "మిథునం" : "Gemini", get_planets(2).c_str());
-            printf("<tr><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td colspan='2' rowspan='2' class='rasi-center'><b>%s</b></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
-                telugu_mode ? "కుంభం" : "Aquarius", get_planets(10).c_str(), telugu_mode ? "రాశి చక్రం<br>(D1)" : "RASI CHART<br>(D1)", telugu_mode ? "కర్కాటకం" : "Cancer", get_planets(3).c_str());
-            printf("<tr><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
-                telugu_mode ? "మకరం" : "Capricorn", get_planets(9).c_str(), telugu_mode ? "సింహం" : "Leo", get_planets(4).c_str());
-            printf("<tr><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
-                telugu_mode ? "ధనుస్సు" : "Sagittarius", get_planets(8).c_str(), telugu_mode ? "వృశ్చికం" : "Scorpio", get_planets(7).c_str(), telugu_mode ? "తుల" : "Libra", get_planets(6).c_str(), telugu_mode ? "కన్య" : "Virgo", get_planets(5).c_str());
+            printf("<tr><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
+                get_planets(11).c_str(), get_planets(0).c_str(), get_planets(1).c_str(), get_planets(2).c_str());
+            printf("<tr><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td colspan='2' rowspan='2' class='rasi-center'><b>%s</b></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
+                get_planets(10).c_str(), telugu_mode ? "రాశి చక్రం<br>(D1)" : "RASI CHART<br>(D1)", get_planets(3).c_str());
+            printf("<tr><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
+                get_planets(9).c_str(), get_planets(4).c_str());
+            printf("<tr><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
+                get_planets(8).c_str(), get_planets(7).c_str(), get_planets(6).c_str(), get_planets(5).c_str());
             printf("</table>\n");
         } else {
             string p12 = get_planets(11), p1 = get_planets(0), p2 = get_planets(1), p3 = get_planets(2);
@@ -1076,25 +1076,24 @@ void print_birth_chart_ui() {
 
             printf("\n[%s]\n", telugu_mode ? "రాశి చక్రం (D1)" : "RASI CHART (D1)");
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
-            printf("| %-15s | %-15s | %-15s | %-15s |\n", telugu_mode?"మీనం":"Pisces", telugu_mode?"మేషం":"Aries", telugu_mode?"వృషభం":"Taurus", telugu_mode?"మిథునం":"Gemini");
+            printf("|                 |                 |                 |                 |\n");
             printf("| %-15s | %-15s | %-15s | %-15s |\n", p12.c_str(), p1.c_str(), p2.c_str(), p3.c_str());
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
-            printf("| %-15s |                                     | %-15s |\n", telugu_mode?"కుంభం":"Aquarius", telugu_mode?"కర్కాటకం":"Cancer");
+            printf("|                 |                                     |                 |\n");
             printf("| %-15s |             RASI CHART              | %-15s |\n", p11.c_str(), p4.c_str());
             printf("+-----------------+                 (D1)                +-----------------+\n");
-            printf("| %-15s |                                     | %-15s |\n", telugu_mode?"మకరం":"Capricorn", telugu_mode?"సింహం":"Leo");
+            printf("|                 |                                     |                 |\n");
             printf("| %-15s |                                     | %-15s |\n", p10.c_str(), p5.c_str());
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
-            printf("| %-15s | %-15s | %-15s | %-15s |\n", telugu_mode?"ధనుస్సు":"Sagittarius", telugu_mode?"వృశ్చికం":"Scorpio", telugu_mode?"తుల":"Libra", telugu_mode?"కన్య":"Virgo");
+            printf("|                 |                 |                 |                 |\n");
             printf("| %-15s | %-15s | %-15s | %-15s |\n", p9.c_str(), p8.c_str(), p7.c_str(), p6.c_str());
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
         }
     }
-
 void print_varga_positions_and_grid(int v_num, string varga_str, int v_lagna, int* v_planets) {
         const char* rashi_lords_te_local[] = {"కుజ", "శుక్ర", "బుధ", "చంద్ర", "సూర్య", "బుధ", "శుక్ర", "కుజ", "గురు", "శని", "శని", "గురు"};
 
-        // 1. Planet Positions Table (Now with Degrees for ALL Vargas)
+        // 1. Planet Positions Table
         if (html_mode) {
             string pos_title = telugu_mode ? (varga_str + " గ్రహ స్థితులు") : (varga_str + " Planet Positions");
             printf("<h3 style='color: var(--accent); margin-top: 20px; margin-bottom: 10px;'>%s</h3>", pos_title.c_str());
@@ -1131,12 +1130,10 @@ void print_varga_positions_and_grid(int v_num, string varga_str, int v_lagna, in
             string p_name = (i == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : (telugu_mode ? get_planet_name(i) : p_names_full[i]);
             string r_name = telugu_mode ? te_rashi_names[rashi] : rashi_names[rashi];
 
-            // Calculate proportional exact degree within the specific Varga
             double deg_in_d1 = fmod(planet_lons[i], 30.0);
             double v_deg = 0.0;
             
             if (v_num == 30) {
-                // Irregular Division Handler (Trimsamsa)
                 int base_rashi = (int)(planet_lons[i] / 30.0);
                 if (base_rashi % 2 == 0) { // Even Signs
                     if (deg_in_d1 < 5.0) v_deg = (deg_in_d1 / 5.0) * 30.0;
@@ -1152,7 +1149,6 @@ void print_varga_positions_and_grid(int v_num, string varga_str, int v_lagna, in
                     else v_deg = ((deg_in_d1 - 25.0) / 5.0) * 30.0;
                 }
             } else {
-                // Symmetrical/Standard Varga Expansion Formula
                 v_deg = fmod(planet_lons[i] * v_num, 30.0);
             }
             
@@ -1184,7 +1180,7 @@ void print_varga_positions_and_grid(int v_num, string varga_str, int v_lagna, in
         if (html_mode) printf("</table>\n");
         else printf("-------------------------------------------------------------------------------------------------\n");
 
-        // --- DYNAMIC COLORED RASI CHART GENERATOR ---
+        // --- DYNAMIC COLORED RASI CHART GENERATOR (No Rashi Names) ---
         auto get_planets = [&](int rashi) -> string {
             string res = "";
             const char* p_colors[] = {
@@ -1218,14 +1214,14 @@ void print_varga_positions_and_grid(int v_num, string varga_str, int v_lagna, in
             string grid_title = telugu_mode ? (varga_str + " రాశి చక్రం") : (varga_str + " Rasi Chart");
             printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", grid_title.c_str());
             printf("<table class='rasi-table'>");
-            printf("<tr><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
-                telugu_mode ? "మీనం" : "Pisces", get_planets(11).c_str(), telugu_mode ? "మేషం" : "Aries", get_planets(0).c_str(), telugu_mode ? "వృషభం" : "Taurus", get_planets(1).c_str(), telugu_mode ? "మిథునం" : "Gemini", get_planets(2).c_str());
-            printf("<tr><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td colspan='2' rowspan='2' class='rasi-center'><b>%s</b></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
-                telugu_mode ? "కుంభం" : "Aquarius", get_planets(10).c_str(), telugu_mode ? (varga_str + "<br>చక్రం").c_str() : (varga_str + "<br>CHART").c_str(), telugu_mode ? "కర్కాటకం" : "Cancer", get_planets(3).c_str());
-            printf("<tr><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
-                telugu_mode ? "మకరం" : "Capricorn", get_planets(9).c_str(), telugu_mode ? "సింహం" : "Leo", get_planets(4).c_str());
-            printf("<tr><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td>%s<div style='margin-top:6px; font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
-                telugu_mode ? "ధనుస్సు" : "Sagittarius", get_planets(8).c_str(), telugu_mode ? "వృశ్చికం" : "Scorpio", get_planets(7).c_str(), telugu_mode ? "తుల" : "Libra", get_planets(6).c_str(), telugu_mode ? "కన్య" : "Virgo", get_planets(5).c_str());
+            printf("<tr><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
+                get_planets(11).c_str(), get_planets(0).c_str(), get_planets(1).c_str(), get_planets(2).c_str());
+            printf("<tr><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td colspan='2' rowspan='2' class='rasi-center'><b>%s</b></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
+                get_planets(10).c_str(), telugu_mode ? (varga_str + "<br>చక్రం").c_str() : (varga_str + "<br>CHART").c_str(), get_planets(3).c_str());
+            printf("<tr><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
+                get_planets(9).c_str(), get_planets(4).c_str());
+            printf("<tr><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td><td><div style='font-weight:bold; font-size:1.05em; letter-spacing:0.5px;'>%s</div></td></tr>", 
+                get_planets(8).c_str(), get_planets(7).c_str(), get_planets(6).c_str(), get_planets(5).c_str());
             printf("</table>\n");
         } else {
             string p12 = get_planets(11), p1 = get_planets(0), p2 = get_planets(1), p3 = get_planets(2);
@@ -1235,23 +1231,21 @@ void print_varga_positions_and_grid(int v_num, string varga_str, int v_lagna, in
 
             printf("\n[%s %s]\n", varga_str.c_str(), telugu_mode ? "రాశి చక్రం" : "CHART");
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
-            printf("| %-15s | %-15s | %-15s | %-15s |\n", telugu_mode?"మీనం":"Pisces", telugu_mode?"మేషం":"Aries", telugu_mode?"వృషభం":"Taurus", telugu_mode?"మిథునం":"Gemini");
+            printf("|                 |                 |                 |                 |\n");
             printf("| %-15s | %-15s | %-15s | %-15s |\n", p12.c_str(), p1.c_str(), p2.c_str(), p3.c_str());
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
-            printf("| %-15s |                                     | %-15s |\n", telugu_mode?"కుంభం":"Aquarius", telugu_mode?"కర్కాటకం":"Cancer");
-            
+            printf("|                 |                                     |                 |\n");
             char center_text[32]; snprintf(center_text, sizeof(center_text), "%s CHART", varga_str.c_str());
             printf("| %-15s |         %-17s         | %-15s |\n", p11.c_str(), center_text, p4.c_str());
             printf("+-----------------+                                     +-----------------+\n");
-            printf("| %-15s |                                     | %-15s |\n", telugu_mode?"మకరం":"Capricorn", telugu_mode?"సింహం":"Leo");
+            printf("|                 |                                     |                 |\n");
             printf("| %-15s |                                     | %-15s |\n", p10.c_str(), p5.c_str());
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
-            printf("| %-15s | %-15s | %-15s | %-15s |\n", telugu_mode?"ధనుస్సు":"Sagittarius", telugu_mode?"వృశ్చికం":"Scorpio", telugu_mode?"తుల":"Libra", telugu_mode?"కన్య":"Virgo");
+            printf("|                 |                 |                 |                 |\n");
             printf("| %-15s | %-15s | %-15s | %-15s |\n", p9.c_str(), p8.c_str(), p7.c_str(), p6.c_str());
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
         }
-    }
-	
+    }	
 	// =========================================================================
     // PHASE 1: INTERPRETATION ENGINE (D1 OUTCOMES + VARGA FATE)
     // =========================================================================

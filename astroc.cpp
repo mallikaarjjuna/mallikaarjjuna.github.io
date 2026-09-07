@@ -6602,6 +6602,88 @@ void analyze_spouse_age_gap(bool is_female = false, bool gender_provided = false
 }
 
 };
+void calculate_synastry_collisions(const JyotishaEngine& p1, const JyotishaEngine& p2) {
+    bool html = p1.html_mode;
+    bool te = p1.telugu_mode;
+
+    if (html) {
+        printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", te ? "జాతకాల మధ్య గ్రహ కలయికలు (Natal Synastry Collisions)" : "Synastry Collisions (Natal Chart Overlays)");
+        printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n", 
+               te?"వ్యక్తి 1 గ్రహం":"Person 1 Planet", 
+               te?"వ్యక్తి 2 గ్రహం":"Person 2 Planet", 
+               te?"రాశి":"Rashi", 
+               te?"P1 డిగ్రీ":"P1 Degree", 
+               te?"P2 డిగ్రీ":"P2 Degree", 
+               te?"వ్యత్యాసం (Orb)":"Separation");
+    } else {
+        printf("\n========================================================================================================\n");
+        printf("=== %s ===\n", te ? "జాతకాల మధ్య గ్రహ కలయికలు (SYNASTRY NATAL COLLISIONS)" : "SYNASTRY NATAL COLLISIONS (CHART 1 & CHART 2 OVERLAYS)");
+        printf("========================================================================================================\n");
+        printf("%-15s | %-15s | %-12s | %-12s | %-12s | %-12s\n", 
+               te?"వ్యక్తి 1 గ్రహం":"Person 1 Planet", 
+               te?"వ్యక్తి 2 గ్రహం":"Person 2 Planet", 
+               te?"రాశి":"Rashi", 
+               te?"P1 డిగ్రీ":"P1 Degree", 
+               te?"P2 డిగ్రీ":"P2 Degree", 
+               te?"వ్యత్యాసం (Orb)":"Separation");
+        printf("--------------------------------------------------------------------------------------------------------\n");
+    }
+
+    bool found = false;
+    struct Collision { int p1, p2, rashi; double d1, d2, sep; };
+    vector<Collision> cols;
+
+    for (int i = 0; i <= 9; i++) {
+        for (int j = 0; j <= 9; j++) {
+            // Check if planets are in the same Rashi across both charts
+            if (p1.planet_rashis[i] == p2.planet_rashis[j]) {
+                double deg1 = fmod(p1.planet_lons[i], 30.0);
+                double deg2 = fmod(p2.planet_lons[j], 30.0);
+                double sep = std::abs(deg1 - deg2);
+                cols.push_back({i, j, p1.planet_rashis[i], deg1, deg2, sep});
+            }
+        }
+    }
+
+    // Sort by tightest orb (separation) so the most powerful collisions appear at the top
+    sort(cols.begin(), cols.end(), [](const Collision& a, const Collision& b) {
+        return a.sep < b.sep;
+    });
+
+    auto format_deg = [](double decimal_degrees) {
+        int d = (int)decimal_degrees; double f_deg = decimal_degrees - d;
+        int m = (int)(f_deg * 60.0); int s = (int)round((f_deg * 60.0 - m) * 60.0);
+        if (s >= 60) { s -= 60; m += 1; } if (m >= 60) { m -= 60; d += 1; }
+        char buf[32]; snprintf(buf, sizeof(buf), "%02d° %02d'%02d\"", d, m, s);
+        return string(buf);
+    };
+
+    for (const auto& c : cols) {
+        found = true;
+        string name1 = (c.p1 == 0) ? (te ? "లగ్నం" : "Lagna") : p1.get_planet_name(c.p1);
+        string name2 = (c.p2 == 0) ? (te ? "లగ్నం" : "Lagna") : p2.get_planet_name(c.p2);
+        string rname = p1.get_rashi_name(c.rashi);
+
+        if (html) {
+            printf("<tr><td><b>%s</b></td><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td><td><b style='color:var(--term-text);'>%s</b></td></tr>\n",
+                   name1.c_str(), name2.c_str(), rname.c_str(), format_deg(c.d1).c_str(), format_deg(c.d2).c_str(), format_deg(c.sep).c_str());
+        } else {
+            printf("%-15s | %-15s | %-12s | %-12s | %-12s | %-12s\n",
+                   name1.c_str(), name2.c_str(), rname.c_str(), format_deg(c.d1).c_str(), format_deg(c.d2).c_str(), format_deg(c.sep).c_str());
+        }
+    }
+
+    if (!found) {
+        if (html) {
+            printf("<tr><td colspan='6' style='text-align:center; color:#888;'>%s</td></tr>\n", te?"ఎటువంటి గ్రహ కలయికలు లేవు.":"No planetary collisions found in the same rashi.");
+        } else {
+            printf("%s\n", te?"ఎటువంటి గ్రహ కలయికలు లేవు.":"No planetary collisions found in the same rashi.");
+        }
+    }
+
+    if (html) printf("</table>\n");
+    else printf("--------------------------------------------------------------------------------------------------------\n");
+}
 
 void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     bool te = p1.telugu_mode; 
@@ -7816,24 +7898,61 @@ int main(int argc, char *argv[]) {
         }
         else if (strcasecmp(cmd.c_str(), "collision") == 0) {
             if (clean_argc >= 10) {
-                string col_planet = clean_argv[9];
-                int v_num = 1;
-                int arg_idx = 10;
-                
-                // Check if arg is D9, D10 etc
-                if (clean_argc > arg_idx && toupper(clean_argv[arg_idx][0]) == 'D') {
-                    string v_str = clean_argv[arg_idx++];
-                    v_num = stoi(v_str.substr(1));
+                // If the 9th argument is a number (Year), it's the 2-Chart Synastry Collision!
+                if (isdigit(clean_argv[9][0])) {
+                    if (clean_argc >= 16) {
+                        int m_y = stoi(clean_argv[9]), m_m = stoi(clean_argv[10]), m_d = stoi(clean_argv[11]);
+                        int m_h = stoi(clean_argv[12]), m_min = stoi(clean_argv[13]), m_s = stoi(clean_argv[14]);
+                        string m_city = clean_argv[15];
+                        
+                        auto it2 = find_if(city_db.begin(), city_db.end(), [&](const City& c) { return strcasecmp(c.name.c_str(), m_city.c_str()) == 0; });
+                        if (it2 == city_db.end()) { printf("Error: Person 2 City '%s' not found.\n", m_city.c_str()); return 1; }
+                        
+                        JyotishaEngine p2_engine(m_y, m_m, m_d, m_h, m_min, m_s, *it2, json_mode, telugu_ui, html_ui, use_savana, use_true_node);
+                        p2_engine.calculate_chart();
+                        
+                        // Capture optional Year / Range timeframe purely for display/logging context
+                        string timeframe = "";
+                        if (clean_argc > 16) {
+                            timeframe = "Timeframe Range Provided: ";
+                            for (int i = 16; i < clean_argc; i++) {
+                                timeframe += clean_argv[i];
+                                if (i < clean_argc - 1) timeframe += " ";
+                            }
+                        }
+                        
+                        if (!timeframe.empty()) {
+                            if (html_ui) printf("<p style='color:#888; margin-top:20px; margin-bottom:0;'>%s</p>", timeframe.c_str());
+                            else printf("\n[%s]\n", timeframe.c_str());
+                        }
+
+                        calculate_synastry_collisions(engine, p2_engine);
+                    } else {
+                        printf("Error: Synastry collision requires Person 2 details.\n");
+                        printf("Usage: collision <Y2> <M2> <D2> <H2> <Min2> <S2> <City2> [Timeframe]\n");
+                    }
+                } else {
+                    // It's a word (e.g., "sun", "jupiter"), so run the original Single Chart Transit Collision
+                    string col_planet = clean_argv[9];
+                    int v_num = 1;
+                    int arg_idx = 10;
+                    
+                    // Check if arg is D9, D10 etc
+                    if (clean_argc > arg_idx && toupper(clean_argv[arg_idx][0]) == 'D') {
+                        string v_str = clean_argv[arg_idx++];
+                        v_num = stoi(v_str.substr(1));
+                    }
+                    
+                    bool col_year_only = false, col_month_only = false;
+                    if (clean_argc == arg_idx + 1) { t_year = stoi(clean_argv[arg_idx]); col_year_only = true; }
+                    else if (clean_argc == arg_idx + 2) { t_year = stoi(clean_argv[arg_idx]); t_month = stoi(clean_argv[arg_idx+1]); col_month_only = true; }
+                    else if (clean_argc >= arg_idx + 3) { t_year = stoi(clean_argv[arg_idx]); t_month = stoi(clean_argv[arg_idx+1]); t_day = stoi(clean_argv[arg_idx+2]); }
+                    
+                    // Execute the heavily upgraded Varga Collision Sweeper
+                    engine.calculate_collisions(col_planet, t_year, t_month, t_day, col_year_only, col_month_only, v_num); 
                 }
-                
-                bool col_year_only = false, col_month_only = false;
-                if (clean_argc == arg_idx + 1) { t_year = stoi(clean_argv[arg_idx]); col_year_only = true; }
-                else if (clean_argc == arg_idx + 2) { t_year = stoi(clean_argv[arg_idx]); t_month = stoi(clean_argv[arg_idx+1]); col_month_only = true; }
-                else if (clean_argc >= arg_idx + 3) { t_year = stoi(clean_argv[arg_idx]); t_month = stoi(clean_argv[arg_idx+1]); t_day = stoi(clean_argv[arg_idx+2]); }
-                
-                // Execute the heavily upgraded Varga Collision Sweeper
-                engine.calculate_collisions(col_planet, t_year, t_month, t_day, col_year_only, col_month_only, v_num); 
             } else print_help_menu();
+            
             printf("\n"); fflush(stdout); 
             return 0;
         }

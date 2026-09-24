@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <ctime>
 #include <map>
+#include <thread>
+#include <chrono>
 #include "json.hpp"      // <--- ADD THIS
 
 extern "C" {
@@ -40,6 +42,8 @@ const vector<City> city_db = {
 	{"Mumbai", 19.076000, 72.877700, 5.5},
 	{"Guwahati", 26.144500, 91.736200, 5.5},
 	
+	{"Tiruchirappalli", 10.815836, 78.704673, 5.5},
+	{"Khanna", 30.704207, 76.216345, 5.5},
 	{"Patchalatadiparru", 16.111750, 80.536667, 5.5},
     {"Nimmakuru", 16.270300, 80.996700, 5.5},
     {"Hyderabad", 17.385044, 78.486671, 5.5},
@@ -959,7 +963,826 @@ void scan_rasi_tulya_varga_collisions(string target_planet, int start_year, int 
         }
         printf("--------------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
     }
-	
+
+void run_alert_scanner(int start_year, int end_year) {
+        if (json_mode) return;
+
+        if (html_mode) {
+            printf("<h2 style='margin-top: 20px; margin-bottom: 10px; color: #e74c3c; border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", 
+                   telugu_mode ? "రెడ్ అలర్ట్ (ప్రమాద/నష్ట సూచిక స్కానర్)" : "RED ALERT (Danger & Loss Detonator Scanner)");
+        } else {
+            printf("\n=================================================================================================================================\n");
+            printf("=== ADVANCED 'RED ALERT' KARMIC DETONATOR SCANNER (STRICT MODE) ===\n");
+            printf("=================================================================================================================================\n");
+        }
+
+        int asc_rashi = planet_rashis[0];
+        int h6_rashi = (asc_rashi + 5) % 12;
+        int h8_rashi = (asc_rashi + 7) % 12;
+
+        // Find Critical Dusthana Lords (6th and 8th)
+        int l6_idx = 1, l8_idx = 1;
+        for(int x=1; x<=7; x++) {
+            if (string(rashi_lords[h6_rashi]) == p_names_full[x]) l6_idx = x;
+            if (string(rashi_lords[h8_rashi]) == p_names_full[x]) l8_idx = x;
+        }
+
+        double yogi_point = fmod((sun_lon + moon_lon + 93.3333333), 360.0);
+        double avayogi_point = fmod((yogi_point + 186.6666667), 360.0);
+        double avayogi_ni_point = fmod((yogi_point + 80.0), 360.0);
+
+        int av_nak_lord = ((int)(avayogi_point / (360.0 / 27.0))) % 9;
+        int ni_av_nak_lord = ((int)(avayogi_ni_point / (360.0 / 27.0))) % 9;
+
+        if (html_mode) {
+            printf("<div style='background: #311b1b; padding: 15px; border-radius: 6px; border-left: 4px solid #e74c3c; margin-bottom: 20px;'>");
+            printf("<p style='margin: 0 0 5px 0; color: #ccc;'><b>%s</b> %s (6H), %s (8H)</p>", telugu_mode?"ప్రమాద స్థానాలు (దుస్థానాలు):":"Dusthana Zones:", rashi_names[h6_rashi], rashi_names[h8_rashi]);
+            printf("<p style='margin: 0; color: #ccc;'><b>%s</b> %s</p>", telugu_mode?"ఫిల్టర్ చేయబడింది:":"Filter:", telugu_mode?"కేవలం తీవ్రమైన ప్రమాద సమయాలు మాత్రమే చూపించబడ్డాయి.":"Showing ONLY Highly Critical physical detonators.");
+            printf("</div>\n");
+            
+            printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n", 
+                   telugu_mode?"తేదీ & సమయం":"Date & Time", telugu_mode?"ప్రమాద రకం":"Trigger Type", telugu_mode?"జ్యోతిష సంఘటన":"Astrological Event", telugu_mode?"ప్రభావం":"Archetypal Effect");
+        } else {
+            printf("Target Variables:\n");
+            printf(" - Dusthana Zones    : %s (6th House) & %s (8th House)\n", rashi_names[h6_rashi], rashi_names[h8_rashi]);
+            printf(" - Filter Level      : STRICT (Showing ONLY Critical Physical Triggers)\n");
+            printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+            printf("%-20s | %-16s | %-40s | %-45s\n", "Date & Time", "Trigger Type", "Astrological Event", "Archetypal Effect");
+            printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+        }
+
+        double start_jd = swe_julday(start_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+        double end_jd = swe_julday(end_year, 12, 31, 0.0 - location.tz_offset, SE_GREG_CAL);
+
+        struct AlertEvent { double jd; string type; string event; string effect; };
+        vector<AlertEvent> alerts;
+
+        double pada_size = 360.0 / 108.0;
+        int prev_padas[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+        int prev_naks[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
+        int planets_se[] = {0, SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type, node_calc_type};
+        map<string, double> last_trigger;
+
+        for (double jd = start_jd; jd <= end_jd; jd += 1.0) {
+            double xx[10][6]; char serr[256];
+            for(int i=1; i<=9; i++) {
+                swe_calc_ut(jd, planets_se[i], iflag, xx[i], serr);
+                if (i == 9) xx[i][0] = fmod(xx[i][0] + 180.0, 360.0);
+            }
+
+            if (jd == start_jd) {
+                for(int i=1; i<=9; i++) {
+                    prev_padas[i] = (int)(xx[i][0] / pada_size);
+                    prev_naks[i] = (int)(xx[i][0] / (360.0 / 27.0));
+                }
+                continue;
+            }
+
+            for (int p=1; p<=9; p++) {
+                int curr_pada = (int)(xx[p][0] / pada_size);
+                int rashi = (int)(xx[p][0] / 30.0);
+                int curr_nak = (int)(xx[p][0] / (360.0 / 27.0));
+                
+                // 1. PADA SANDHI (Nakshatra borders) inside Dusthanas - STRICTLY CRITICAL ONLY
+                if (curr_pada != prev_padas[p]) {
+                    if (rashi == h6_rashi || rashi == h8_rashi) {
+                        int pada_num = (curr_pada % 4) + 1;
+                        
+                        string effect = "";
+                        if (curr_nak == 26 && pada_num == 1) effect = "CRITICAL: REVATI ENTRY (6H Border Crossing) [72-Hour Danger Window]";
+                        else if (curr_nak == 26 && pada_num == 4) effect = "CRITICAL: REVATI END-TRANSIT (High Destruction Risk) [72-Hour Danger Window]";
+                        else if (curr_nak == 25 && pada_num == 4) effect = "CRITICAL: UTTARA BHADRA END-TRANSIT (Breakages/Accidents) [72-Hour Danger Window]";
+                        else if (curr_nak == 3 && pada_num == 1) effect = "CRITICAL: ROHINI ENTRY (8H Border Crossing) [72-Hour Danger Window]";
+                        else if (curr_nak == 3 && pada_num == 4) effect = "CRITICAL: ROHINI END-TRANSIT (Sudden Shocks) [72-Hour Danger Window]";
+                        
+                        // STRICT FILTER: Only push if the string contains CRITICAL
+                        if (effect.find("CRITICAL") != string::npos) {
+                            
+                            // Pinpoint exact JD down to minutes
+                            double t_low = jd - 1.0, t_high = jd;
+                            for (int iter=0; iter<15; iter++) {
+                                double t_mid = (t_low + t_high) / 2.0;
+                                double m_xx[6]; swe_calc_ut(t_mid, planets_se[p], iflag, m_xx, serr);
+                                double m_lon = (p==9) ? fmod(m_xx[0]+180.0, 360.0) : m_xx[0];
+                                if ((int)(m_lon / pada_size) == prev_padas[p]) t_low = t_mid; else t_high = t_mid;
+                            }
+                            double exact_jd = (t_low + t_high) / 2.0;
+                            
+                            char buf[128];
+                            snprintf(buf, sizeof(buf), "%s enters %s Pada %d (H%d)", p_names_full[p], nak_names[curr_nak], pada_num, (rashi==h6_rashi?6:8));
+                            
+                            alerts.push_back({exact_jd, "PADA SANDHI", string(buf), effect});
+                        }
+                    }
+                }
+                prev_padas[p] = curr_pada;
+
+                // 2. DUSTHANA LORDS SHIFTING NAKSHATRAS (The Missing Trigger)
+                if (curr_nak != prev_naks[p]) {
+                    if (p == l6_idx || p == l8_idx) {
+                        double t_low = jd - 1.0, t_high = jd;
+                        for (int iter=0; iter<15; iter++) {
+                            double t_mid = (t_low + t_high) / 2.0;
+                            double m_xx[6]; swe_calc_ut(t_mid, planets_se[p], iflag, m_xx, serr);
+                            double m_lon = (p==9) ? fmod(m_xx[0]+180.0, 360.0) : m_xx[0];
+                            if ((int)(m_lon / (360.0 / 27.0)) == prev_naks[p]) t_low = t_mid; else t_high = t_mid;
+                        }
+                        double exact_jd = (t_low + t_high) / 2.0;
+                        
+                        char buf[128];
+                        snprintf(buf, sizeof(buf), "%s (L%d) enters %s", p_names_full[p], (p==l6_idx?6:8), nak_names[curr_nak]);
+                        
+                        string effect = "CRITICAL: Carrier of Destruction Shifts Energy Phase";
+                        
+                        // We filter moon unless it's moving into extreme nakshatras to avoid noise
+                        if (p != 2 || (curr_nak == 26 || curr_nak == 25 || curr_nak == 3)) {
+                            alerts.push_back({exact_jd, "LORD SANDHI", string(buf), effect});
+                        }
+                    }
+                }
+                prev_naks[p] = curr_nak;
+
+                // 3. EXACT NATAL HITS (Transiting Planet hitting Natal Planet)
+                int targets[] = {0, 2, l6_idx, l8_idx}; // Lagna, Moon, 6th Lord, 8th Lord
+                
+                for (int np : targets) {
+                    double dist_val = std::abs(xx[p][0] - planet_lons[np]);
+                    if (dist_val > 180.0) dist_val = 360.0 - dist_val;
+                    
+                    bool is_slow = (p==5 || p==7 || p==8 || p==9);
+                    double target_orb = is_slow ? 2.0 : 0.5; // 2° for Slow (The Shadow Touch)
+
+                    if (dist_val <= target_orb) {
+                        string key = to_string(p) + "_hits_natal_" + to_string(np);
+                        
+                        // If we haven't triggered this recently
+                        if (last_trigger.find(key) == last_trigger.end() || (jd - last_trigger[key]) > 30.0) {
+                            
+                            double e_in, e_peak, e_out;
+                            refine_bubble(p, planet_lons[np], jd, target_orb, e_in, e_peak, e_out, 1);
+                            
+                            string n_name = (np == 0) ? "Lagna" : string(p_names_full[np]);
+                            string eff = "CRITICAL: Triggering Body/Mind/Accident Lord [Danger Zone Begins]";
+                            
+                            // Log the exact day it BREACHES the 2-degree orb (The Shadow Touch)
+                            if (is_slow && e_in >= start_jd && e_in <= end_jd) {
+                                char buf[128];
+                                snprintf(buf, sizeof(buf), "%s breaches 2° Orb of Natal %s", p_names_full[p], n_name.c_str());
+                                alerts.push_back({e_in, "ORB BREACH (2°)", string(buf), eff});
+                            }
+                            
+                            // Log the exact 0-degree peak
+                            if (e_peak >= start_jd && e_peak <= end_jd) {
+                                char buf[128];
+                                snprintf(buf, sizeof(buf), "%s exactly conjuncts Natal %s", p_names_full[p], n_name.c_str());
+                                alerts.push_back({e_peak, "NATAL PEAK (0°)", string(buf), "CRITICAL: Maximum Karmic Pressure / Physical Shift"});
+                            }
+                            
+                            last_trigger[key] = e_out; // Prevent re-triggering until it leaves the orb
+                        }
+                    }
+                }
+            }
+
+            // 4. FAST PLANET HITTING SLOW PLANET IN 6H/8H (Transit-Transit Detonation)
+            int slow_planets[] = {5, 7, 8, 9}; 
+            int fast_planets[] = {1, 3, 4}; 
+            for (int slow : slow_planets) {
+                int s_rashi = (int)(xx[slow][0] / 30.0);
+                if (s_rashi == h6_rashi || s_rashi == h8_rashi) {
+                    for (int fast : fast_planets) {
+                        double dist = std::abs(xx[fast][0] - xx[slow][0]);
+                        if (dist > 180.0) dist = 360.0 - dist;
+                        
+                        if (dist < 1.0) { // Tight 1-degree cross
+                            double prev_dist = std::abs(get_planet_lon_on_jd(fast, jd-1.0) - get_planet_lon_on_jd(slow, jd-1.0));
+                            if (prev_dist > 180.0) prev_dist = 360.0 - prev_dist;
+                            double next_dist = std::abs(get_planet_lon_on_jd(fast, jd+1.0) - get_planet_lon_on_jd(slow, jd+1.0));
+                            if (next_dist > 180.0) next_dist = 360.0 - next_dist;
+                            
+                            if (dist <= prev_dist && dist <= next_dist) {
+                                char buf[128]; snprintf(buf, sizeof(buf), "Transit %s hits Transit %s", p_names_full[fast], p_names_full[slow]);
+                                alerts.push_back({jd, "DETONATION", string(buf), "CRITICAL: Explosive Dusthana Detonation [72-Hour Danger Window]"});
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Deduplicate and filter 
+        vector<AlertEvent> filtered_alerts;
+        for (const auto& a : alerts) {
+            bool dup = false;
+            for (const auto& fa : filtered_alerts) {
+                if (a.type == fa.type && a.event == fa.event && abs(a.jd - fa.jd) <= 2.0) {
+                    dup = true; break;
+                }
+            }
+            if (!dup) filtered_alerts.push_back(a);
+        }
+
+        sort(filtered_alerts.begin(), filtered_alerts.end(), [](const AlertEvent& a, const AlertEvent& b) { return a.jd < b.jd; });
+
+        for (const auto& a : filtered_alerts) {
+            string dstr = jd_to_string(a.jd); 
+            
+            bool is_critical = (a.effect.find("CRITICAL") != string::npos);
+
+            if (html_mode) {
+                string html_col = (a.type == "NATAL PEAK (0°)" || a.type == "DETONATION") ? "#e74c3c" : (a.type == "ORB BREACH (2°)" ? "#f39c12" : (a.type == "LORD SANDHI" ? "#9b59b6" : "#3498db"));
+                if (is_critical) html_col = "#ff0000"; 
+                
+                printf("<tr><td><b>%s</b></td><td><b style='color:%s;'>%s</b></td><td>%s</td><td><b style='color:#e74c3c;'>%s</b></td></tr>\n",
+                       dstr.c_str(), html_col.c_str(), a.type.c_str(), a.event.c_str(), a.effect.c_str());
+            } else {
+                string color = (a.type == "NATAL PEAK (0°)" || a.type == "DETONATION") ? "\033[1;31m" : (a.type == "ORB BREACH (2°)" ? "\033[1;33m" : (a.type == "LORD SANDHI" ? "\033[1;35m" : "\033[1;36m"));
+                if (is_critical) color = "\033[1;31;1m"; // Bold Red for Critical
+                
+                printf("%-20s | %s%-16s\033[0m | %-40s | \033[1;31m%s\033[0m\n", 
+                       dstr.c_str(), color.c_str(), a.type.c_str(), a.event.c_str(), a.effect.c_str());
+            }
+        }
+
+        if (filtered_alerts.empty()) {
+            if (html_mode) printf("<tr><td colspan='4' style='text-align:center; color:#2ecc71;'>No critical red alerts found in this timeframe.</td></tr>\n");
+            else printf(" [OK] No critical red alerts found in this timeframe.\n");
+        }
+
+        if (html_mode) printf("</table>\n");
+        else printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+
+        // =========================================================================
+        // CRITICAL DANGER ZONE SUMMARY (Pinpointed Extractor)
+        // =========================================================================
+        if (!filtered_alerts.empty()) {
+            if (!html_mode) {
+                printf("\n>> SUMMARY OF CRITICAL DANGER ZONES (HIGH PROBABILITY OF INCIDENT) <<\n");
+                printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+            } else {
+                printf("<h3 style='color: #ff0000; margin-top: 25px;'>&gt;&gt; CRITICAL DANGER ZONES DETECTED &lt;&lt;</h3>\n");
+                printf("<ul style='color: #ff0000; font-weight: bold; background: #2a0a0a; padding: 15px 35px; border-radius: 6px;'>\n");
+            }
+            
+            int crit_count = 0;
+            for (const auto& a : filtered_alerts) {
+                if (a.effect.find("CRITICAL") != string::npos) {
+                    if (html_mode) {
+                        printf("<li style='margin-bottom: 5px;'>%s : %s &rarr; %s</li>\n", jd_to_string(a.jd).c_str(), a.event.c_str(), a.effect.c_str());
+                    } else {
+                        printf(" [!] %-20s | %-40s | %s\n", jd_to_string(a.jd).c_str(), a.event.c_str(), a.effect.c_str());
+                    }
+                    crit_count++;
+                }
+            }
+            
+            if (crit_count == 0) {
+                if (html_mode) printf("<li style='color: #2ecc71;'>No highly critical life-threatening zones detected in this period.</li>\n");
+                else printf(" [OK] No highly critical life-threatening zones detected in this period.\n");
+            }
+            
+            if (html_mode) printf("</ul>\n");
+            else printf("---------------------------------------------------------------------------------------------------------------------------------\n");
+        }
+    }	
+
+// =========================================================================
+    // REAL-TIME ASTRONOMICAL TRANSIT DASHBOARD (LAGNA & PLANETARY TRANSITS)
+    // =========================================================================
+    void display_lagna_dashboard(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool use_current_date) {
+        if (json_mode) return;
+
+        bool is_live = use_current_date && !html_mode;
+
+        if (is_live) {
+            // Clear screen ONCE and hide the cursor for smooth, flicker-free rendering
+            printf("\033[2J\033[?25l");
+        }
+
+        while (true) {
+            if (is_live) {
+                // DO NOT clear the screen. Move cursor Home (top-left) to overwrite existing text.
+                printf("\033[H");
+            }
+
+            double cur_jd;
+            int cur_y, cur_m, cur_d, cur_h, cur_min, cur_s;
+
+            if (use_current_date) {
+                time_t t = time(nullptr);
+                tm* now_utc = gmtime(&t);
+                double ut_dec = now_utc->tm_hour + (now_utc->tm_min / 60.0) + (now_utc->tm_sec / 3600.0);
+                cur_jd = swe_julday(now_utc->tm_year + 1900, now_utc->tm_mon + 1, now_utc->tm_mday, ut_dec, SE_GREG_CAL);
+                int y, m, d; double jut;
+                swe_revjul(cur_jd + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+                cur_y = y; cur_m = m; cur_d = d;
+                cur_h = (int)jut;
+                cur_min = (int)((jut - cur_h) * 60.0);
+                cur_s = (int)round((((jut - cur_h) * 60.0) - cur_min) * 60.0);
+                if (cur_s >= 60) { cur_s -= 60; cur_min++; }
+                if (cur_min >= 60) { cur_min -= 60; cur_h++; }
+                if (cur_h >= 24) { cur_h -= 24; }
+            } else {
+                double ut_dec = t_hour + (t_min / 60.0) + (t_sec / 3600.0) - location.tz_offset;
+                cur_jd = swe_julday(t_year, t_month, t_day, ut_dec, SE_GREG_CAL);
+                cur_y = t_year; cur_m = t_month; cur_d = t_day; cur_h = t_hour; cur_min = t_min; cur_s = t_sec;
+            }
+
+            char now_buf[64];
+            snprintf(now_buf, sizeof(now_buf), "%02d/%02d/%04d %02d:%02d:%02d", cur_d, cur_m, cur_y, cur_h, cur_min, cur_s);
+
+            auto get_dashboard_dms = [&](double lon) {
+                int rashi_idx = (int)(lon / 30.0);
+                double deg_in_sign = fmod(lon, 30.0);
+                int d = (int)deg_in_sign;
+                int m = (int)((deg_in_sign - d) * 60.0);
+                int s = (int)round((deg_in_sign - d - m/60.0)*3600);
+                if(s>=60){s-=60;m++;} if(m>=60){m-=60;d++;}
+                
+                string r_name = telugu_mode ? te_rashi_names[rashi_idx] : rashi_names[rashi_idx];
+                if (!telugu_mode) while(r_name.length() < 10) r_name += " ";
+                
+                char buf[256];
+                if (html_mode) snprintf(buf, sizeof(buf), "%02d&deg; <b style='color:#00ffff;'>%s</b> %02d'%02d\"", d, r_name.c_str(), m, s);
+                else snprintf(buf, sizeof(buf), "%02d° \033[1;36m%s\033[0m %02d'%02d\"", d, r_name.c_str(), m, s);
+                return string(buf);
+            };
+
+            // ---------------------------------------------------------------------
+            // 1. CALCULATE CURRENT LAGNA (ASCENDANT)
+            // ---------------------------------------------------------------------
+            double cusps[13], ascmc[10];
+            swe_houses_ex(cur_jd, iflag, location.lat, location.lon, 'P', cusps, ascmc);
+            double cur_lagna_lon = ascmc[0];
+            int cur_lagna_rashi = (int)(cur_lagna_lon / 30.0);
+            int l_nak_idx = (int)(cur_lagna_lon / (360.0 / 27.0));
+            int l_pada = (int)((cur_lagna_lon - (l_nak_idx * (360.0 / 27.0))) / ((360.0 / 27.0) / 4.0)) + 1;
+
+            double step_lagna = 1.0 / 1440.0;
+            double jd_scan = cur_jd;
+            int limit = 0;
+            while (limit++ < 240) {
+                jd_scan -= step_lagna;
+                double c_tmp[13], a_tmp[10];
+                swe_houses_ex(jd_scan, iflag, location.lat, location.lon, 'P', c_tmp, a_tmp);
+                if ((int)(a_tmp[0] / 30.0) != cur_lagna_rashi) break;
+            }
+            double t_low = jd_scan, t_high = jd_scan + step_lagna;
+            for (int iter = 0; iter < 20; iter++) {
+                double t_mid = (t_low + t_high) / 2.0;
+                double c_tmp[13], a_tmp[10];
+                swe_houses_ex(t_mid, iflag, location.lat, location.lon, 'P', c_tmp, a_tmp);
+                if ((int)(a_tmp[0] / 30.0) != cur_lagna_rashi) t_low = t_mid;
+                else t_high = t_mid;
+            }
+            double lagna_start_jd = t_high;
+
+            jd_scan = cur_jd;
+            limit = 0;
+            while (limit++ < 240) {
+                jd_scan += step_lagna;
+                double c_tmp[13], a_tmp[10];
+                swe_houses_ex(jd_scan, iflag, location.lat, location.lon, 'P', c_tmp, a_tmp);
+                if ((int)(a_tmp[0] / 30.0) != cur_lagna_rashi) break;
+            }
+            t_low = jd_scan - step_lagna; t_high = jd_scan;
+            for (int iter = 0; iter < 20; iter++) {
+                double t_mid = (t_low + t_high) / 2.0;
+                double c_tmp[13], a_tmp[10];
+                swe_houses_ex(t_mid, iflag, location.lat, location.lon, 'P', c_tmp, a_tmp);
+                if ((int)(a_tmp[0] / 30.0) == cur_lagna_rashi) t_low = t_mid;
+                else t_high = t_mid;
+            }
+            double lagna_end_jd = t_high;
+
+            double c_nxt[13], a_nxt[10];
+            swe_houses_ex(lagna_end_jd + (0.5 / 1440.0), iflag, location.lat, location.lon, 'P', c_nxt, a_nxt);
+            int next_lagna_rashi = (int)(a_nxt[0] / 30.0);
+
+            double lagna_rem_days = lagna_end_jd - cur_jd;
+            if (lagna_rem_days < 0) lagna_rem_days = 0;
+            double lagna_rem_sec = lagna_rem_days * 86400.0;
+            int l_rem_h = (int)(lagna_rem_sec / 3600.0);
+            int l_rem_m = (int)((lagna_rem_sec - l_rem_h * 3600) / 60.0);
+            int l_rem_s = (int)round(lagna_rem_sec - l_rem_h * 3600 - l_rem_m * 60);
+            if (l_rem_s >= 60) { l_rem_s -= 60; l_rem_m++; }
+            if (l_rem_m >= 60) { l_rem_m -= 60; l_rem_h++; }
+
+            char lagna_rem_str[32];
+            snprintf(lagna_rem_str, sizeof(lagna_rem_str), "%02dh %02dm %02ds", l_rem_h, l_rem_m, l_rem_s);
+
+            int vimshottari_lords[9] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; // Ke, Ve, Su, Mo, Ma, Ra, Ju, Sa, Me
+            int n_lord_se = vimshottari_lords[l_nak_idx % 9];
+            string nak_lord_str = (telugu_mode) ? get_planet_name(n_lord_se) : string(p_names_full[n_lord_se]);
+
+            // ---------------------------------------------------------------------
+            // 2. BUILD THE RIGHT PANE: SOUTH INDIAN RASHI CHART
+            // ---------------------------------------------------------------------
+            string p_abbr[10] = {"As", "Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"};
+            int p_counts[12] = {0};
+            string r_line1[12], r_line2[12];
+            int vis1[12] = {0}, vis2[12] = {0};
+
+            for(int r=0; r<12; r++) { r_line1[r] = ""; r_line2[r] = ""; }
+
+            for(int p=0; p<=9; p++) {
+                double lon = (p==0) ? cur_lagna_lon : get_planet_lon_on_jd(p, cur_jd);
+                int r = (int)(lon / 30.0);
+                
+                string en_abbr = p_abbr[p];
+                string ansi_col;
+                
+                if (p == 0) ansi_col = "\033[1;36m"; // As - Cyan
+                else if (p == 1) ansi_col = "\033[1;31m"; // Su - Red
+                else if (p == 2) ansi_col = "\033[1;37m"; // Mo - White
+                else if (p == 3) ansi_col = "\033[1;31m"; // Ma - Red
+                else if (p == 4) ansi_col = "\033[1;32m"; // Me - Green
+                else if (p == 5) ansi_col = "\033[1;33m"; // Ju - Yellow
+                else if (p == 6) ansi_col = "\033[1;37m"; // Ve - White
+                else if (p == 7) ansi_col = "\033[1;34m"; // Sa - Blue
+                else if (p == 8 || p == 9) ansi_col = "\033[1;35m"; // Ra, Ke - Magenta
+                
+                string color_abbr = ansi_col + en_abbr + "\033[0m";
+                
+                if (p_counts[r] < 3) {
+                    if (p_counts[r] > 0) { r_line1[r] += " "; vis1[r]++; }
+                    r_line1[r] += color_abbr; vis1[r] += 2;
+                } else {
+                    if (p_counts[r] > 3) { r_line2[r] += " "; vis2[r]++; }
+                    r_line2[r] += color_abbr; vis2[r] += 2;
+                }
+                p_counts[r]++;
+            }
+
+            auto pad_cell = [](string raw, int vis_len) {
+                string res = raw;
+                for(int i=vis_len; i<12; i++) res += " ";
+                return res;
+            };
+
+            string blank_cell = "            ";
+            for(int r=0; r<12; r++) {
+                r_line1[r] = pad_cell(r_line1[r], vis1[r]);
+                r_line2[r] = pad_cell(r_line2[r], vis2[r]);
+            }
+
+            string C[17];
+            string sep = "+------------+------------+------------+------------+";
+            C[0]  = sep;
+            C[1]  = "|" + blank_cell  + "|" + blank_cell  + "|" + blank_cell  + "|" + blank_cell  + "|";
+            C[2]  = "|" + r_line1[11] + "|" + r_line1[0]  + "|" + r_line1[1]  + "|" + r_line1[2]  + "|";
+            C[3]  = "|" + r_line2[11] + "|" + r_line2[0]  + "|" + r_line2[1]  + "|" + r_line2[2]  + "|";
+            C[4]  = sep;
+            C[5]  = "|" + blank_cell  + "|                        |" + blank_cell  + "|";
+            C[6]  = "|" + r_line1[10] + "|      RASHI CHART       |" + r_line1[3]  + "|";
+            C[7]  = "|" + r_line2[10] + "|     (SOUTH INDIAN)     |" + r_line2[3]  + "|";
+            C[8]  = "+------------+                        +------------+";
+            C[9]  = "|" + blank_cell  + "|                        |" + blank_cell  + "|";
+            C[10] = "|" + r_line1[9]  + "|                        |" + r_line1[4]  + "|";
+            C[11] = "|" + r_line2[9]  + "|                        |" + r_line2[4]  + "|";
+            C[12] = sep;
+            C[13] = "|" + blank_cell  + "|" + blank_cell  + "|" + blank_cell  + "|" + blank_cell  + "|";
+            C[14] = "|" + r_line1[8]  + "|" + r_line1[7]  + "|" + r_line1[6]  + "|" + r_line1[5]  + "|";
+            C[15] = "|" + r_line2[8]  + "|" + r_line2[7]  + "|" + r_line2[6]  + "|" + r_line2[5]  + "|";
+            C[16] = sep;
+
+            // ---------------------------------------------------------------------
+            // 3. BUILD THE LEFT PANE: LAGNA SYSTEM INFO
+            // ---------------------------------------------------------------------
+            string L[17];
+            int vL[17] = {0};
+            
+            auto get_vis_len = [](const string& str) {
+                int len = 0;
+                for (int i = 0; i < str.length(); i++) {
+                    if ((str[i] & 0xC0) != 0x80) len++; 
+                }
+                return len;
+            };
+
+            auto set_L = [&](int idx, string ansi_str, string plain_str) {
+                L[idx] = ansi_str;
+                vL[idx] = get_vis_len(plain_str);
+            };
+
+            string r_time_plain = " Reference Time   : " + string(now_buf) + (use_current_date ? " [LIVE CLOCK RUNNING]" : "");
+            string r_time_ansi = " Reference Time   : " + string(now_buf) + (use_current_date ? " \033[1;32m[LIVE CLOCK RUNNING]\033[0m" : "");
+            set_L(0, r_time_ansi, r_time_plain);
+
+            char b1[128]; snprintf(b1, sizeof(b1), " Location         : %s (Lat: %.4f, Lon: %.4f)", location.name.c_str(), location.lat, location.lon);
+            set_L(1, string(b1), string(b1));
+
+            string b2 = telugu_mode ? " Ayanamsa         : లాహిరి (చిత్ర పక్ష)" : " Ayanamsa         : Lahiri (Chitra Paksha)";
+            set_L(2, b2, b2);
+
+            set_L(3, "", "");
+
+            string t4_plain = telugu_mode ? " [ప్రస్తుత లగ్నం (CURRENT RUNNING LAGNA)]" : " [CURRENT RUNNING LAGNA (ASCENDANT)]";
+            string t4_ansi = "\033[1;33m" + t4_plain + "\033[0m";
+            set_L(4, t4_ansi, t4_plain);
+
+            string b5 = "----------------------------------------------------------------------";
+            set_L(5, b5, b5);
+
+            int cl_d = (int)fmod(cur_lagna_lon, 30.0);
+            int cl_m = (int)((fmod(cur_lagna_lon, 30.0) - cl_d) * 60.0);
+            int cl_s = (int)round(((fmod(cur_lagna_lon, 30.0) - cl_d) * 60.0 - cl_m) * 60.0);
+            if(cl_s>=60){cl_s-=60;cl_m++;} if(cl_m>=60){cl_m-=60;cl_d++;}
+            string r_name_sys = telugu_mode ? te_rashi_names[cur_lagna_rashi] : rashi_names[cur_lagna_rashi];
+            
+            char c_plain[128], c_ansi[256];
+            snprintf(c_plain, sizeof(c_plain), " Current Lagna    : %02d° %-10s %02d'%02d\"", cl_d, r_name_sys.c_str(), cl_m, cl_s);
+            snprintf(c_ansi, sizeof(c_ansi), " Current Lagna    : %02d° \033[1;36m%-10s\033[0m %02d'%02d\"", cl_d, r_name_sys.c_str(), cl_m, cl_s);
+            set_L(6, string(c_ansi), string(c_plain));
+
+            char n_plain[128];
+            snprintf(n_plain, sizeof(n_plain), " Nakshatra        : %s (Pada %d)", get_nak_name(l_nak_idx).c_str(), l_pada);
+            set_L(7, string(n_plain), string(n_plain));
+
+            char ll_plain[128];
+            snprintf(ll_plain, sizeof(ll_plain), " Nakshatra Lord   : %s", nak_lord_str.c_str());
+            set_L(8, string(ll_plain), string(ll_plain));
+
+            set_L(9, "", "");
+
+            char s1_plain[128], s1_ansi[128];
+            snprintf(s1_plain, sizeof(s1_plain), " Lagna Start Time : %s", jd_to_string(lagna_start_jd).c_str());
+            snprintf(s1_ansi, sizeof(s1_ansi), " Lagna Start Time : \033[1;34m%s\033[0m", jd_to_string(lagna_start_jd).c_str());
+            set_L(10, string(s1_ansi), string(s1_plain));
+
+            char s2_plain[128], s2_ansi[128];
+            snprintf(s2_plain, sizeof(s2_plain), "                    (Entered %s)", rashi_names[cur_lagna_rashi]);
+            snprintf(s2_ansi, sizeof(s2_ansi), "                    \033[0;32m(Entered %s)\033[0m", rashi_names[cur_lagna_rashi]);
+            set_L(11, string(s2_ansi), string(s2_plain));
+
+            char e1_plain[128], e1_ansi[128];
+            snprintf(e1_plain, sizeof(e1_plain), " Lagna End Time   : %s", jd_to_string(lagna_end_jd).c_str());
+            snprintf(e1_ansi, sizeof(e1_ansi), " Lagna End Time   : \033[1;31m%s\033[0m", jd_to_string(lagna_end_jd).c_str());
+            set_L(12, string(e1_ansi), string(e1_plain));
+
+            char e2_plain[128], e2_ansi[128];
+            snprintf(e2_plain, sizeof(e2_plain), "                    (Exits to %s)", rashi_names[next_lagna_rashi]);
+            snprintf(e2_ansi, sizeof(e2_ansi), "                    \033[0;32m(Exits to %s)\033[0m", rashi_names[next_lagna_rashi]);
+            set_L(13, string(e2_ansi), string(e2_plain));
+
+            set_L(14, "", "");
+
+            char t1_plain[128], t1_ansi[256];
+            snprintf(t1_plain, sizeof(t1_plain), " Time Remaining   : %s  ==> NEXT: %s", lagna_rem_str, rashi_names[next_lagna_rashi]);
+            snprintf(t1_ansi, sizeof(t1_ansi), " Time Remaining   : \033[1;32m%s\033[0m  ==> \033[1;33mNEXT: %s\033[0m", lagna_rem_str, rashi_names[next_lagna_rashi]);
+            set_L(15, string(t1_ansi), string(t1_plain));
+
+            set_L(16, b5, b5);
+
+            int target_width = 75;
+            auto pad_left_panel = [&](int idx) {
+                string res = L[idx];
+                int spaces = target_width - vL[idx];
+                if (spaces < 0) spaces = 0;
+                for (int i=0; i<spaces; i++) res += " ";
+                return res;
+            };
+
+            // ---------------------------------------------------------------------
+            // 4. TERMINAL RENDER DISPATCH
+            // ---------------------------------------------------------------------
+            if (html_mode) {
+                printf("<div style='display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; font-family: Inter, Arial, sans-serif; background: #0f141c; color: #e0e0e0; padding: 20px; border-radius: 8px;'>");
+                
+                // Left Panel HTML
+                printf("<div style='flex: 1; min-width: 400px; background: #1b2636; border-left: 5px solid #3498db; padding: 15px; border-radius: 6px;'>");
+                printf("<h3 style='margin: 0 0 10px 0; color: #3498db;'>%s</h3>", telugu_mode ? "ప్రస్తుత లగ్నం (CURRENT RUNNING LAGNA)" : "CURRENT RUNNING LAGNA (ASCENDANT)");
+                printf("<table style='width: 100%%; border-collapse: collapse; font-size: 14px;'>");
+                printf("<tr><td style='padding: 4px 0; color: #aaa;'>%s:</td><td style='color: #fff; font-weight: bold;'>%s</td></tr>", telugu_mode ? "ప్రస్తుత లగ్న రాశి" : "Current Lagna", get_dashboard_dms(cur_lagna_lon).c_str());
+                printf("<tr><td style='padding: 4px 0; color: #aaa;'>%s:</td><td style='color: #fff;'>%s (%s - %d)</td></tr>", telugu_mode ? "నక్షత్రం" : "Nakshatra", get_nak_name(l_nak_idx).c_str(), telugu_mode?"పాదం":"Pada", l_pada);
+                printf("<tr><td style='padding: 4px 0; color: #aaa;'>%s:</td><td style='color: #fff;'>%s</td></tr>", telugu_mode ? "నక్షత్రాధిపతి" : "Nakshatra Lord", nak_lord_str.c_str());
+                printf("<tr><td style='padding: 4px 0; color: #aaa;'>%s:</td><td style='color: #3498db;'>%s</td></tr>", telugu_mode ? "లగ్న ప్రారంభం (ENTER)" : "Lagna Start Time", jd_to_string(lagna_start_jd).c_str());
+                printf("<tr><td style='padding: 4px 0; color: #aaa;'>%s:</td><td style='color: #e74c3c;'>%s</td></tr>", telugu_mode ? "లగ్న ముగింపు (EXIT)" : "Lagna End Time", jd_to_string(lagna_end_jd).c_str());
+                printf("<tr><td style='padding: 4px 0; color: #aaa;'>%s:</td><td style='color: #2ecc71; font-weight: bold; font-size: 1.1em;'>%s &nbsp; <span style='color: #f1c40f;'>(&rarr; %s: %s)</span></td></tr>", telugu_mode ? "మిగిలిన సమయం" : "Time Remaining", lagna_rem_str, telugu_mode ? "తదుపరి లగ్నం" : "Next Lagna", rashi_names[next_lagna_rashi]);
+                printf("</table></div>");
+
+                // Right Panel HTML (Rashi Chart without Headers)
+                printf("<div style='flex: 0 0 320px;'>");
+                printf("<table style='width: 100%%; height: 100%%; border-collapse: collapse; text-align: center; font-size: 14px; background: #0f141c; border: 2px solid #555;'>");
+                
+                auto html_cell = [&](int r) {
+                    string content = "";
+                    for(int p=0; p<=9; p++) {
+                        double lon = (p==0) ? cur_lagna_lon : get_planet_lon_on_jd(p, cur_jd);
+                        if ((int)(lon / 30.0) == r) {
+                            string abbr = p_abbr[p];
+                            string hex_col;
+                            if (p == 0) hex_col = "#00ffff"; // As - Cyan
+                            else if (p == 1) hex_col = "#ff4d4d"; // Su - Red
+                            else if (p == 2) hex_col = "#ffffff"; // Mo - White
+                            else if (p == 3) hex_col = "#ff4d4d"; // Ma - Red
+                            else if (p == 4) hex_col = "#2ecc71"; // Me - Green
+                            else if (p == 5) hex_col = "#f1c40f"; // Ju - Yellow
+                            else if (p == 6) hex_col = "#ffffff"; // Ve - White
+                            else if (p == 7) hex_col = "#3498db"; // Sa - Blue
+                            else if (p == 8 || p == 9) hex_col = "#9b59b6"; // Ra, Ke - Magenta
+                            content += "<span style='color:" + hex_col + "; font-weight:bold; margin-right:4px;'>" + abbr + "</span>";
+                        }
+                    }
+                    return content;
+                };
+
+                printf("<tr><td style='border: 1px solid #555; width: 25%%; padding: 15px; height: 60px;'>%s</td>", html_cell(11).c_str());
+                printf("<td style='border: 1px solid #555; width: 25%%;'>%s</td>", html_cell(0).c_str());
+                printf("<td style='border: 1px solid #555; width: 25%%;'>%s</td>", html_cell(1).c_str());
+                printf("<td style='border: 1px solid #555; width: 25%%;'>%s</td></tr>", html_cell(2).c_str());
+
+                printf("<tr><td style='border: 1px solid #555; padding: 15px; height: 60px;'>%s</td>", html_cell(10).c_str());
+                printf("<td colspan='2' rowspan='2' style='color:#555; font-weight:bold; font-size:15px; letter-spacing:1px;'>RASHI CHART<br><br><span style='font-size:12px;'>(SOUTH INDIAN)</span></td>");
+                printf("<td style='border: 1px solid #555;'>%s</td></tr>", html_cell(3).c_str());
+
+                printf("<tr><td style='border: 1px solid #555; padding: 15px; height: 60px;'>%s</td>", html_cell(9).c_str());
+                printf("<td style='border: 1px solid #555;'>%s</td></tr>", html_cell(4).c_str());
+
+                printf("<tr><td style='border: 1px solid #555; padding: 15px; height: 60px;'>%s</td>", html_cell(8).c_str());
+                printf("<td style='border: 1px solid #555;'>%s</td>", html_cell(7).c_str());
+                printf("<td style='border: 1px solid #555;'>%s</td>", html_cell(6).c_str());
+                printf("<td style='border: 1px solid #555;'>%s</td></tr>", html_cell(5).c_str());
+
+                printf("</table></div></div>");
+
+                printf("<h3 style='color: #f39c12; margin-top: 25px; margin-bottom: 10px;'>%s</h3>",
+                       telugu_mode ? "సమగ్ర గ్రహ సంచార స్థితి (PLANETARY TRANSIT DASHBOARD)" : "PLANETARY TRANSIT DASHBOARD (GRAHA GOCHARA STATUS)");
+                printf("<table class='data-table'><tr>");
+                printf("<th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n",
+                       telugu_mode ? "గ్రహం" : "Planet", telugu_mode ? "ప్రస్తుత రాశి" : "Current Sign", telugu_mode ? "నక్షత్రం (పాదం)" : "Nakshatra (Pada)",
+                       telugu_mode ? "గమనం" : "Motion", telugu_mode ? "రాశి ప్రవేశం (Starts)" : "Entered Rashi", telugu_mode ? "రాశి నిష్క్రమణ (Ends)" : "Exits Rashi",
+                       telugu_mode ? "మిగిలిన కాలం" : "Time Remaining", telugu_mode ? "తదుపరి రాశి" : "Next Sign");
+            } else {
+                string main_line = string(131, '=');
+                string sub_line = string(131, '-');
+                printf("\033[1;36m%s\033[0m\n", main_line.c_str());
+                printf("=== \033[1;36m%s\033[0m ===\n", telugu_mode ? "ప్రత్యక్ష ఖగోళ గోచార డాష్‌బోర్డ్ (REAL-TIME TRANSIT DASHBOARD)" : "REAL-TIME ASTRONOMICAL TRANSIT DASHBOARD");
+                printf("\033[1;36m%s\033[0m\n", main_line.c_str());
+
+                for (int i=0; i<17; i++) {
+                    printf("%s \033[1;32m%s\033[0m\n", pad_left_panel(i).c_str(), C[i].c_str());
+                }
+
+                printf("\n\033[1;33m[PLANETARY TRANSIT DASHBOARD (GRAHA GOCHARA STATUS)]\033[0m\n");
+                printf("\033[1;32m%s\033[0m\n", sub_line.c_str());
+                printf("%-9s | %-21s | %-21s | %-12s | %-19s | %-19s | %-18s | %-12s\n",
+                       telugu_mode ? "గ్రహం" : "Planet", telugu_mode ? "ప్రస్తుత స్థానం" : "Current Sign", telugu_mode ? "నక్షత్రం (పాదం)" : "Nakshatra (Pada)",
+                       telugu_mode ? "గమనం" : "Motion", telugu_mode ? "రాశి ప్రవేశం" : "Entered Rashi", telugu_mode ? "రాశి నిష్క్రమణ" : "Exits Rashi",
+                       telugu_mode ? "మిగిలిన కాలం" : "Time Remaining", telugu_mode ? "తదుపరి రాశి" : "Next Sign");
+                printf("\033[1;32m%s\033[0m\n", sub_line.c_str());
+            }
+
+            // ---------------------------------------------------------------------
+            // 5. CALCULATE BOUNDARIES FOR ALL 9 PLANETS (Lower Table)
+            // ---------------------------------------------------------------------
+            for (int p = 1; p <= 9; p++) {
+                double p_lon = get_planet_lon_on_jd(p, cur_jd);
+                int p_rashi = (int)(p_lon / 30.0);
+                int p_nak = (int)(p_lon / (360.0 / 27.0));
+                int p_pada = (int)((p_lon - (p_nak * (360.0 / 27.0))) / ((360.0 / 27.0) / 4.0)) + 1;
+
+                double lon_prev = get_planet_lon_on_jd(p, cur_jd - 0.01);
+                double lon_next = get_planet_lon_on_jd(p, cur_jd + 0.01);
+                double d_mv = fmod(lon_next - lon_prev + 360.0, 360.0);
+                if (d_mv > 180.0) d_mv -= 360.0;
+                bool is_retro = (d_mv < 0.0);
+                string motion_str = is_retro ? (telugu_mode ? "వక్రం (R)" : "Retro (R)") : (telugu_mode ? "రుజువు (D)" : "Direct (D)");
+
+                double step_p = 0.25;
+                double search_limit = 90.0;
+                if (p == 2) { step_p = 0.04; search_limit = 5.0; }
+                else if (p == 1 || p == 4 || p == 6) { step_p = 0.25; search_limit = 65.0; } 
+                else if (p == 3) { step_p = 0.25; search_limit = 120.0; }           
+                else if (p == 5) { step_p = 1.0; search_limit = 500.0; }            
+                else { step_p = 2.0; search_limit = 1200.0; }                       
+
+                double scan_back = cur_jd;
+                int steps_taken = 0;
+                while (steps_taken++ < (search_limit / step_p)) {
+                    scan_back -= step_p;
+                    int r_test = (int)(get_planet_lon_on_jd(p, scan_back) / 30.0);
+                    if (r_test != p_rashi) break;
+                }
+                double b_low = scan_back, b_high = scan_back + step_p;
+                for (int iter = 0; iter < 24; iter++) {
+                    double mid = (b_low + b_high) / 2.0;
+                    int r_mid = (int)(get_planet_lon_on_jd(p, mid) / 30.0);
+                    if (r_mid != p_rashi) b_low = mid;
+                    else b_high = mid;
+                }
+                double p_start_jd = b_high;
+
+                double scan_fwd = cur_jd;
+                steps_taken = 0;
+                while (steps_taken++ < (search_limit / step_p)) {
+                    scan_fwd += step_p;
+                    int r_test = (int)(get_planet_lon_on_jd(p, scan_fwd) / 30.0);
+                    if (r_test != p_rashi) break;
+                }
+                double f_low = scan_fwd - step_p, f_high = scan_fwd;
+                for (int iter = 0; iter < 24; iter++) {
+                    double mid = (f_low + f_high) / 2.0;
+                    int r_mid = (int)(get_planet_lon_on_jd(p, mid) / 30.0);
+                    if (r_mid == p_rashi) f_low = mid;
+                    else f_high = mid;
+                }
+                double p_end_jd = f_high;
+
+                int next_rashi_idx = (int)(get_planet_lon_on_jd(p, p_end_jd + 0.005) / 30.0);
+
+                double rem_days = p_end_jd - cur_jd;
+                if (rem_days < 0) rem_days = 0;
+
+                char rem_buf[64];
+                if (rem_days >= 1.0) {
+                    int d_cnt = (int)rem_days;
+                    double h_rem = (rem_days - d_cnt) * 24.0;
+                    int h_cnt = (int)h_rem;
+                    int m_cnt = (int)round((h_rem - h_cnt) * 60.0);
+                    if (m_cnt >= 60) { m_cnt -= 60; h_cnt++; }
+                    if (h_cnt >= 24) { h_cnt -= 24; d_cnt++; }
+                    snprintf(rem_buf, sizeof(rem_buf), "%dd %dh %dm", d_cnt, h_cnt, m_cnt);
+                } else {
+                    double h_rem = rem_days * 24.0;
+                    int h_cnt = (int)h_rem;
+                    int m_cnt = (int)round((h_rem - h_cnt) * 60.0);
+                    if (m_cnt >= 60) { m_cnt -= 60; h_cnt++; }
+                    snprintf(rem_buf, sizeof(rem_buf), "%02dh %02dm", h_cnt, m_cnt);
+                }
+
+                // Get Planet Base Color ANSI
+                string ansi_col;
+                if (p == 1) ansi_col = "\033[1;31m"; // Su - Red
+                else if (p == 2) ansi_col = "\033[1;37m"; // Mo - White
+                else if (p == 3) ansi_col = "\033[1;31m"; // Ma - Red
+                else if (p == 4) ansi_col = "\033[1;32m"; // Me - Green
+                else if (p == 5) ansi_col = "\033[1;33m"; // Ju - Yellow
+                else if (p == 6) ansi_col = "\033[1;37m"; // Ve - White
+                else if (p == 7) ansi_col = "\033[1;34m"; // Sa - Blue
+                else if (p == 8 || p == 9) ansi_col = "\033[1;35m"; // Ra, Ke - Magenta
+
+                // Pad plain text first before adding ANSI to maintain perfect table formatting
+                string p_raw_name = telugu_mode ? get_planet_name(p) : string(p_names_full[p]);
+                string p_padded_name = p_raw_name;
+                if (!telugu_mode) {
+                    while (p_padded_name.length() < 9) p_padded_name += " ";
+                }
+                string p_str_name = ansi_col + p_padded_name + "\033[0m";
+
+                string cur_sign_str = get_dashboard_dms(p_lon);
+                
+                string nak_raw = get_nak_name(p_nak) + " (" + to_string(p_pada) + ")";
+                if (!telugu_mode) {
+                    while (nak_raw.length() < 21) nak_raw += " ";
+                }
+                string nak_pada_str = "\033[1;32m" + nak_raw + "\033[0m";
+                
+                string next_sign_str = rashi_names[next_rashi_idx];
+
+                if (html_mode) {
+                    string motion_badge = is_retro ? "<span style='color:#f39c12; font-weight:bold;'>Retro (R)</span>" : "<span style='color:#2ecc71;'>Direct (D)</span>";
+                    string html_p_name = telugu_mode ? get_planet_name(p) : string(p_names_full[p]);
+                    printf("<tr><td><b><span style='color:%s;'>%s</span></b></td><td>%s</td><td>%s</td><td>%s</td><td><b style='color:#3498db;'>%s</b></td><td><b style='color:#e74c3c;'>%s</b></td><td><b style='color:#2ecc71;'>%s</b></td><td><b>%s</b></td></tr>\n",
+                           (p==1||p==3)?"#ff4d4d":(p==4)?"#2ecc71":(p==5)?"#f1c40f":(p==7)?"#3498db":(p==8||p==9)?"#9b59b6":"#ffffff",
+                           html_p_name.c_str(), cur_sign_str.c_str(), (get_nak_name(p_nak) + " (" + to_string(p_pada) + ")").c_str(), motion_badge.c_str(),
+                           jd_to_string(p_start_jd).c_str(), jd_to_string(p_end_jd).c_str(), rem_buf, next_sign_str.c_str());
+                } else {
+                    string motion_color = is_retro ? "\033[1;33m" : "\033[0;37m";
+                    string motion_raw = motion_str;
+                    if (!telugu_mode) {
+                        while (motion_raw.length() < 12) motion_raw += " ";
+                    }
+                    string motion_fmt = motion_color + motion_raw + "\033[0m";
+
+                    printf("%s | %s | %s | %s | \033[1;34m%-19s\033[0m | \033[1;31m%-19s\033[0m | \033[1;32m%-18s\033[0m | %-12s\n",
+                           p_str_name.c_str(), cur_sign_str.c_str(), nak_pada_str.c_str(), motion_fmt.c_str(),
+                           jd_to_string(p_start_jd).c_str(), jd_to_string(p_end_jd).c_str(), rem_buf, next_sign_str.c_str());
+                }
+            }
+
+            if (html_mode) {
+                printf("</table></div>\n");
+            } else {
+                string sub_line = string(131, '-');
+                printf("\033[1;32m%s\033[0m\n", sub_line.c_str());
+            }
+
+            if (!is_live) break;
+
+            printf("\n\033[1;33m[!] Press Ctrl+C to stop the Live Dashboard Clock.\033[0m\n");
+            printf("\033[J"); // Clear from cursor to end of screen to erase any ghosting
+            fflush(stdout);
+            
+            std::this_thread::sleep_for(std::chrono::seconds(1));
+        }
+
+        if (is_live) {
+            // Restore cursor if loop breaks
+            printf("\033[?25h");
+        }
+    }
+
 void print_birth_chart_ui() {
         if (json_mode) return;
 
@@ -1675,6 +2498,286 @@ void search_exact_degree(string planet_name, string sign_name, int deg, int min,
         if (hits == 0) printf("No events found in the specified timeframe.\n");
         printf("---------------------------------------------------------------------------------\n");
     }
+
+void search_dual_exact_degree(string p1_name, string s1_name, int d1, int min1, int sec1, 
+                                  string p2_name, string s2_name, int d2, int min2, int sec2, 
+                                  int search_year, int search_month = 0) {
+        if (json_mode) return;
+
+        int p1_idx = get_planet_idx(p1_name);
+        int s1_idx = get_rashi_idx(s1_name);
+        int p2_idx = get_planet_idx(p2_name);
+        int s2_idx = get_rashi_idx(s2_name);
+
+        if (p1_idx == -1 || s1_idx == -1 || p2_idx == -1 || s2_idx == -1) {
+            printf("Error: Invalid planet or sign name provided for dual search.\n");
+            return;
+        }
+
+        double target_lon1 = (s1_idx * 30.0) + d1 + (min1 / 60.0) + (sec1 / 3600.0);
+        double target_lon2 = (s2_idx * 30.0) + d2 + (min2 / 60.0) + (sec2 / 3600.0);
+
+        double start_jd, end_jd;
+        string scope_str = "";
+        
+        if (search_month > 0) {
+            start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = search_month == 12 ? 1 : search_month + 1;
+            int next_y = search_month == 12 ? search_year + 1 : search_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
+        } else {
+            start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Year: " + to_string(search_year);
+        }
+
+        string print_p1 = (p1_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[p1_idx]);
+        string print_p2 = (p2_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[p2_idx]);
+
+        double start_lon1 = get_planet_lon_on_jd(p1_idx, start_jd);
+        double start_lon2 = get_planet_lon_on_jd(p2_idx, start_jd);
+        int start_r1 = (int)(start_lon1 / 30.0);
+        int start_r2 = (int)(start_lon2 / 30.0);
+
+        printf("\n=== DUAL EXACT DEGREE ALIGNMENT SEARCH ===\n");
+        printf("Target 1 : %s arriving at %02d° %s %02d'%02d\"\n", print_p1.c_str(), d1, rashi_names[s1_idx], min1, sec1);
+        printf("Target 2 : %s arriving at %02d° %s %02d'%02d\"\n", print_p2.c_str(), d2, rashi_names[s2_idx], min2, sec2);
+        printf("Scope    : %s\n", scope_str.c_str());
+        if (telugu_mode) {
+            printf("ప్రారంభ స్థితి: %s %s రాశిలో, %s %s రాశిలో ఉన్నారు\n", print_p1.c_str(), te_rashi_names[start_r1], print_p2.c_str(), te_rashi_names[start_r2]);
+        } else {
+            printf("Initial  : %s in %s, %s in %s\n", print_p1.c_str(), rashi_names[start_r1], print_p2.c_str(), rashi_names[start_r2]);
+        }
+        printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+        printf("%-20s | %-20s | %-20s | %-18s | %-20s\n", "Date & Time", "P1 Separation", "P2 Separation", "Combined Orb", "Status");
+        printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+
+        struct DualHit { double jd; double orb1; double orb2; double total_orb; };
+        vector<DualHit> hits;
+        
+        bool in_zone = false;
+        DualHit best_in_zone;
+        
+        // Sweep the entire timeframe minute-by-minute
+        double step = 1.0 / 1440.0; 
+        
+        for (double jd = start_jd; jd < end_jd; jd += step) {
+            double lon1 = get_planet_lon_on_jd(p1_idx, jd);
+            double lon2 = get_planet_lon_on_jd(p2_idx, jd);
+            
+            double orb1 = get_dist(lon1, target_lon1);
+            double orb2 = get_dist(lon2, target_lon2);
+            double total_orb = orb1 + orb2;
+            
+            // Hit Zone: Both planets must be within 5 degrees of their target simultaneously
+            if (orb1 <= 5.0 && orb2 <= 5.0) {
+                if (!in_zone) {
+                    in_zone = true;
+                    best_in_zone = {jd, orb1, orb2, total_orb};
+                } else {
+                    if (total_orb < best_in_zone.total_orb) { // Track the absolute closest moment
+                        best_in_zone = {jd, orb1, orb2, total_orb};
+                    }
+                }
+            } else {
+                if (in_zone) {
+                    hits.push_back(best_in_zone);
+                    in_zone = false;
+                }
+            }
+        }
+        if (in_zone) hits.push_back(best_in_zone);
+
+        // Sort the hits to show the tightest alignments first
+        sort(hits.begin(), hits.end(), [](const DualHit& a, const DualHit& b) {
+            return a.total_orb < b.total_orb;
+        });
+
+        auto format_orb = [](double orb) {
+            int d = (int)orb;
+            int m = (int)((orb - d) * 60.0);
+            int s = (int)round((((orb - d) * 60.0) - m) * 60.0);
+            if (s >= 60) { s -= 60; m += 1; }
+            if (m >= 60) { m -= 60; d += 1; }
+            char buf[32]; snprintf(buf, sizeof(buf), "%02d° %02d'%02d\"", d, m, s);
+            return string(buf);
+        };
+
+        int count = 0;
+        for (const auto& h : hits) {
+            if (count++ >= 15) break; // Print the top 15 closest alignments
+            
+            string status = "";
+            string color = "\033[0m";
+            if (h.total_orb <= 0.1) { status = "⭐ EXACT MATCH (Perfect)"; color = "\033[1;32m"; }
+            else if (h.total_orb <= 1.0) { status = "✅ VERY TIGHT (< 1° Combined)"; color = "\033[1;32m"; }
+            else if (h.total_orb <= 3.0) { status = "⚠️ CLOSE (< 3° Combined)"; color = "\033[1;33m"; }
+            else { status = "Moderate Alignment"; color = "\033[1;36m"; }
+
+            if (html_mode) {
+                string html_col = (h.total_orb <= 1.0) ? "#2ecc71" : ((h.total_orb <= 3.0) ? "#f1c40f" : "#3498db");
+                printf("<tr><td><b>%s</b></td><td>%s</td><td>%s</td><td><b style='color:%s;'>%s</b></td><td>%s</td></tr>\n", 
+                       jd_to_string(h.jd).c_str(), format_orb(h.orb1).c_str(), format_orb(h.orb2).c_str(), 
+                       html_col.c_str(), format_orb(h.total_orb).c_str(), status.c_str());
+            } else {
+                printf("%-20s | %-20s | %-20s | %s%-18s\033[0m | %-20s\n", 
+                       jd_to_string(h.jd).c_str(), format_orb(h.orb1).c_str(), format_orb(h.orb2).c_str(), 
+                       color.c_str(), format_orb(h.total_orb).c_str(), status.c_str());
+            }
+        }
+
+        if (hits.empty()) {
+            if (html_mode) printf("<tr><td colspan='5' style='text-align:center; color:#e74c3c;'>No simultaneous alignments found within a 5° tolerance.</td></tr>\n");
+            else printf("No simultaneous alignments found within a 5° tolerance in this timeframe.\n");
+        }
+        
+        if (html_mode) printf("</table>\n");
+        else printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+    }
+
+void search_dual_rashi_overlap(string p1_name, string s1_name, string p2_name, string s2_name, int search_year, int search_month = 0) {
+        if (json_mode) return;
+
+        int p1_idx = get_planet_idx(p1_name);
+        int s1_idx = get_rashi_idx(s1_name);
+        int p2_idx = get_planet_idx(p2_name);
+        int s2_idx = get_rashi_idx(s2_name);
+
+        if (p1_idx == -1 || s1_idx == -1 || p2_idx == -1 || s2_idx == -1) {
+            printf("Error: Invalid planet or sign name provided for dual rashi overlap search.\n");
+            return;
+        }
+
+        double start_jd, end_jd;
+        string scope_str = "";
+        
+        if (search_month > 0) {
+            start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = search_month == 12 ? 1 : search_month + 1;
+            int next_y = search_month == 12 ? search_year + 1 : search_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
+        } else {
+            start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Year: " + to_string(search_year);
+        }
+
+        string print_p1 = (p1_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[p1_idx]);
+        string print_p2 = (p2_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[p2_idx]);
+
+        double start_lon1 = get_planet_lon_on_jd(p1_idx, start_jd);
+        double start_lon2 = get_planet_lon_on_jd(p2_idx, start_jd);
+        int start_r1 = (int)(start_lon1 / 30.0);
+        int start_r2 = (int)(start_lon2 / 30.0);
+
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px;'>%s</h3>", telugu_mode ? "ఉమ్మడి రాశి సంచార సమయాలు" : "DUAL RASHI OVERLAP SEARCH (SIMULTANEOUS PLACEMENT)");
+            printf("<p style='color:#ccc;'><b>Target 1:</b> %s in %s<br><b>Target 2:</b> %s in %s<br><b>Scope:</b> %s</p>", 
+                   print_p1.c_str(), rashi_names[s1_idx], print_p2.c_str(), rashi_names[s2_idx], scope_str.c_str());
+            if (telugu_mode) {
+                printf("<p style='color:#888;'><b>ప్రారంభ స్థితి:</b> %s %s రాశిలో, %s %s రాశిలో ఉన్నారు</p>", print_p1.c_str(), te_rashi_names[start_r1], print_p2.c_str(), te_rashi_names[start_r2]);
+            } else {
+                printf("<p style='color:#888;'><b>Initial State:</b> %s in %s, %s in %s</p>", print_p1.c_str(), rashi_names[start_r1], print_p2.c_str(), rashi_names[start_r2]);
+            }
+            printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th></tr>\n", 
+                   telugu_mode ? "ప్రవేశ సమయం (ENTER)" : "Window Start (ENTER)", 
+                   telugu_mode ? "నిష్క్రమణ (EXIT)" : "Window End (EXIT)", 
+                   telugu_mode ? "వ్యవధి" : "Duration");
+        } else {
+            printf("\n=== DUAL RASHI OVERLAP SEARCH (SIMULTANEOUS PLACEMENT) ===\n");
+            printf("Target 1 : %s in %s\n", print_p1.c_str(), rashi_names[s1_idx]);
+            printf("Target 2 : %s in %s\n", print_p2.c_str(), rashi_names[s2_idx]);
+            printf("Scope    : %s\n", scope_str.c_str());
+            if (telugu_mode) {
+                printf("ప్రారంభ స్థితి: %s %s రాశిలో, %s %s రాశిలో ఉన్నారు\n", print_p1.c_str(), te_rashi_names[start_r1], print_p2.c_str(), te_rashi_names[start_r2]);
+            } else {
+                printf("Initial  : %s in %s, %s in %s\n", print_p1.c_str(), rashi_names[start_r1], print_p2.c_str(), rashi_names[start_r2]);
+            }
+            printf("--------------------------------------------------------------------------------------------------------\n");
+            printf(" %-20s | %-20s | %-25s\n", "Window Start (ENTER)", "Window End (EXIT)", "Duration");
+            printf("--------------------------------------------------------------------------------------------------------\n");
+        }
+
+        auto check_condition = [&](double jd) {
+            double lon1 = get_planet_lon_on_jd(p1_idx, jd);
+            double lon2 = get_planet_lon_on_jd(p2_idx, jd);
+            int r1 = (int)(lon1 / 30.0);
+            int r2 = (int)(lon2 / 30.0);
+            return (r1 == s1_idx && r2 == s2_idx);
+        };
+
+        bool in_window = false;
+        double window_start = 0;
+        int hits = 0;
+        double step = 5.0 / 1440.0; // 5 minute macro-steps 
+        
+        for (double jd = start_jd; jd <= end_jd; jd += step) {
+            bool current_state = check_condition(jd);
+            
+            if (current_state && !in_window) {
+                double t_low = jd - step, t_high = jd;
+                for (int i=0; i<15; i++) {
+                    double t_mid = (t_low + t_high) / 2.0;
+                    if (check_condition(t_mid)) t_high = t_mid;
+                    else t_low = t_mid;
+                }
+                window_start = (t_low + t_high) / 2.0;
+                in_window = true;
+            } 
+            else if (!current_state && in_window) {
+                double t_low = jd - step, t_high = jd;
+                for (int i=0; i<15; i++) {
+                    double t_mid = (t_low + t_high) / 2.0;
+                    if (check_condition(t_mid)) t_low = t_mid;
+                    else t_high = t_mid;
+                }
+                double window_end = (t_low + t_high) / 2.0;
+                
+                double duration_days = window_end - window_start;
+                int dur_h = (int)(duration_days * 24.0);
+                int dur_m = (int)((duration_days * 24.0 - dur_h) * 60.0);
+                char dur_buf[32];
+                snprintf(dur_buf, sizeof(dur_buf), "%dh %dm", dur_h, dur_m);
+                
+                if (html_mode) {
+                    printf("<tr><td><b style='color:#3498db;'>%s</b></td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td></tr>\n", 
+                           jd_to_string(window_start).c_str(), jd_to_string(window_end).c_str(), dur_buf);
+                } else {
+                    printf(" \033[1;34m%-19s\033[0m | \033[1;31m%-19s\033[0m | %-25s\n", 
+                           jd_to_string(window_start).c_str(), jd_to_string(window_end).c_str(), dur_buf);
+                }
+                hits++;
+                in_window = false;
+            }
+        }
+        
+        if (in_window) {
+            double duration_days = end_jd - window_start;
+            int dur_h = (int)(duration_days * 24.0);
+            int dur_m = (int)((duration_days * 24.0 - dur_h) * 60.0);
+            char dur_buf[32];
+            snprintf(dur_buf, sizeof(dur_buf), "%dh %dm+", dur_h, dur_m);
+            
+            if (html_mode) {
+                printf("<tr><td><b style='color:#3498db;'>%s</b></td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td></tr>\n", 
+                       jd_to_string(window_start).c_str(), jd_to_string(end_jd).c_str(), dur_buf);
+            } else {
+                printf(" \033[1;34m%-19s\033[0m | \033[1;31m%-19s\033[0m | %-25s\n", 
+                       jd_to_string(window_start).c_str(), jd_to_string(end_jd).c_str(), dur_buf);
+            }
+            hits++;
+        }
+
+        if (hits == 0) {
+            if (html_mode) printf("<tr><td colspan='3' style='text-align:center; color:#888;'>No simultaneous overlap found in this timeframe.</td></tr>\n");
+            else printf(" No simultaneous overlap found in this timeframe.\n");
+        }
+        
+        if (html_mode) printf("</table>\n");
+        else printf("--------------------------------------------------------------------------------------------------------\n");
+    }
 	
 void search_planet_conjunct_planet(string src_name, string tgt_name, int search_year, int search_month, int search_day, bool include_aspects = false) {
         int src_idx = get_planet_idx(src_name);
@@ -1743,7 +2846,7 @@ void search_planet_conjunct_planet(string src_name, string tgt_name, int search_
         printf("Natal Target   : %s (%.2f°)\n", print_tgt.c_str(), base_target_lon);
         printf("Scope          : %s\n", scope_str.c_str());
         printf("--------------------------------------------------------------------------------------------------------------------------------\n");
-        printf("%-20s | %-20s | %-20s | %-15s | %-20s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Movement", "Aspect Type");
+        printf(" %-20s | %-19s | %-20s | %-15s | %-20s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Movement", "Aspect Type");
         printf("--------------------------------------------------------------------------------------------------------------------------------\n");
 
         double step = (src_idx == 2) ? (1.0 / 24.0) : (4.0 / 24.0);
@@ -1768,7 +2871,13 @@ void search_planet_conjunct_planet(string src_name, string tgt_name, int search_
                     string dir = (d_move < 0) ? "Retrograde" : "Direct";
 
                     if (e_peak >= start_jd && e_peak <= end_jd) {
-                        printf(" %-19s | %-19s | %-19s | %-15s | %-20s\n", jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dir.c_str(), tgt.name.c_str());
+                        if (html_mode) {
+                            printf("<tr><td><b style='color:#3498db;'>%s</b></td><td>%s</td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td><td>%s</td></tr>\n", 
+                                   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dir.c_str(), tgt.name.c_str());
+                        } else {
+                            printf(" \033[1;34m%-19s\033[0m | %-19s | \033[1;31m%-19s\033[0m | %-15s | %-20s\n", 
+                                   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dir.c_str(), tgt.name.c_str());
+                        }
                         hits++;
                     }
                     jd = e_out; 
@@ -1779,21 +2888,160 @@ void search_planet_conjunct_planet(string src_name, string tgt_name, int search_
         if (hits == 0) printf(" No events found within the 2° orb in this timeframe.\n");
         printf("--------------------------------------------------------------------------------------------------------------------------------\n");
     }
+	
+void search_planet_all_natal_hits(string src_name, int search_year, int search_month, int search_day, bool include_aspects) {
+        int src_idx = get_planet_idx(src_name);
+        if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
 
-void search_planet_all_transits(string p_name, int search_year) {
+        struct AspectTarget { double lon; string asp_name; int np_idx; };
+        vector<AspectTarget> targets;
+
+        for (int np = 0; np <= 9; np++) {
+            double base_target_lon = planet_lons[np];
+            targets.push_back({base_target_lon, "1st (Conjunction)", np});
+            
+            if (include_aspects) {
+                targets.push_back({fmod(base_target_lon + 180.0, 360.0), "7th Aspect", np});
+                if (src_idx == 3) {
+                    targets.push_back({fmod(base_target_lon + 270.0, 360.0), "4th Aspect", np});
+                    targets.push_back({fmod(base_target_lon + 150.0, 360.0), "8th Aspect", np});
+                } else if (src_idx == 5 || src_idx == 8 || src_idx == 9) {
+                    targets.push_back({fmod(base_target_lon + 240.0, 360.0), "5th Aspect", np});
+                    targets.push_back({fmod(base_target_lon + 120.0, 360.0), "9th Aspect", np});
+                } else if (src_idx == 7) {
+                    targets.push_back({fmod(base_target_lon + 300.0, 360.0), "3rd Aspect", np});
+                    targets.push_back({fmod(base_target_lon + 90.0, 360.0), "10th Aspect", np});
+                }
+            }
+        }
+
+        double start_jd, end_jd;
+        string scope_str = "";
+        
+        if (search_year > 0 && search_month > 0 && search_day > 0) {
+            start_jd = swe_julday(search_year, search_month, search_day, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = start_jd + 1.0;
+            char buf[64]; snprintf(buf, sizeof(buf), "Exact Day: %02d/%02d/%04d", search_day, search_month, search_year);
+            scope_str = string(buf);
+        } else if (search_year > 0 && search_month > 0) {
+            start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = search_month == 12 ? 1 : search_month + 1;
+            int next_y = search_month == 12 ? search_year + 1 : search_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
+        } else if (search_year > 0) {
+            start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Year: " + to_string(search_year);
+        } else {
+            if (src_idx == 0 || src_idx == 2) {
+                int y, m, d; double jut;
+                swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+                start_jd = swe_julday(y, m, d, 0.0 - location.tz_offset, SE_GREG_CAL);
+                end_jd = start_jd + 1.0;
+                char buf[64]; snprintf(buf, sizeof(buf), "Base Day: %02d/%02d/%04d", d, m, y);
+                scope_str = string(buf);
+            } else {
+                start_jd = tjd_ut; 
+                end_jd = start_jd + (120.0 * TRUE_SIDEREAL_YEAR);
+                scope_str = "LIFESPAN (120 Years)";
+            }
+        }
+
+        string print_src = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
+
+        printf("\n=== PLANET %s SEARCH -> ALL NATAL HITS (2° ORB) ===\n", include_aspects ? "ASPECTS & CONJUNCTIONS" : "CONJUNCTIONS ONLY");
+        printf("Transit Source : %s\n", print_src.c_str());
+        printf("Scope          : %s\n", scope_str.c_str());
+        printf("-----------------------------------------------------------------------------------------------------------------------------------\n");
+        printf(" %-20s | %-19s | %-20s | %-12s | %-15s | %-20s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Movement", "Target Natal", "Aspect Type");
+        printf("-----------------------------------------------------------------------------------------------------------------------------------\n");
+
+        double step = (src_idx == 2) ? (1.0 / 24.0) : (4.0 / 24.0);
+        if (src_idx == 0) step = 1.0 / 1440.0;
+        
+        const double orb = 2.0;
+        int hits = 0;
+
+        struct EventHit { double e_in, e_peak, e_out; string dir; string target_name; string asp_name; };
+        vector<EventHit> all_hits;
+        map<string, double> last_trigger;
+
+        for (double jd = start_jd; jd < end_jd; jd += step) {
+            double trans_lon = get_planet_lon_on_jd(src_idx, jd);
+            
+            for (const auto& tgt : targets) {
+                double dist = get_dist(trans_lon, tgt.lon);
+                if (dist <= orb) {
+                    string key = to_string(tgt.np_idx) + "_" + tgt.asp_name;
+                    
+                    if (last_trigger.find(key) == last_trigger.end() || (jd - last_trigger[key]) > 15.0) {
+                        double e_in, e_peak, e_out;
+                        refine_bubble(src_idx, tgt.lon, jd, orb, e_in, e_peak, e_out, 1);
+                        
+                        if (e_peak >= start_jd && e_peak <= end_jd) {
+                            double lon1 = get_planet_lon_on_jd(src_idx, e_in);
+                            double lon2 = get_planet_lon_on_jd(src_idx, e_out);
+                            double d_move = fmod(lon2 - lon1 + 360.0, 360.0);
+                            if (d_move > 180.0) d_move -= 360.0;
+                            string dir = (d_move < 0) ? "Retrograde" : "Direct";
+                            
+                            string t_name = (tgt.np_idx == 0) ? "Lagna" : string(p_names_full[tgt.np_idx]);
+                            all_hits.push_back({e_in, e_peak, e_out, dir, t_name, tgt.asp_name});
+                        }
+                        last_trigger[key] = e_out;
+                    }
+                }
+            }
+        }
+
+        sort(all_hits.begin(), all_hits.end(), [](const EventHit& a, const EventHit& b) {
+            return a.e_peak < b.e_peak;
+        });
+
+        for (const auto& h : all_hits) {
+            if (html_mode) {
+                printf("<tr><td><b style='color:#3498db;'>%s</b></td><td>%s</td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td><td>%s</td><td>%s</td></tr>\n", 
+                       jd_to_string(h.e_in).c_str(), jd_to_string(h.e_peak).c_str(), jd_to_string(h.e_out).c_str(), 
+                       h.dir.c_str(), h.target_name.c_str(), h.asp_name.c_str());
+            } else {
+                printf(" \033[1;34m%-19s\033[0m | %-19s | \033[1;31m%-19s\033[0m | %-12s | %-15s | %-20s\n", 
+                       jd_to_string(h.e_in).c_str(), jd_to_string(h.e_peak).c_str(), jd_to_string(h.e_out).c_str(), 
+                       h.dir.c_str(), h.target_name.c_str(), h.asp_name.c_str());
+            }
+            hits++;
+        }
+
+        if (hits == 0) printf(" No events found within the 2° orb in this timeframe.\n");
+        printf("-----------------------------------------------------------------------------------------------------------------------------------\n");
+    }
+	
+void search_planet_all_transits(string p_name, int search_year, bool show_padas = false) {
         int p_idx = get_planet_idx(p_name);
         if (p_idx == -1) { printf("Error: Planet '%s' not recognized.\n", p_name.c_str()); return; }
 
         double start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
         double end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
 
-        string print_src = (p_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[p_idx]);
+        string print_src = (p_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : (telugu_mode ? get_planet_name(p_idx) : string(p_names_full[p_idx]));
+
+        double start_lon = get_planet_lon_on_jd(p_idx, start_jd);
+        int start_rashi = (int)(start_lon / 30.0);
+        int start_nak = (int)(start_lon / (360.0 / 27.0));
+        int start_pada = (int)(start_lon / (360.0 / 108.0)) % 4 + 1;
 
         printf("\n=== RASHI & NAKSHATRA TRANSIT SEARCH ===\n");
         printf("Transit Source : %s\n", print_src.c_str());
         printf("Scope          : Year %d\n", search_year);
+        
+        if (telugu_mode) {
+            printf("ప్రారంభ స్థితి   : %s రాశి, %s నక్షత్రం (%dవ పాదం)\n", te_rashi_names[start_rashi], te_nak_names[start_nak], start_pada);
+        } else {
+            printf("Initial State  : %s Rashi, %s Nakshatra (Pada %d)\n", rashi_names[start_rashi], nak_names[start_nak], start_pada);
+        }
+        
         printf("------------------------------------------------------------------------------------------------------\n");
-        printf("%-20s | %-16s | %-45s\n", "Date & Time", "Movement", "Event Profile");
+        printf(" %-19s | %-16s | %-45s\n", "Date & Time", "Movement", "Event Profile");
         printf("------------------------------------------------------------------------------------------------------\n");
 
         double step = (p_idx == 2) ? 0.05 : 0.25; 
@@ -1810,8 +3058,11 @@ void search_planet_all_transits(string p_name, int search_year) {
 
         int prev_rashi = (int)(prev_lon / 30.0);
         int prev_nak = (int)(prev_lon / (360.0 / 27.0));
-        int hits = 0;
         
+        double pada_size = 360.0 / 108.0;
+        int prev_pada = (int)(prev_lon / pada_size);
+        
+        int hits = 0;
         struct Event { double jd; string dir; string desc; };
         vector<Event> events;
 
@@ -1819,6 +3070,7 @@ void search_planet_all_transits(string p_name, int search_year) {
             double lon = get_planet_lon_on_jd(p_idx, jd);
             int curr_rashi = (int)(lon / 30.0);
             int curr_nak = (int)(lon / (360.0 / 27.0));
+            int curr_pada = (int)(lon / pada_size);
             
             double d_move = fmod(lon - prev_lon + 360.0, 360.0);
             if (d_move > 180.0) d_move -= 360.0;
@@ -1839,11 +3091,22 @@ void search_planet_all_transits(string p_name, int search_year) {
                 }
                 double exact_jd = (t_low + t_high)/2.0;
                 if (exact_jd >= start_jd && exact_jd <= end_jd) {
-                    double check_jd = exact_jd + 0.005; // Time moves forward by 7.2 minutes to anchor safely
+                    double check_jd = exact_jd + 0.005; // Anchor safely
                     double stable_lon = get_planet_lon_on_jd(p_idx, check_jd);
                     int stable_rashi = (int)(stable_lon / 30.0);
-                    char buf[128]; snprintf(buf, sizeof(buf), "Enters Rashi: %s", rashi_names[stable_rashi]);
-                    events.push_back({exact_jd, dir, string(buf)});
+                    int stable_nak = (int)(stable_lon / (360.0 / 27.0));
+                    
+                    // Exit Event
+                    char exit_buf[128];
+                    if (telugu_mode) snprintf(exit_buf, sizeof(exit_buf), "%s రాశి నుండి నిష్క్రమణ", te_rashi_names[prev_rashi]);
+                    else snprintf(exit_buf, sizeof(exit_buf), "Exits Rashi: %s", rashi_names[prev_rashi]);
+                    events.push_back({exact_jd - 0.001, dir, string(exit_buf)});
+                    
+                    // Entry Event
+                    char enter_buf[128]; 
+                    if (telugu_mode) snprintf(enter_buf, sizeof(enter_buf), "%s రాశిలో ప్రవేశం (%s నక్షత్రం)", te_rashi_names[stable_rashi], te_nak_names[stable_nak]);
+                    else snprintf(enter_buf, sizeof(enter_buf), "Enters Rashi: %s (%s)", rashi_names[stable_rashi], nak_names[stable_nak]);
+                    events.push_back({exact_jd, dir, string(enter_buf)});
                 }
             }
             
@@ -1857,17 +3120,42 @@ void search_planet_all_transits(string p_name, int search_year) {
                 }
                 double exact_jd = (t_low + t_high)/2.0;
                 if (exact_jd >= start_jd && exact_jd <= end_jd) {
-                    double check_jd = exact_jd + 0.005; // Time moves forward by 7.2 minutes to anchor safely
+                    double check_jd = exact_jd + 0.005; 
                     double stable_lon = get_planet_lon_on_jd(p_idx, check_jd);
                     int stable_rashi = (int)(stable_lon / 30.0);
                     int stable_nak = (int)(stable_lon / (360.0 / 27.0));
-                    char buf[128]; snprintf(buf, sizeof(buf), "Enters Nak: %s (%s)", nak_names[stable_nak], rashi_names[stable_rashi]);
+                    int stable_pada_num = (int)(stable_lon / pada_size) % 4 + 1;
+                    
+                    char buf[128]; 
+                    if (telugu_mode) snprintf(buf, sizeof(buf), "%s నక్షత్రంలో ప్రవేశం (%s - పాదం %d)", te_nak_names[stable_nak], te_rashi_names[stable_rashi], stable_pada_num);
+                    else snprintf(buf, sizeof(buf), "Enters Nak: %s (%s - Pada %d)", nak_names[stable_nak], rashi_names[stable_rashi], stable_pada_num);
+                    events.push_back({exact_jd, dir, string(buf)});
+                }
+            } 
+            // 3. Pada Change (Only triggered if user passed the 'pada' flag)
+            else if (show_padas && curr_pada != prev_pada) {
+                double t_low = jd - step, t_high = jd;
+                for (int i=0; i<40; i++) {
+                    double t_mid = (t_low + t_high)/2.0;
+                    int mid_pada = (int)(get_planet_lon_on_jd(p_idx, t_mid) / pada_size);
+                    if (mid_pada == prev_pada) t_low = t_mid; else t_high = t_mid;
+                }
+                double exact_jd = (t_low + t_high)/2.0;
+                if (exact_jd >= start_jd && exact_jd <= end_jd) {
+                    double check_jd = exact_jd + 0.005; 
+                    double stable_lon = get_planet_lon_on_jd(p_idx, check_jd);
+                    int stable_nak = (int)(stable_lon / (360.0 / 27.0));
+                    int stable_pada_num = (int)(stable_lon / pada_size) % 4 + 1;
+                    
+                    char buf[128]; 
+                    if (telugu_mode) snprintf(buf, sizeof(buf), "%s పాదం %d లో ప్రవేశం", te_nak_names[stable_nak], stable_pada_num);
+                    else snprintf(buf, sizeof(buf), "Enters Pada: %s %d", nak_names[stable_nak], stable_pada_num);
                     events.push_back({exact_jd, dir, string(buf)});
                 }
             }
 
-            // 3. Station Points (Turning Retrograde or Direct)
-            if (p_idx > 2 && p_idx < 8) { // Mars, Mercury, Jupiter, Venus, Saturn
+            // 4. Station Points (Turning Retrograde or Direct)
+            if (p_idx > 2 && p_idx < 8) { 
                 if (curr_speed * prev_speed < 0) {
                     double t_low = jd - step, t_high = jd;
                     for (int i=0; i<40; i++) {
@@ -1885,7 +3173,13 @@ void search_planet_all_transits(string p_name, int search_year) {
                         if(s>=60){s-=60;m++;} if(m>=60){m-=60;d++;}
                         
                         string stat_str = (curr_speed < 0) ? "STATIONS -> Retro" : "STATIONS -> Direct";
-                        char buf[128]; snprintf(buf, sizeof(buf), "%s | %02d°%02d'%02d\" %s (%s)", stat_str.c_str(), d, m, s, rashi_names[rashi], nak_names[nak]);
+                        char buf[128]; 
+                        if (telugu_mode) {
+                            stat_str = (curr_speed < 0) ? "వక్ర గమనం ప్రారంభం" : "రుజు గమనం (డైరెక్ట్)";
+                            snprintf(buf, sizeof(buf), "%s | %02d°%02d'%02d\" %s (%s)", stat_str.c_str(), d, m, s, te_rashi_names[rashi], te_nak_names[nak]);
+                        } else {
+                            snprintf(buf, sizeof(buf), "%s | %02d°%02d'%02d\" %s (%s)", stat_str.c_str(), d, m, s, rashi_names[rashi], nak_names[nak]);
+                        }
                         events.push_back({exact_jd, "Stationary", string(buf)});
                     }
                 }
@@ -1894,21 +3188,42 @@ void search_planet_all_transits(string p_name, int search_year) {
             prev_lon = lon;
             prev_rashi = curr_rashi;
             prev_nak = curr_nak;
+            prev_pada = curr_pada;
             prev_speed = curr_speed;
         }
 
         sort(events.begin(), events.end(), [](const Event& a, const Event& b){ return a.jd < b.jd; });
 
         for (const auto& ev : events) {
-            printf(" %-19s | %-16s | %s\n", jd_to_string(ev.jd).c_str(), ev.dir.c_str(), ev.desc.c_str());
+            string desc_str = ev.desc;
+            
+            // DYNAMIC COLOR INJECTION
+            if (desc_str.find("Enters") != string::npos || desc_str.find("ప్రవేశం") != string::npos) {
+                if (html_mode) desc_str = "<b style='color:#3498db;'>" + desc_str + "</b>";
+                else desc_str = "\033[1;34m" + desc_str + "\033[0m"; // Blue
+            }
+            else if (desc_str.find("Exits") != string::npos || desc_str.find("నిష్క్రమణ") != string::npos) {
+                if (html_mode) desc_str = "<b style='color:#e74c3c;'>" + desc_str + "</b>";
+                else desc_str = "\033[1;31m" + desc_str + "\033[0m"; // Red
+            }
+            else if (desc_str.find("STATIONS") != string::npos || desc_str.find("గమనం") != string::npos) {
+                if (html_mode) desc_str = "<b style='color:#f39c12;'>" + desc_str + "</b>";
+                else desc_str = "\033[1;33m" + desc_str + "\033[0m"; // Yellow
+            }
+
+            if (html_mode) {
+                printf("<tr><td>%s</td><td>%s</td><td>%s</td></tr>\n", jd_to_string(ev.jd).c_str(), ev.dir.c_str(), desc_str.c_str());
+            } else {
+                printf(" %-19s | %-16s | %s\n", jd_to_string(ev.jd).c_str(), ev.dir.c_str(), desc_str.c_str());
+            }
             hits++;
         }
         
         if (hits == 0) printf(" No transit events found in the specified timeframe.\n");
         printf("------------------------------------------------------------------------------------------------------\n");
     }
-
-    void search_planet_transit_rashi(string src_name, string rashi_name, int search_year, int search_month, int search_day, bool include_aspects = false) {
+	
+void search_planet_transit_rashi(string src_name, string rashi_name, int search_year, int search_month, int search_day, bool include_aspects = false) {
         int src_idx = get_planet_idx(src_name);
         int target_rashi_idx = get_rashi_idx(rashi_name);
         if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
@@ -1970,7 +3285,7 @@ void search_planet_all_transits(string p_name, int search_year) {
         printf("Target Sign    : %s\n", rashi_names[target_rashi_idx]);
         printf("Scope          : %s\n", scope_str.c_str());
         printf("--------------------------------------------------------------------------------------------------------\n");
-        printf("%-20s | %-16s | %-20s | %-20s\n", "Date & Time", "Event", "Position", "Aspect Type");
+        printf(" %-19s | %-16s | %-20s | %-20s\n", "Date & Time", "Event", "Position", "Aspect Type");
         printf("--------------------------------------------------------------------------------------------------------\n");
 
         double step = (src_idx == 2) ? 0.05 : 0.25; 
@@ -2003,55 +3318,28 @@ void search_planet_all_transits(string p_name, int search_year) {
 
                 if (prev_in && exact_jd >= start_jd && exact_jd <= end_jd) {
                     char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° 00' 00\"", rashi_names[prev_rashi], is_retro ? 0 : 30);
-                    printf(" %-19s | %-16s | %-20s | %-20s\n", 
-                           jd_to_string(exact_jd).c_str(), is_retro ? "EXIT (Retro)" : "EXIT (Direct)", buf, aspect_map[prev_rashi].c_str());
+                    string ev_type = is_retro ? "EXIT (Retro)" : "EXIT (Direct)";
+                    if (html_mode) {
+                        printf("<tr><td>%s</td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td><td>%s</td></tr>\n", 
+                               jd_to_string(exact_jd).c_str(), ev_type.c_str(), buf, aspect_map[prev_rashi].c_str());
+                    } else {
+                        printf(" %-19s | \033[1;31m%-16s\033[0m | %-20s | %-20s\n", 
+                               jd_to_string(exact_jd).c_str(), ev_type.c_str(), buf, aspect_map[prev_rashi].c_str());
+                    }
                     hits++;
                 }
 
                 if (curr_in && exact_jd >= start_jd && exact_jd <= end_jd) {
                     char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° 00' 00\"", rashi_names[curr_rashi], is_retro ? 30 : 0);
-                    printf(" %-19s | %-16s | %-20s | %-20s\n", 
-                           jd_to_string(exact_jd).c_str(), is_retro ? "ENTER (Retro)" : "ENTER (Direct)", buf, aspect_map[curr_rashi].c_str());
+                    string ev_type = is_retro ? "ENTER (Retro)" : "ENTER (Direct)";
+                    if (html_mode) {
+                        printf("<tr><td>%s</td><td><b style='color:#3498db;'>%s</b></td><td>%s</td><td>%s</td></tr>\n", 
+                               jd_to_string(exact_jd).c_str(), ev_type.c_str(), buf, aspect_map[curr_rashi].c_str());
+                    } else {
+                        printf(" %-19s | \033[1;34m%-16s\033[0m | %-20s | %-20s\n", 
+                               jd_to_string(exact_jd).c_str(), ev_type.c_str(), buf, aspect_map[curr_rashi].c_str());
+                    }
                     hits++;
-                }
-            }
-            
-            bool curr_in = aspect_map.count(curr_rashi) > 0;
-            
-            if (curr_in && src_idx != 0 && src_idx != 1 && src_idx != 2 && src_idx != 8 && src_idx != 9) {
-                int planets_se[] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type, node_calc_type};
-                int se_p = planets_se[src_idx - 1];
-                
-                double xx[6]; char serr[256];
-                swe_calc_ut(jd, se_p, iflag, xx, serr);
-                double speed = xx[3];
-                
-                double prev_xx[6];
-                swe_calc_ut(jd - step, se_p, iflag, prev_xx, serr);
-                double prev_speed = prev_xx[3];
-                
-                if (speed * prev_speed < 0) { 
-                    double t_low = jd - step, t_high = jd;
-                    for (int i=0; i<40; i++) {
-                        double t_mid = (t_low+t_high)/2.0;
-                        double mid_xx[6]; swe_calc_ut(t_mid, se_p, iflag, mid_xx, serr);
-                        if (mid_xx[3] * speed > 0) t_high = t_mid; else t_low = t_mid;
-                    }
-                    double exact_jd = (t_low + t_high)/2.0;
-                    double stat_xx[6]; swe_calc_ut(exact_jd, se_p, iflag, stat_xx, serr);
-                    
-                    double deg_in_sign = fmod(stat_xx[0], 30.0);
-                    int d = (int)deg_in_sign; int m = (int)((deg_in_sign - d)*60); int s = (int)round((deg_in_sign - d - m/60.0)*3600);
-                    if(s>=60){s-=60;m++;} if(m>=60){m-=60;d++;}
-                    
-                    string stat_str = (speed < 0) ? "STATION (-> R)" : "STATION (-> D)";
-                    char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° %02d' %02d\"", rashi_names[curr_rashi], d, m, s);
-                    
-                    if (exact_jd >= start_jd && exact_jd <= end_jd) {
-                        printf(" %-19s | %-16s | %-20s | %-20s\n", 
-                               jd_to_string(exact_jd).c_str(), stat_str.c_str(), buf, aspect_map[curr_rashi].c_str());
-                        hits++;
-                    }
                 }
             }
             prev_lon = lon;
@@ -6672,7 +7960,7 @@ void analyze_spouse_age_gap(bool is_female = false, bool gender_provided = false
 
 };
 
-void calculate_synastry_collisions(JyotishaEngine& p1, JyotishaEngine& p2, int s_year, int s_month, int s_day, int e_year, bool has_timeframe) {
+void calculate_synastry_collisions(const JyotishaEngine& p1, const JyotishaEngine& p2, int s_year, int s_month, int s_day, int e_year, bool has_timeframe) {
     bool html = p1.html_mode;
     bool te = p1.telugu_mode;
 
@@ -6761,7 +8049,7 @@ void calculate_synastry_collisions(JyotishaEngine& p1, JyotishaEngine& p2, int s
 
     if (html) {
         printf("<h3 style='color: var(--accent); margin-top: 35px; margin-bottom: 5px;'>%s</h3>", te ? "ఉమ్మడి కర్మ ప్రేరేపణలు (Mutual Destiny Triggers)" : "MUTUAL DESTINY TRIGGERS (Composite Synastry Activation)");
-        printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 15px;'>%s</p>", te ? "క్రింది తేదీలలో గోచార గ్రహాలు మీ ఇద్దరి ఉమ్మడి కర్మ బిందువులను కచ్చితంగా తాకుతాయి, ఇది ఇద్దరి జీవితాల్లో ఏకకాలంలో బలమైన సంఘటనలను ప్రేరేపిస్తుంది." : "When heavy slow-moving transits cross the exact midpoint of your tightest natal overlays, they trigger unavoidable fated events for BOTH individuals simultaneously.");
+        printf("<p style='color: #888; font-size: 14px; margin-top: 0; margin-bottom: 15px;'>%s</p>", te ? "క్రింది తేదీలలో గోచార గ్రహాలు మీ ఇద్దరి ఉమ్మడి కర్మ బిందువులను కచ్చితంగా తాకుతాయి, ఇది ఇద్దరి జీవితాల్లో ఏకకాలంలో బలమైన సంఘటనలను ప్రేరేపిస్తుంది." : "When heavy slow-moving transits cross the exact midpoint of your tightest natal overlays (< 5° orb), they trigger unavoidable fated events for BOTH individuals simultaneously.");
     } else {
         printf("\n============================================================================================================================\n");
         printf("=== %s ===\n", te ? "ఉమ్మడి కర్మ ప్రేరేపణలు (MUTUAL DESTINY TRIGGERS)" : "MUTUAL DESTINY TRIGGERS (COMPOSITE SYNASTRY ACTIVATION)");
@@ -6779,10 +8067,10 @@ void calculate_synastry_collisions(JyotishaEngine& p1, JyotishaEngine& p2, int s
 
     double start_jd, end_jd;
     if (e_year > 0) {
-        start_jd = swe_julday(s_year, 1, 1, 0.0 - p1.location.tz_offset, SE_GREG_CAL);
+        start_jd = swe_julday(s_year, (s_month > 0 ? s_month : 1), (s_day > 0 ? s_day : 1), 0.0 - p1.location.tz_offset, SE_GREG_CAL);
         end_jd = swe_julday(e_year + 1, 1, 1, 0.0 - p1.location.tz_offset, SE_GREG_CAL);
     } else if (s_month > 0) {
-        start_jd = swe_julday(s_year, s_month, 1, 0.0 - p1.location.tz_offset, SE_GREG_CAL);
+        start_jd = swe_julday(s_year, s_month, (s_day > 0 ? s_day : 1), 0.0 - p1.location.tz_offset, SE_GREG_CAL);
         int next_m = (s_month == 12) ? 1 : s_month + 1;
         int next_y = (s_month == 12) ? s_year + 1 : s_year;
         end_jd = swe_julday(next_y, next_m, 1, 0.0 - p1.location.tz_offset, SE_GREG_CAL);
@@ -6806,22 +8094,7 @@ void calculate_synastry_collisions(JyotishaEngine& p1, JyotishaEngine& p2, int s
         return d;
     };
 
-    auto refine = [&](int p_idx, double target_lon, double approx_jd, double orb, double &e_in, double &e_peak, double &e_out) {
-        double step = 1.0 / 24.0; 
-        double cur = approx_jd;
-        while(get_dist(get_t_lon(p_idx, cur), target_lon) <= orb && approx_jd - cur < 30.0) cur -= step;
-        e_in = cur + step;
-        cur = approx_jd;
-        while(get_dist(get_t_lon(p_idx, cur), target_lon) <= orb && cur - approx_jd < 30.0) cur += step;
-        e_out = cur - step;
-        e_peak = e_in; double min_d = 999.0;
-        for(double d = e_in; d <= e_out; d += step) {
-            double dist = get_dist(get_t_lon(p_idx, d), target_lon);
-            if(dist < min_d) { min_d = dist; e_peak = d; }
-        }
-    };
-
-    struct MutualHit { double e_in, e_peak, e_out; int t_planet; Collision c; };
+    struct MutualHit { double e_peak; int t_planet; Collision c; };
     vector<MutualHit> mutual_hits;
 
     int sweep_planets[] = {3, 5, 7, 8, 9}; // Mars, Jupiter, Saturn, Rahu, Ketu
@@ -6829,13 +8102,28 @@ void calculate_synastry_collisions(JyotishaEngine& p1, JyotishaEngine& p2, int s
         double step = (t_p == 3) ? 0.5 : 1.0; 
         for (const auto& c : tight_cols) {
             double target_lon = (c.abs_d1 + c.abs_d2) / 2.0; // The Exact Midpoint of the tether
+            
             for (double jd = start_jd; jd <= end_jd; jd += step) {
                 double t_lon = get_t_lon(t_p, jd);
                 if (get_dist(t_lon, target_lon) <= 2.0) { // Tight 2-degree orb activation
-                    double e_in, e_peak, e_out;
-                    refine(t_p, target_lon, jd, 2.0, e_in, e_peak, e_out);
+                    
+                    double cur = jd;
+                    double step_ref = 1.0 / 24.0;
+                    while(get_dist(get_t_lon(t_p, cur), target_lon) <= 2.0 && jd - cur < 30.0) cur -= step_ref;
+                    double e_in = cur + step_ref;
+                    
+                    cur = jd;
+                    while(get_dist(get_t_lon(t_p, cur), target_lon) <= 2.0 && cur - jd < 30.0) cur += step_ref;
+                    double e_out = cur - step_ref;
+                    
+                    double e_peak = e_in; double min_d = 999.0;
+                    for(double d = e_in; d <= e_out; d += step_ref) {
+                        double dist = get_dist(get_t_lon(t_p, d), target_lon);
+                        if(dist < min_d) { min_d = dist; e_peak = d; }
+                    }
+
                     if (e_peak >= start_jd && e_peak <= end_jd) {
-                        mutual_hits.push_back({e_in, e_peak, e_out, t_p, c});
+                        mutual_hits.push_back({e_peak, t_p, c});
                     }
                     jd = e_out + step; 
                 }
@@ -6854,7 +8142,6 @@ void calculate_synastry_collisions(JyotishaEngine& p1, JyotishaEngine& p2, int s
     }
 
     for (const auto& hit : mutual_hits) {
-        // FIX: Let the class handle the translation routing automatically!
         string t_name = p1.get_planet_name(hit.t_planet);
 
         string p1_n = (hit.c.p1 == 0) ? (te ? "లగ్న" : "Asc") : p1.get_short_planet(hit.c.p1);
@@ -6862,7 +8149,7 @@ void calculate_synastry_collisions(JyotishaEngine& p1, JyotishaEngine& p2, int s
         string overlay = "P1 " + p1_n + " + P2 " + p2_n;
 
         double mid = (hit.c.abs_d1 + hit.c.abs_d2) / 2.0;
-        string mid_str = p1.format_dms(mid);
+        string mid_str = format_deg(mid);
 
         string effect_en, effect_te, color;
         if (hit.t_planet == 5) { effect_en = "Mutual Expansion, Blessing & Growth"; effect_te = "పరస్పర వృద్ధి, వివాహం లేదా శుభకార్యం"; color = "#2ecc71"; }
@@ -6871,7 +8158,10 @@ void calculate_synastry_collisions(JyotishaEngine& p1, JyotishaEngine& p2, int s
         else if (hit.t_planet == 9) { effect_en = "Spiritual Detachment & Letting Go"; effect_te = "ఆధ్యాత్మిక విరక్తి, దూరమవ్వడం లేదా కర్మ విముక్తి"; color = "#95a5a6"; }
         else if (hit.t_planet == 3) { effect_en = "Intense Friction & Passion Trigger"; effect_te = "తీవ్రమైన ఘర్షణ, ఉద్వేగం & తక్షణ ప్రేరేపణ"; color = "#e74c3c"; }
 
-        string date_str = p1.jd_to_string(hit.e_peak).substr(0, 10);
+        int y, m, d; double jut;
+        swe_revjul(hit.e_peak + (p1.location.tz_offset/24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+        char date_buf[32]; snprintf(date_buf, sizeof(date_buf), "%02d/%02d/%04d", d, m, y);
+        string date_str = string(date_buf);
 
         if (html) {
             printf("<tr><td><b>%s</b></td><td><b style='color:%s;'>%s</b></td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
@@ -6883,14 +8173,13 @@ void calculate_synastry_collisions(JyotishaEngine& p1, JyotishaEngine& p2, int s
     }
 
     if (mutual_hits.empty()) {
-        if (html) printf("<tr><td colspan='5' style='text-align:center; color:#888;'>No major mutual destiny triggers found in this timeframe.</td></tr>\n");
-        else printf("No major mutual destiny triggers found in this timeframe.\n");
+        if (html) printf("<tr><td colspan='5' style='text-align:center; color:#888;'>%s</td></tr>\n", te?"ఈ సమయంలో రెండు జాతకాలను సమకాలీకరించే (కలిపే) ఖచ్చితమైన కాస్మిక్ ఈవెంట్స్ ఏవీ లేవు.":"No major mutual destiny triggers found in this timeframe.");
+        else printf("%s\n", te?"ఈ సమయంలో రెండు జాతకాలను సమకాలీకరించే ఖచ్చితమైన కాస్మిక్ ఈవెంట్స్ ఏవీ లేవు.":"No major mutual destiny triggers found in this timeframe.");
     }
 
     if (html) printf("</table>\n");
     else printf("----------------------------------------------------------------------------------------------------------------------------\n");
 }
-
 void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2) {
     bool te = p1.telugu_mode; 
     bool html = p1.html_mode;
@@ -7775,7 +9064,8 @@ void print_help_menu() {
     printf("GLOBAL PRE-FLAGS (Optional - Intercepted before parsing structural data):\n");
     printf("  telugu / --te       Enables Telugu translation strings for UI blocks.\n");
     printf("  html                Switches console table & rashi outputs to clean HTML elements.\n");
-    printf("  savana / --savana   Uses 360-day Savana year for Dasha math instead of 365.2563 Sidereal.\n\n");
+    printf("  savana / --savana   Uses 360-day Savana year for Dasha math instead of 365.2563 Sidereal.\n");
+    printf("  true_node           Uses True Node calculation for Rahu/Ketu instead of classical Mean Node.\n\n");
 
     printf("MANDATORY BASE PARAMETERS (Required for all executions):\n");
     printf("  <year> <month> <day>  Birth/Event Gregorian Date digits (e.g., 1979 06 01)\n");
@@ -7802,45 +9092,54 @@ void print_help_menu() {
     printf("  ayush                 Triggers deep longevity evaluation protocols using operational sub-engines.\n");
     printf("  all [varga/planet] [Y M D]\n");
     printf("                        Runs full systemic profile: Navatara, Shadbala, Ashtakavarga, Dasha, etc.\n");
-    printf("                        If a Varga (e.g., D9) is specified, it also runs Dual-Layer Transit Scanners:\n");
-    printf("                        1. Micro-Transit (D_x sky -> Natal D_x)\n");
-    printf("                        2. Rasi Tulya Varga (Physical D1 sky -> Natal D_x).\n\n");
+    printf("                        *Note: Scanning Transit 'lagna' requires exact Y M D to prevent console overload.\n");
     printf("  nama-nakshatra        Prints Nakshatra naming syllables. Can be run standalone or with date details.\n");
+    printf("  alert <startY> <endY> Scans for exact destructive detonations and boundary crossings.\n\n");
 
     printf("TIME-VARIANT & CALCULATED TRANSITS:\n");
     printf("  daily [Y M D]         Calculates Muhurat grids, Panchang transitions, Lagnas, and Hora intervals.\n");
-    printf("                        Defaults to base birth parameters if explicit date is not given.\n");
+    printf("  panchang [Y M D H M S]\n");
+    printf("                        Retrieves exact Tithi, Nakshatra, Yoga, and Vara for a specific moment.\n");
     printf("  transit [Y M D] [H:M:S]\n");
-    printf("                        Calculates full planet transits with heavy evaluation. Defaults to local clock time if blank.\n");
+    printf("                        Calculates full planet transits with heavy evaluation. Defaults to local clock time.\n");
     printf("  collision [planet] [varga] [Y] [M] [D]\n");
-    printf("                        Tracks orbital junction alignments for specified planet over given intervals. Supports Vargas.\n\n");
+    printf("                        Tracks orbital junction alignments for specified planet over given intervals.\n");
+    printf("  collision <Y2> <M2> <D2> <H2> <Min2> <S2> <City2> [Target Year/Range]\n");
+    printf("                        Calculates Mutual Destiny Triggers (Composite Synastry Activation) between two charts.\n\n");
 
-    printf("DASHA & RETURN TIME COMMANDS:\n");
+    printf("PREDICTIVE HORIZON COMMANDS (LIFE TIMELINES):\n");
+    printf("  predict <startY> <endY> [gender]\n");
+    printf("                        Executes marriage calculation algorithms within target runtime window bounds.\n");
+    printf("  job <startY> <endY>   Scans for new jobs, promotions, career breaks, and transitions.\n");
+    printf("  business <startY> <endY>\n");
+    printf("                        Scans for new business expansion, partnerships, and financial friction.\n");
+    printf("  study <startY> <endY> Scans academic focus, admissions, exam stress, and study breaks.\n\n");
+
+    printf("DASHA, MUHURAT & RETURN TIME COMMANDS:\n");
     printf("  dasha [all]           With 'all': Exports exhaustive multi-level dasha charts to CSV formatting.\n");
-    printf("  dasha [Y M D] [H:M:S]\n");
-    printf("                        With targeted parameters: Tracks exact operational dasha sequence down to 6-levels.\n");
+    printf("  dasha [Y M D] [H:M:S] With targeted parameters: Tracks exact operational dasha sequence down to 6-levels.\n");
     printf("                        Without arguments: Launches an interactive command terminal dasha utility.\n");
     printf("  deha [Y M D] [H:M:S]  Evaluates subtle physical transition loops over target date vectors.\n");
     printf("  tithi <target_year>   Identifies exact timestamp when lunar phase matches target solar returns.\n");
-    printf("  annual / web_annual / web_varshaphal <target_year>\n");
+    printf("  annual / web_varshaphal <target_year>\n");
     printf("                        Generates the Varshaphala (Annual Solar Return) chart and D1 matrix analysis.\n");
-    printf("  predict <startY> <endY>\n");
-    printf("                        Executes marriage calculation algorithms within target runtime window bounds.\n");
-    printf("  muhurat / web_muhurat <event> <Y> <M>\n");
-    printf("                        Scans targeted calendars to identify optimal muhurat windows for specified actions.\n\n");
+    printf("  muhurat <event> <Y> <M>\n");
+    printf("                        Scans targeted calendars to identify optimal muhurat windows for specific actions.\n\n");
 
     printf("ASTROMETRIC SEARCH & SEARCH ALIGNMENT:\n");
     printf("  degree <planet> <sign> <deg> <min> <sec> [year] [month]\n");
-    printf("                        Performs absolute backwards search to isolate point alignments.\n\n");
+    printf("                        Performs absolute backwards search to isolate exact degree alignments.\n");
+    printf("  degree <planet> <planet/sign> [year] [month] [day] [aspects]\n");
+    printf("                        Performs advanced transit searches (Planet to Planet, Planet to Sign boundaries).\n\n");
 
     printf("COMPATIBILITY & SYNASTRY:\n");
-    printf("  match / match_predict / web_match / web_synastry <Y2> <M2> <D2> <H2> <Min2> <S2> <City2>\n");
+    printf("  match / web_synastry <Y2> <M2> <D2> <H2> <Min2> <S2> <City2>\n");
     printf("                        Calculates relational synastry points against a second chart dataset.\n");
     printf("  match_predict <startY> <endY> <Y2> <M2> <D2> <H2> <Min2> <S2> <City2>\n");
     printf("                        Triggers dynamic relationship prediction over specific year frames.\n");
     printf("================================================================================\n\n");
+	printf("  lagna [Y M D] [H:M:S] Real-time transit dashboard: running Lagna countdown and planetary stay durations.\n");
 }
-
 // =========================================================================
 // MAIN COMMAND LINE PARSER
 // =========================================================================
@@ -8104,7 +9403,7 @@ int main(int argc, char *argv[]) {
         }
         else if (strcasecmp(cmd.c_str(), "collision") == 0) {
             if (clean_argc >= 10) {
-                // If the 9th argument is a number (Year), it's the 2-Chart Synastry Collision!
+                // If 9th arg starts with a digit, it's Chart 2 Year -> Synastry mode!
                 if (isdigit(clean_argv[9][0])) {
                     if (clean_argc >= 16) {
                         int m_y = stoi(clean_argv[9]), m_m = stoi(clean_argv[10]), m_d = stoi(clean_argv[11]);
@@ -8134,6 +9433,7 @@ int main(int argc, char *argv[]) {
                             s_month = stoi(clean_argv[17]);
                             s_day = stoi(clean_argv[18]);
                             has_timeframe = true;
+                            if (clean_argc >= 20) e_year = stoi(clean_argv[19]);
                         }
 
                         string timeframe = "";
@@ -8200,7 +9500,18 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "dasha") == 0) {
+        else if (strcasecmp(cmd.c_str(), "lagna") == 0) {
+            if (clean_argc >= 12) { 
+                t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); 
+                parse_target_time(12);
+                engine.display_lagna_dashboard(t_year, t_month, t_day, t_hour, t_min, t_sec, false);
+            } else {
+                engine.display_lagna_dashboard(0, 0, 0, 0, 0, 0, true);
+            }
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+		else if (strcasecmp(cmd.c_str(), "dasha") == 0) {
             if (clean_argc >= 10 && strcasecmp(clean_argv[9], "all") == 0) engine.export_all_dashas_csv();
             else if (clean_argc >= 12) { 
                 t_year = stoi(clean_argv[9]); t_month = stoi(clean_argv[10]); t_day = stoi(clean_argv[11]); parse_target_time(12);
@@ -8242,9 +9553,40 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-		
-		else if (strcasecmp(cmd.c_str(), "degree") == 0) {
-            if (clean_argc >= 11) {
+
+else if (strcasecmp(cmd.c_str(), "degree") == 0) {
+            // 1. DUAL EXACT DEGREE SEARCH (Syntax: degree p1 s1 d1 m1 sec1 p2 s2 d2 m2 sec2 year)
+            if (clean_argc >= 20 && engine.get_planet_idx(clean_argv[14]) != -1) {
+                string p1 = clean_argv[9];
+                string s1 = clean_argv[10];
+                int d1 = stoi(clean_argv[11]);
+                int m1 = stoi(clean_argv[12]);
+                int sec1 = stoi(clean_argv[13]);
+                
+                string p2 = clean_argv[14];
+                string s2 = clean_argv[15];
+                int d2 = stoi(clean_argv[16]);
+                int m2 = stoi(clean_argv[17]);
+                int sec2 = stoi(clean_argv[18]);
+                
+                int s_year = stoi(clean_argv[19]);
+                int s_month = (clean_argc >= 21) ? stoi(clean_argv[20]) : 0;
+                
+                engine.search_dual_exact_degree(p1, s1, d1, m1, sec1, p2, s2, d2, m2, sec2, s_year, s_month);
+            }
+            // 2. DUAL RASHI OVERLAP SEARCH (Syntax: degree p1 s1 p2 s2 year [month])
+            else if (clean_argc >= 14 && engine.get_planet_idx(clean_argv[11]) != -1 && engine.get_rashi_idx(clean_argv[12]) != -1) {
+                string p1 = clean_argv[9];
+                string s1 = clean_argv[10];
+                string p2 = clean_argv[11];
+                string s2 = clean_argv[12];
+                int s_year = stoi(clean_argv[13]);
+                int s_month = (clean_argc >= 15) ? stoi(clean_argv[14]) : 0;
+                
+                engine.search_dual_rashi_overlap(p1, s1, p2, s2, s_year, s_month);
+            }
+            // 3. ORIGINAL SINGLE DEGREE CATCHES
+            else if (clean_argc >= 11) {
                 string arg1 = clean_argv[9];
                 string arg2 = clean_argv[10];
 
@@ -8253,6 +9595,8 @@ int main(int argc, char *argv[]) {
 
                 bool is_year_only = true;
                 for(char c : arg2) if(!isdigit(c)) { is_year_only = false; break; }
+                
+                bool is_all = (strcasecmp(arg2.c_str(), "all") == 0);
 
                 bool include_aspects = false;
                 vector<int> nums;
@@ -8264,8 +9608,14 @@ int main(int argc, char *argv[]) {
                     }
                 }
 
-                if (tgt_p_idx != -1) {
-                    // MODE 1: Planet to Natal Planet
+                if (is_all) {
+                    int s_year = 0, s_month = 0, s_day = 0;
+                    if (nums.size() >= 1) s_year = nums[0];
+                    if (nums.size() >= 2) s_month = nums[1];
+                    if (nums.size() >= 3) s_day = nums[2];
+                    engine.search_planet_all_natal_hits(arg1, s_year, s_month, s_day, include_aspects);
+                }
+                else if (tgt_p_idx != -1) {
                     int s_year = 0, s_month = 0, s_day = 0;
                     if (nums.size() >= 1) s_year = nums[0];
                     if (nums.size() >= 2) s_month = nums[1];
@@ -8275,13 +9625,11 @@ int main(int argc, char *argv[]) {
                 else if (tgt_s_idx != -1) {
                     if (nums.size() > 0) {
                         if (nums[0] > 1000 || nums.size() < 3) {
-                            // MODE 2: Planet to Rashi Boundary
                             int s_year = nums[0], s_month = 0, s_day = 0;
                             if (nums.size() >= 2) s_month = nums[1];
                             if (nums.size() >= 3) s_day = nums[2];
                             engine.search_planet_transit_rashi(arg1, arg2, s_year, s_month, s_day, include_aspects);
                         } else {
-                            // MODE 3: Old Exact Degree
                             int s_deg = nums[0];
                             int s_min = nums[1];
                             int s_sec = nums[2];
@@ -8292,29 +9640,26 @@ int main(int argc, char *argv[]) {
                             engine.search_exact_degree(arg1, arg2, s_deg, s_min, s_sec, s_year, s_month, s_day);
                         }
                     } else {
-                        // MODE 2: Planet to Rashi Boundary (Lifespan default)
                         engine.search_planet_transit_rashi(arg1, arg2, 0, 0, 0, include_aspects);
                     }
                 } 
                 else if (is_year_only) {
-                    // MODE 4: Planet All Rashi/Nakshatra Transits for a specific Year
                     int s_year = stoi(arg2);
-                    engine.search_planet_all_transits(arg1, s_year);
+                    bool show_padas = false;
+                    for (int k = 11; k < clean_argc; k++) {
+                        if (strcasecmp(clean_argv[k], "pada") == 0) show_padas = true;
+                    }
+                    engine.search_planet_all_transits(arg1, s_year, show_padas);
                 }
                 else {
                     printf("Error: Target '%s' is neither a recognized planet, sign, nor a valid year.\n", arg2.c_str());
                 }
             } else {
-                printf("Error: 'degree' requires at least a Source Planet and a Target (Planet, Sign, or Year).\n");
-                printf("Usage 1: degree sun moon 2026 [aspects]\n");
-                printf("Usage 2: degree jupiter aries 2026 [aspects]\n");
-                printf("Usage 3: degree lagna tula 11 41 09\n");
-                printf("Usage 4: degree jupiter 2010\n");
+                printf("Error: 'degree' requires at least a Source Planet and a Target (Planet, Sign, 'all', or Year).\n");
             }
             printf("\n"); fflush(stdout); 
             return 0;
-        }
-		
+        }		
 		else if (strcasecmp(cmd.c_str(), "tithi") == 0) {
             if (clean_argc >= 10) engine.calculate_tithi_return(stoi(clean_argv[9]));
             else printf("Error: 'tithi' requires a target year. Example: tithi 2026\n");
@@ -8461,6 +9806,18 @@ int main(int argc, char *argv[]) {
                 engine.scan_rasi_tulya_varga_collisions(target_planet_all, target_year, t_month, t_day, v_num);
             }
             
+            printf("\n"); fflush(stdout); 
+            return 0;
+        }
+		else if (strcasecmp(cmd.c_str(), "alert") == 0) {
+            int s_year = year;
+            int e_year = year + 1; 
+            
+            if (clean_argc >= 10) s_year = stoi(clean_argv[9]);
+            if (clean_argc >= 11) e_year = stoi(clean_argv[10]);
+            else e_year = s_year; 
+            
+            engine.run_alert_scanner(s_year, e_year);
             printf("\n"); fflush(stdout); 
             return 0;
         }

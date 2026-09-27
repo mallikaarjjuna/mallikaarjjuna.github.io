@@ -174,6 +174,7 @@
         // ==========================================
         const ENABLE_PDF_DOWNLOAD = false; 
         const ENABLE_DONATION_UI = false;  
+        const ENABLE_CLI_TAB = true; // Set to false to hide the CLI tab from the public UI
         
         var Module = {
             locateFile: function(path) { return '/engine/' + path; },
@@ -372,7 +373,6 @@
             <button type="button" class="tab-btn" onclick="openTab(event, 'tab-progeny')">Children (Progeny)</button>
             <button type="button" class="tab-btn" onclick="openTab(event, 'tab-soulmate')">Soul Mate (Synastry)</button>
             
-            <!-- NEW TABS -->
             <button type="button" class="tab-btn" onclick="openTab(event, 'tab-marriage')">Marriage Timing</button>
             <button type="button" class="tab-btn" onclick="openTab(event, 'tab-job')">Career (Job)</button>
             <button type="button" class="tab-btn" onclick="openTab(event, 'tab-business')">Business</button>
@@ -381,11 +381,24 @@
             <button type="button" class="tab-btn" onclick="openTab(event, 'tab-muhurat')">Event Muhurat</button> 
             <button type="button" class="tab-btn" onclick="openTab(event, 'tab-panchang')">Daily Panchang</button> 
             
+            <!-- NEW DEV CLI TAB -->
+            <button type="button" id="btn-tab-cli" class="tab-btn" style="display:none;" onclick="openTab(event, 'tab-cli')">CLI Terminal</button>
+            
             <button type="button" class="tab-btn" onclick="openTab(event, 'tab-about')">About / Knowledge Base</button>
         </div>
 
         <!-- 3. DYNAMIC INPUT PANELS -->
         
+        <!-- CLI Panel -->
+        <div id="panel-cli" class="dynamic-panel">
+            <h3 style="font-size: 1.1em; color: #fff; margin-bottom: 15px;">Developer CLI Matrix</h3>
+            <p style="color: #888; font-size: 0.85em; margin-top: -10px; margin-bottom: 15px;">Run any direct ASTROC command identical to WSL. Birth params from the form above are ignored here.</p>
+            <div class="form-group">
+                <label>Raw Command String</label>
+                <input type="text" name="cli_command" value="" placeholder="e.g., 1981 7 29 12 4 0 bitragunta degree chandra dhanu lagna simha 2026" style="width: 100%; box-sizing: border-box; font-family: monospace;">
+            </div>
+        </div>
+
         <!-- Transit / Panchang Panel -->
         <div id="panel-transit" class="dynamic-panel">
             <h3 style="font-size: 1.1em; color: #fff; margin-bottom: 15px;">Transit / Target Horizon Parameters</h3>
@@ -471,13 +484,15 @@
         <div id="tab-progeny" class="tab-content"></div>
         <div id="tab-soulmate" class="tab-content"></div>
         
-        <!-- NEW OUTPUT CONTAINERS -->
         <div id="tab-marriage" class="tab-content"></div>
         <div id="tab-job" class="tab-content"></div>
         <div id="tab-business" class="tab-content"></div>
         <div id="tab-study" class="tab-content"></div>
         <div id="tab-panchang" class="tab-content"></div>
         <div id="tab-muhurat" class="tab-content"></div>
+        
+        <!-- CLI TAB CONTENT -->
+        <div id="tab-cli" class="tab-content"></div>
         
         <!-- ABOUT / KNOWLEDGE BASE TAB -->
         <div id="tab-about" class="tab-content">
@@ -546,92 +561,108 @@
         await new Promise(resolve => setTimeout(resolve, 50));
 
         try {
-            const commandMap = {
-                'tab-birth': 'web_natal',
-                'tab-general': 'web_general',
-                'tab-dasha': 'web_dasha',
-                'tab-gochar': 'web_transit',
-                'tab-dosha': 'web_dosha',
-                'tab-varsh': 'annual',
-                'tab-progeny': 'web_progeny',
-                'tab-soulmate': 'match',
-                'tab-muhurat': 'muhurat',
-                'tab-marriage': 'predict',
-                'tab-job': 'job',
-                'tab-business': 'business',
-                'tab-study': 'study',
-                'tab-panchang': 'panchang'
-            };
-            
-            const cmdType = commandMap[tabId] || 'web_natal';
-
-            const y = getVal('birth_year', '1980');
-            const m = getVal('birth_month', '1');
-            const d = getVal('birth_day', '1');
-            const h = getVal('birth_hour', '12');
-            const min = getVal('birth_minute', '0');
-            const sec = getVal('birth_second', '0');
-            const city = document.querySelector('select[name="birth_place"]').value;
-            const lang = document.querySelector('select[name="ui_language"]').value;
-            
             let args = [];
             
-            if (lang === "telugu") args.push("telugu");
-            args.push("html"); 
-            args.push(y, m, d, h, min, sec, city, cmdType);
-            
-            if (tabId === 'tab-birth') {
-                args.push(getVal('user_name', 'Guest'), document.querySelector('select[name="user_gender"]').value);
+            // --- NEW: DIRECT CLI INTERCEPTOR ---
+            if (tabId === 'tab-cli') {
+                const cliInput = document.querySelector('input[name="cli_command"]').value.trim();
+                if (!cliInput) {
+                    alert("Please enter a command to execute.");
+                    isEngineComputing = false;
+                    spinner.style.display = 'none';
+                    document.querySelector('.tabs').style.opacity = '1';
+                    return;
+                }
+                // Regex splits string by space but keeps text wrapped in double quotes together
+                args = cliInput.match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
             } 
-            else if (tabId === 'tab-gochar') {
-                args.push(
-                    getVal('transit_year', new Date().getFullYear().toString()),
-                    getVal('transit_month', (new Date().getMonth() + 1).toString()),
-                    getVal('transit_day', new Date().getDate().toString()),
-                    getVal('transit_hour', '12'),
-                    getVal('transit_minute', '0'),
-                    getVal('transit_second', '0')
-                );
-            } 
-            else if (tabId === 'tab-varsh') {
-                args.push(getVal('transit_year', new Date().getFullYear().toString()));
-            } 
-            else if (tabId === 'tab-soulmate') {
-                args.push(
-                    getVal('p2_year', '1985'), getVal('p2_month', '1'), getVal('p2_day', '1'),
-                    getVal('p2_hour', '12'), getVal('p2_minute', '0'), getVal('p2_second', '0'),
-                    document.querySelector('select[name="p2_place"]').value
-                );
-            } 
-            else if (tabId === 'tab-muhurat') {
-                args.push(
-                    document.querySelector('select[name="muhurat_event"]').value,
-                    getVal('transit_year', new Date().getFullYear().toString()),
-                    getVal('transit_month', (new Date().getMonth() + 1).toString())
-                );
-            } 
-            else if (tabId === 'tab-marriage') {
-                args.push(
-                    getVal('predict_start', new Date().getFullYear().toString()),
-                    getVal('predict_end', (new Date().getFullYear() + 10).toString()),
-                    document.querySelector('select[name="user_gender"]').value
-                );
-            } 
-            else if (tabId === 'tab-job' || tabId === 'tab-business' || tabId === 'tab-study') {
-                args.push(
-                    getVal('predict_start', new Date().getFullYear().toString()),
-                    getVal('predict_end', (new Date().getFullYear() + 10).toString())
-                );
-            } 
-            else if (tabId === 'tab-panchang') {
-                args.push(
-                    getVal('transit_year', new Date().getFullYear().toString()),
-                    getVal('transit_month', (new Date().getMonth() + 1).toString()),
-                    getVal('transit_day', new Date().getDate().toString()),
-                    getVal('transit_hour', '12'),
-                    getVal('transit_minute', '0'),
-                    getVal('transit_second', '0')
-                );
+            // --- STANDARD TAB ROUTING ---
+            else {
+                const commandMap = {
+                    'tab-birth': 'web_natal',
+                    'tab-general': 'web_general',
+                    'tab-dasha': 'web_dasha',
+                    'tab-gochar': 'web_transit',
+                    'tab-dosha': 'web_dosha',
+                    'tab-varsh': 'annual',
+                    'tab-progeny': 'web_progeny',
+                    'tab-soulmate': 'match',
+                    'tab-muhurat': 'muhurat',
+                    'tab-marriage': 'predict',
+                    'tab-job': 'job',
+                    'tab-business': 'business',
+                    'tab-study': 'study',
+                    'tab-panchang': 'panchang'
+                };
+                
+                const cmdType = commandMap[tabId] || 'web_natal';
+
+                const y = getVal('birth_year', '1980');
+                const m = getVal('birth_month', '1');
+                const d = getVal('birth_day', '1');
+                const h = getVal('birth_hour', '12');
+                const min = getVal('birth_minute', '0');
+                const sec = getVal('birth_second', '0');
+                const city = document.querySelector('select[name="birth_place"]').value;
+                const lang = document.querySelector('select[name="ui_language"]').value;
+                
+                if (lang === "telugu") args.push("telugu");
+                args.push("html"); 
+                args.push(y, m, d, h, min, sec, city, cmdType);
+                
+                if (tabId === 'tab-birth') {
+                    args.push(getVal('user_name', 'Guest'), document.querySelector('select[name="user_gender"]').value);
+                } 
+                else if (tabId === 'tab-gochar') {
+                    args.push(
+                        getVal('transit_year', new Date().getFullYear().toString()),
+                        getVal('transit_month', (new Date().getMonth() + 1).toString()),
+                        getVal('transit_day', new Date().getDate().toString()),
+                        getVal('transit_hour', '12'),
+                        getVal('transit_minute', '0'),
+                        getVal('transit_second', '0')
+                    );
+                } 
+                else if (tabId === 'tab-varsh') {
+                    args.push(getVal('transit_year', new Date().getFullYear().toString()));
+                } 
+                else if (tabId === 'tab-soulmate') {
+                    args.push(
+                        getVal('p2_year', '1985'), getVal('p2_month', '1'), getVal('p2_day', '1'),
+                        getVal('p2_hour', '12'), getVal('p2_minute', '0'), getVal('p2_second', '0'),
+                        document.querySelector('select[name="p2_place"]').value
+                    );
+                } 
+                else if (tabId === 'tab-muhurat') {
+                    args.push(
+                        document.querySelector('select[name="muhurat_event"]').value,
+                        getVal('transit_year', new Date().getFullYear().toString()),
+                        getVal('transit_month', (new Date().getMonth() + 1).toString())
+                    );
+                } 
+                else if (tabId === 'tab-marriage') {
+                    args.push(
+                        getVal('predict_start', new Date().getFullYear().toString()),
+                        getVal('predict_end', (new Date().getFullYear() + 10).toString()),
+                        document.querySelector('select[name="user_gender"]').value
+                    );
+                } 
+                else if (tabId === 'tab-job' || tabId === 'tab-business' || tabId === 'tab-study') {
+                    args.push(
+                        getVal('predict_start', new Date().getFullYear().toString()),
+                        getVal('predict_end', (new Date().getFullYear() + 10).toString())
+                    );
+                } 
+                else if (tabId === 'tab-panchang') {
+                    args.push(
+                        getVal('transit_year', new Date().getFullYear().toString()),
+                        getVal('transit_month', (new Date().getMonth() + 1).toString()),
+                        getVal('transit_day', new Date().getDate().toString()),
+                        getVal('transit_hour', '12'),
+                        getVal('transit_minute', '0'),
+                        getVal('transit_second', '0')
+                    );
+                }
             }
 
             terminalBuffer = ""; 
@@ -639,14 +670,21 @@
             Module.callMain(args); 
 
             let outHTML = terminalBuffer;
-            // Auto-wrap loose <tr> tags into a table if C++ module missed the <table> wrapper
-            if (outHTML.indexOf("<tr>") !== -1 && outHTML.indexOf("<table") === -1) {
-                outHTML = outHTML.replace(/(<tr>[\s\S]*?<\/tr>(\s*<tr>[\s\S]*?<\/tr>)*)/gi, "<table class='data-table'>$1</table>");
+            
+            // If it's a standard tab, try to auto-wrap raw <tr> into valid HTML tables
+            if (tabId !== 'tab-cli') {
+                if (outHTML.indexOf("<tr>") !== -1 && outHTML.indexOf("<table") === -1) {
+                    outHTML = outHTML.replace(/(<tr>[\s\S]*?<\/tr>(\s*<tr>[\s\S]*?<\/tr>)*)/gi, "<table class='data-table'>$1</table>");
+                }
+            } else {
+                // If it is the CLI tab, and the user did NOT supply an "html" flag, escape the output so ASCII tables don't break the DOM
+                if (!args.includes("html") && !args.includes("--html")) {
+                    outHTML = outHTML.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                }
             }
 
             const targetDiv = document.getElementById(tabId);
             if (targetDiv) {
-                // Changed from <pre> to <div> to ensure HTML tables render smoothly
                 targetDiv.innerHTML = `<div class="terminal-view">${outHTML}</div>`;
             }
 
@@ -680,6 +718,7 @@
         document.getElementById('panel-partner').style.display = 'none';
         document.getElementById('panel-muhurat').style.display = 'none';
         document.getElementById('panel-predict').style.display = 'none';
+        document.getElementById('panel-cli').style.display = 'none';
 
         const btn = document.getElementById('main-calc-btn');
         btn.style.display = 'block'; 
@@ -698,6 +737,9 @@
         } else if (tabId === 'tab-marriage' || tabId === 'tab-job' || tabId === 'tab-business' || tabId === 'tab-study') {
             document.getElementById('panel-predict').style.display = 'block';
             btn.innerText = `Scan ${evt.currentTarget.innerText} Timeline`;
+        } else if (tabId === 'tab-cli') {
+            document.getElementById('panel-cli').style.display = 'block';
+            btn.innerText = "Execute CLI Command";
         } else if (tabId === 'tab-about') {
             btn.style.display = 'none'; 
         } else {
@@ -824,6 +866,9 @@
         
         const donationCard = document.getElementById('donation-card');
         if (donationCard) donationCard.style.display = ENABLE_DONATION_UI ? 'flex' : 'none'; 
+        
+        const cliTabBtn = document.getElementById('btn-tab-cli');
+        if (cliTabBtn) cliTabBtn.style.display = ENABLE_CLI_TAB ? 'inline-block' : 'none';
 
         const defaultName = localStorage.getItem('default_astrology_profile');
         if (defaultName) {
@@ -841,7 +886,7 @@
         e.preventDefault();
         if (isEngineComputing) return;
         
-        const tabsToClear = ['tab-birth', 'tab-general', 'tab-dasha', 'tab-gochar', 'tab-dosha', 'tab-varsh', 'tab-progeny', 'tab-soulmate', 'tab-muhurat', 'tab-marriage', 'tab-job', 'tab-business', 'tab-study', 'tab-panchang'];
+        const tabsToClear = ['tab-birth', 'tab-general', 'tab-dasha', 'tab-gochar', 'tab-dosha', 'tab-varsh', 'tab-progeny', 'tab-soulmate', 'tab-muhurat', 'tab-marriage', 'tab-job', 'tab-business', 'tab-study', 'tab-panchang', 'tab-cli'];
         tabsToClear.forEach(id => {
             const el = document.getElementById(id);
             if(el) el.innerHTML = ""; 

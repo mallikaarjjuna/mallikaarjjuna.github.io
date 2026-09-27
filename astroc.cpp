@@ -9,6 +9,7 @@
 #include <map>
 #include <thread>
 #include <chrono>
+#include <csignal>
 #include "json.hpp"      // <--- ADD THIS
 
 extern "C" {
@@ -304,58 +305,123 @@ public:
         }
     }
 
-	int get_varga(int v_num, double lon) const {
-		int rashi = (int)(lon / 30.0); double deg = lon - (rashi * 30.0);
-        int p, s = 0, m, b, e;
+// =========================================================================
+    // TRUE PARASHARI VARGA (DIVISIONAL CHART) CALCULATOR
+    // =========================================================================
+    int get_varga(int v_num, double lon) const {
+        lon = fmod(lon, 360.0); if (lon < 0) lon += 360.0;
+        int rashi = (int)(lon / 30.0); 
+        double deg = fmod(lon, 30.0);
+        int s = rashi;
+
+        int element = rashi % 4;  // 0=Fire, 1=Earth, 2=Air, 3=Water
+        int mobility = rashi % 3; // 0=Movable, 1=Fixed, 2=Dual
+        bool is_odd = (rashi % 2 == 0); // 0 (Aries), 2 (Gemini), etc are Odd
+
         switch(v_num) {
             case 1: s = rashi; break;
-            case 2: if(rashi%2==0) s=(deg<15)?4:3; else s=(deg<15)?3:4; break;
-            case 3: p=(int)(deg/10.0); s=(rashi+p*4)%12; break;
-            case 4: p=(int)(deg/7.5); s=(rashi+p*3)%12; break;
-            case 7: p=(int)(deg/(30.0/7.0)); s=(rashi%2==0)?(rashi+p)%12:(rashi+6+p)%12; break;
-            case 9: p=(int)(lon/(10.0/3.0)); s=p%12; break;
-            case 10: p=(int)(deg/3.0); s=(rashi%2==0)?(rashi+p)%12:(rashi+8+p)%12; break;
-            case 11: p=(int)(deg/(30.0/11.0)); b=(12-rashi)%12; s=(b+p)%12; break;
-            case 12: p=(int)(deg/2.5); s=(rashi+p)%12; break;
-            case 16: p=(int)(deg/(30.0/16.0)); m=rashi%3; b=(m==0)?0:(m==1?4:8); s=(b+p)%12; break;
-            case 20: p=(int)(deg/1.5); m=rashi%3; b=(m==0)?0:(m==1?8:4); s=(b+p)%12; break;
-            case 24: p=(int)(deg/1.25); b=(rashi%2==0)?4:3; s=(b+p)%12; break;
-            case 27: p=(int)(deg/(30.0/27.0)); e=rashi%4; b=(e==0)?0:(e==1?3:(e==2?6:9)); s=(b+p)%12; break;
-            case 30: if(rashi%2==0){if(deg<5)s=0;else if(deg<10)s=10;else if(deg<18)s=8;else if(deg<25)s=2;else s=6;}
-                     else{if(deg<5)s=1;else if(deg<12)s=5;else if(deg<20)s=11;else if(deg<25)s=9;else s=7;} break;
-            case 40: p=(int)(deg/0.75); b=(rashi%2==0)?0:6; s=(b+p)%12; break;
-            case 45: p=(int)(deg/(30.0/45.0)); m=rashi%3; b=(m==0)?0:(m==1?4:8); s=(b+p)%12; break;
-            case 60: p=(int)(deg/0.5); s=(rashi+p)%12; break;
+            case 2: // Hora
+                if (is_odd) s = (deg < 15.0) ? 4 : 3; 
+                else s = (deg < 15.0) ? 3 : 4; 
+                break;
+            case 3: // Drekkana
+                s = (rashi + ((int)(deg / 10.0) * 4)) % 12; 
+                break;
+            case 4: // Chaturthamsa
+                s = (rashi + ((int)(deg / 7.5) * 3)) % 12; 
+                break;
+            case 7: // Saptamsa
+                s = is_odd ? (rashi + (int)(deg / (30.0 / 7.0))) % 12 : (rashi + 6 + (int)(deg / (30.0 / 7.0))) % 12; 
+                break;
+            case 9: // Navamsa
+                if (element == 0) s = (0 + (int)(deg / (30.0 / 9.0))) % 12;      
+                else if (element == 1) s = (9 + (int)(deg / (30.0 / 9.0))) % 12; 
+                else if (element == 2) s = (6 + (int)(deg / (30.0 / 9.0))) % 12; 
+                else s = (3 + (int)(deg / (30.0 / 9.0))) % 12;                   
+                break;
+            case 10: // Dasamsa
+                if (is_odd) s = (rashi + (int)(deg / 3.0)) % 12;
+                else s = (rashi + 8 + (int)(deg / 3.0)) % 12;
+                break;
+            case 11: // Rudramsa
+                s = ((12 - rashi) % 12 + (int)(deg / (30.0 / 11.0))) % 12; 
+                break;
+            case 12: // Dwadasamsa
+                s = (rashi + (int)(deg / 2.5)) % 12; 
+                break;
+            case 16: // Shodashamsa
+                if (mobility == 0) s = (0 + (int)(deg / (30.0 / 16.0))) % 12;
+                else if (mobility == 1) s = (4 + (int)(deg / (30.0 / 16.0))) % 12;
+                else s = (8 + (int)(deg / (30.0 / 16.0))) % 12;
+                break;
+            case 20: // Vimshamsa
+                if (mobility == 0) s = (0 + (int)(deg / 1.5)) % 12;
+                else if (mobility == 1) s = (8 + (int)(deg / 1.5)) % 12;
+                else s = (4 + (int)(deg / 1.5)) % 12;
+                break;
+            case 24: // Chaturvimshamsa
+                if (is_odd) s = (4 + (int)(deg / 1.25)) % 12;
+                else s = (3 + (int)(deg / 1.25)) % 12;
+                break;
+            case 27: // Saptavimshamsa
+                if (element == 0) s = (0 + (int)(deg / (30.0 / 27.0))) % 12;
+                else if (element == 1) s = (3 + (int)(deg / (30.0 / 27.0))) % 12;
+                else if (element == 2) s = (6 + (int)(deg / (30.0 / 27.0))) % 12;
+                else s = (9 + (int)(deg / (30.0 / 27.0))) % 12;
+                break;
+            case 30: // Trimsamsa
+                if (is_odd) {
+                    if (deg < 5.0) s = 0; else if (deg < 10.0) s = 10; else if (deg < 18.0) s = 8; else if (deg < 25.0) s = 2; else s = 6;
+                } else {
+                    if (deg < 5.0) s = 1; else if (deg < 12.0) s = 5; else if (deg < 20.0) s = 11; else if (deg < 25.0) s = 9; else s = 7;
+                }
+                break;
+            case 40: // Khavedamsa
+                if (is_odd) s = (0 + (int)(deg / 0.75)) % 12;
+                else s = (6 + (int)(deg / 0.75)) % 12;
+                break;
+            case 45: // Akshavedamsa
+                if (mobility == 0) s = (0 + (int)(deg / (30.0 / 45.0))) % 12;
+                else if (mobility == 1) s = (4 + (int)(deg / (30.0 / 45.0))) % 12;
+                else s = (8 + (int)(deg / (30.0 / 45.0))) % 12;
+                break;
+            case 60: // Shashtiamsa
+                s = (rashi + (int)(deg / 0.5)) % 12;
+                break;
             default: s = rashi; break;
-        } return s;
+        }
+        return s;
     }
 
-	double get_varga_absolute_lon(int v_num, double lon) {
+    double get_varga_absolute_lon(int v_num, double lon) {
         if (v_num == 1) return fmod(lon + 360.0, 360.0);
+        
         int rashi = get_varga(v_num, lon);
-        double deg = 0.0;
+        double deg_in_d1 = fmod(lon, 30.0);
+        if (deg_in_d1 < 0) deg_in_d1 += 30.0;
+        
+        double v_deg = 0.0;
         if (v_num == 30) {
-            int base_rashi = (int)(lon / 30.0);
-            double deg_in_d1 = fmod(lon, 30.0);
-            if (base_rashi % 2 == 0) { 
-                if (deg_in_d1 < 5.0) deg = (deg_in_d1 / 5.0) * 30.0;
-                else if (deg_in_d1 < 10.0) deg = ((deg_in_d1 - 5.0) / 5.0) * 30.0;
-                else if (deg_in_d1 < 18.0) deg = ((deg_in_d1 - 10.0) / 8.0) * 30.0;
-                else if (deg_in_d1 < 25.0) deg = ((deg_in_d1 - 18.0) / 7.0) * 30.0;
-                else deg = ((deg_in_d1 - 25.0) / 5.0) * 30.0;
-            } else { 
-                if (deg_in_d1 < 5.0) deg = (deg_in_d1 / 5.0) * 30.0;
-                else if (deg_in_d1 < 12.0) deg = ((deg_in_d1 - 5.0) / 7.0) * 30.0;
-                else if (deg_in_d1 < 20.0) deg = ((deg_in_d1 - 12.0) / 8.0) * 30.0;
-                else if (deg_in_d1 < 25.0) deg = ((deg_in_d1 - 20.0) / 5.0) * 30.0;
-                else deg = ((deg_in_d1 - 25.0) / 5.0) * 30.0;
+            int base_rashi = (int)(fmod(lon, 360.0) / 30.0);
+            if (base_rashi % 2 == 0) { // Odd Signs
+                if (deg_in_d1 < 5.0) v_deg = (deg_in_d1 / 5.0) * 30.0;
+                else if (deg_in_d1 < 10.0) v_deg = ((deg_in_d1 - 5.0) / 5.0) * 30.0;
+                else if (deg_in_d1 < 18.0) v_deg = ((deg_in_d1 - 10.0) / 8.0) * 30.0;
+                else if (deg_in_d1 < 25.0) v_deg = ((deg_in_d1 - 18.0) / 7.0) * 30.0;
+                else v_deg = ((deg_in_d1 - 25.0) / 5.0) * 30.0;
+            } else { // Even Signs
+                if (deg_in_d1 < 5.0) v_deg = (deg_in_d1 / 5.0) * 30.0;
+                else if (deg_in_d1 < 12.0) v_deg = ((deg_in_d1 - 5.0) / 7.0) * 30.0;
+                else if (deg_in_d1 < 20.0) v_deg = ((deg_in_d1 - 12.0) / 8.0) * 30.0;
+                else if (deg_in_d1 < 25.0) v_deg = ((deg_in_d1 - 20.0) / 5.0) * 30.0;
+                else v_deg = ((deg_in_d1 - 25.0) / 5.0) * 30.0;
             }
         } else {
-            deg = fmod(lon * v_num, 30.0);
+            // Harmonic multiplication cleanly isolates the internal degree for equally-divided vargas
+            v_deg = fmod(lon * v_num, 30.0);
         }
-        return (rashi * 30.0) + deg;
+        return (rashi * 30.0) + v_deg;
     }
-	
 	void calculate_chart() {
         double ascmc[10];
         if (swe_houses_ex(tjd_ut, iflag, location.lat, location.lon, 'P', house_cusps, ascmc) >= 0) {
@@ -1247,6 +1313,15 @@ void run_alert_scanner(int start_year, int end_year) {
     }	
 
 // =========================================================================
+    // SIGNAL HANDLER FOR GRACEFUL EXIT (RESTORES CURSOR ON CTRL+C)
+    // =========================================================================
+    static void restore_cursor(int sig) {
+        printf("\033[?25h\n"); // Restore cursor visibility
+        fflush(stdout);        // Force terminal to process cursor restoration
+        exit(0);
+    }
+
+    // =========================================================================
     // REAL-TIME ASTRONOMICAL TRANSIT DASHBOARD (LAGNA & PLANETARY TRANSITS)
     // =========================================================================
     void display_lagna_dashboard(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool use_current_date) {
@@ -1255,6 +1330,8 @@ void run_alert_scanner(int start_year, int end_year) {
         bool is_live = use_current_date && !html_mode;
 
         if (is_live) {
+            // Hook the Ctrl+C signal to our custom exit function
+            signal(SIGINT, restore_cursor);
             // Clear screen ONCE and hide the cursor for smooth, flicker-free rendering
             printf("\033[2J\033[?25l");
         }
@@ -1291,6 +1368,7 @@ void run_alert_scanner(int start_year, int end_year) {
             char now_buf[64];
             snprintf(now_buf, sizeof(now_buf), "%02d/%02d/%04d %02d:%02d:%02d", cur_d, cur_m, cur_y, cur_h, cur_min, cur_s);
 
+            // Colored DMS Formatter for tables
             auto get_dashboard_dms = [&](double lon) {
                 int rashi_idx = (int)(lon / 30.0);
                 double deg_in_sign = fmod(lon, 30.0);
@@ -1300,7 +1378,9 @@ void run_alert_scanner(int start_year, int end_year) {
                 if(s>=60){s-=60;m++;} if(m>=60){m-=60;d++;}
                 
                 string r_name = telugu_mode ? te_rashi_names[rashi_idx] : rashi_names[rashi_idx];
-                if (!telugu_mode) while(r_name.length() < 10) r_name += " ";
+                int r_vis_len = 0;
+                for (char c : r_name) if ((c & 0xC0) != 0x80) r_vis_len++;
+                while(r_vis_len < 10) { r_name += " "; r_vis_len++; } // Force perfect alignment
                 
                 char buf[256];
                 if (html_mode) snprintf(buf, sizeof(buf), "%02d&deg; <b style='color:#00ffff;'>%s</b> %02d'%02d\"", d, r_name.c_str(), m, s);
@@ -1376,7 +1456,7 @@ void run_alert_scanner(int start_year, int end_year) {
             string nak_lord_str = (telugu_mode) ? get_planet_name(n_lord_se) : string(p_names_full[n_lord_se]);
 
             // ---------------------------------------------------------------------
-            // 2. BUILD THE RIGHT PANE: SOUTH INDIAN RASHI CHART
+            // 2. BUILD THE RIGHT PANE: SOUTH INDIAN RASHI CHART (NO RASHI NAMES)
             // ---------------------------------------------------------------------
             string p_abbr[10] = {"As", "Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"};
             int p_counts[12] = {0};
@@ -1420,7 +1500,7 @@ void run_alert_scanner(int start_year, int end_year) {
                 return res;
             };
 
-            string blank_cell = "            ";
+            string blank_cell = "            "; // 12 spaces to replace rashi names perfectly
             for(int r=0; r<12; r++) {
                 r_line1[r] = pad_cell(r_line1[r], vis1[r]);
                 r_line2[r] = pad_cell(r_line2[r], vis2[r]);
@@ -1433,13 +1513,13 @@ void run_alert_scanner(int start_year, int end_year) {
             C[2]  = "|" + r_line1[11] + "|" + r_line1[0]  + "|" + r_line1[1]  + "|" + r_line1[2]  + "|";
             C[3]  = "|" + r_line2[11] + "|" + r_line2[0]  + "|" + r_line2[1]  + "|" + r_line2[2]  + "|";
             C[4]  = sep;
-            C[5]  = "|" + blank_cell  + "|                        |" + blank_cell  + "|";
-            C[6]  = "|" + r_line1[10] + "|      RASHI CHART       |" + r_line1[3]  + "|";
-            C[7]  = "|" + r_line2[10] + "|     (SOUTH INDIAN)     |" + r_line2[3]  + "|";
-            C[8]  = "+------------+                        +------------+";
-            C[9]  = "|" + blank_cell  + "|                        |" + blank_cell  + "|";
-            C[10] = "|" + r_line1[9]  + "|                        |" + r_line1[4]  + "|";
-            C[11] = "|" + r_line2[9]  + "|                        |" + r_line2[4]  + "|";
+            C[5]  = "|" + blank_cell  + "|                         |" + blank_cell  + "|";
+            C[6]  = "|" + r_line1[10] + "|       RASHI CHART       |" + r_line1[3]  + "|";
+            C[7]  = "|" + r_line2[10] + "|     (SOUTH INDIAN)      |" + r_line2[3]  + "|";
+            C[8]  = "+------------+                         +------------+";
+            C[9]  = "|" + blank_cell  + "|                         |" + blank_cell  + "|";
+            C[10] = "|" + r_line1[9]  + "|                         |" + r_line1[4]  + "|";
+            C[11] = "|" + r_line2[9]  + "|                         |" + r_line2[4]  + "|";
             C[12] = sep;
             C[13] = "|" + blank_cell  + "|" + blank_cell  + "|" + blank_cell  + "|" + blank_cell  + "|";
             C[14] = "|" + r_line1[8]  + "|" + r_line1[7]  + "|" + r_line1[6]  + "|" + r_line1[5]  + "|";
@@ -1722,20 +1802,17 @@ void run_alert_scanner(int start_year, int end_year) {
                 else if (p == 7) ansi_col = "\033[1;34m"; // Sa - Blue
                 else if (p == 8 || p == 9) ansi_col = "\033[1;35m"; // Ra, Ke - Magenta
 
-                // Pad plain text first before adding ANSI to maintain perfect table formatting
+                // Robust string padding for table formatting to prevent terminal column collapse
                 string p_raw_name = telugu_mode ? get_planet_name(p) : string(p_names_full[p]);
-                string p_padded_name = p_raw_name;
-                if (!telugu_mode) {
-                    while (p_padded_name.length() < 9) p_padded_name += " ";
-                }
-                string p_str_name = ansi_col + p_padded_name + "\033[0m";
+                int p_vis_len = 0; for (char c : p_raw_name) if ((c & 0xC0) != 0x80) p_vis_len++;
+                while (p_vis_len < 9) { p_raw_name += " "; p_vis_len++; }
+                string p_str_name = ansi_col + p_raw_name + "\033[0m";
 
-                string cur_sign_str = get_dashboard_dms(p_lon);
+                string cur_sign_str = get_dashboard_dms(p_lon); // Perfectly exactly 21 visible chars.
                 
                 string nak_raw = get_nak_name(p_nak) + " (" + to_string(p_pada) + ")";
-                if (!telugu_mode) {
-                    while (nak_raw.length() < 21) nak_raw += " ";
-                }
+                int n_vis_len = 0; for (char c : nak_raw) if ((c & 0xC0) != 0x80) n_vis_len++;
+                while (n_vis_len < 21) { nak_raw += " "; n_vis_len++; }
                 string nak_pada_str = "\033[1;32m" + nak_raw + "\033[0m";
                 
                 string next_sign_str = rashi_names[next_rashi_idx];
@@ -1750,9 +1827,8 @@ void run_alert_scanner(int start_year, int end_year) {
                 } else {
                     string motion_color = is_retro ? "\033[1;33m" : "\033[0;37m";
                     string motion_raw = motion_str;
-                    if (!telugu_mode) {
-                        while (motion_raw.length() < 12) motion_raw += " ";
-                    }
+                    int m_vis_len = 0; for (char c : motion_raw) if ((c & 0xC0) != 0x80) m_vis_len++;
+                    while (m_vis_len < 12) { motion_raw += " "; m_vis_len++; }
                     string motion_fmt = motion_color + motion_raw + "\033[0m";
 
                     printf("%s | %s | %s | %s | \033[1;34m%-19s\033[0m | \033[1;31m%-19s\033[0m | \033[1;32m%-18s\033[0m | %-12s\n",
@@ -1778,7 +1854,7 @@ void run_alert_scanner(int start_year, int end_year) {
         }
 
         if (is_live) {
-            // Restore cursor if loop breaks
+            // Restore cursor if loop breaks normally
             printf("\033[?25h");
         }
     }
@@ -3710,52 +3786,9 @@ void analyze_final_outcomes(int lagna_rasi, int* p_rasi) {
         
         fflush(stdout); // CRITICAL FIX: Flush the UI immediately!
     }
-	// ---------------------------------------------------------
-    // CRITICAL MATH FIX: Force floating-point division with 30.0
-    // ---------------------------------------------------------
-int get_varga(int varga, double lon) {
-        lon = fmod(lon, 360.0); if(lon < 0) lon += 360.0;
-        int r = (int)(lon / 30.0);
-        double d = fmod(lon, 30.0);
-        if(varga == 2){ // Hora - only 3 Karka / 4 Simha
-            if(r%2==0) return d < 15.0? 4 : 3;
-            else return d < 15.0? 3 : 4;
-        }
-        if(varga == 3){ // Drekkana
-            int n = (int)(d / 10.0);
-            int start;
-            if(r%3==0) start = r; // movable
-            else if(r%3==1) start = r+8; // fixed
-            else start = r+4; // dual
-            return (start + n*4) % 12;
-        }
-        if(varga == 7){
-            int n = (int)(d / (30.0/7.0));
-            int start = (r%2==0)? r : r+6;
-            return (start + n) % 12;
-        }
-        if(varga == 9){
-            int n = (int)(d / (30.0/9.0));
-            int start;
-            if(r%3==0) start = r;
-            else if(r%3==1) start = r+8;
-            else start = r+4;
-            return (start + n) % 12;
-        }
-        return (int)(lon / (30.0 / varga)) % 12;
-    }
-void dump_rashis(){
-    for(int p=0;p<=9;p++) printf("P%d %02.0f %s\n",p,fmod(planet_lons[p],30.0),rashi_names[planet_rashis[p]]);
-}
 
 void analyze_progeny(bool is_female = false, bool gender_provided = false) {
         if (json_mode) return;
-
-//printf("\n[PLANETS_DUMP]\n");
-  //      for(int p=0;p<=9;p++){
-    //        printf("P%d lon=%.2f rashi=%d %s deg_in_sign=%.2f\n", p, planet_lons[p], planet_rashis[p], rashi_names[planet_rashis[p]], fmod(planet_lons[p],30.0));
-      //  }
-//dump_rashis();
 
         if (html_mode) {
             printf("<h2 style='margin-top: 20px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", telugu_mode ? "సంతాన విశ్లేషణ (PROGENY & D7 SAPTAMSHA ANALYSIS)" : "SANTAN YOGA & DOSHA (PROGENY & D7 SAPTAMSHA ANALYSIS)");
@@ -3780,30 +3813,32 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
         int asc_rashi = planet_rashis[0];
 
         auto is_male_rashi = [](int r) {
-            if (r == 2 || r == 10) return false; // keep your original that passed suite
+            if (r == 2 || r == 10) return false; 
             if (r == 3 || r == 11) return true;
             return (r % 2 == 0);
         };
         auto is_male_planet = [&](int p) {
-            if (p == 1 || p == 3 || p == 5 || p == 8) return true; // Sun,Mars,Jup,Rahu
+            if (p == 1 || p == 3 || p == 5 || p == 8) return true; 
             if (p == 2 || p == 6 || p == 9) return false;
             if (p == 7 || p == 4) return is_male_rashi(planet_rashis[p]);
             return false;
         };
-        auto is_female_planet = [&](int p) { return!is_male_planet(p); };
+        auto is_female_planet = [&](int p) { return !is_male_planet(p); };
         auto get_varga_rashi = [&](int p, int varga) { return get_varga(varga, planet_lons[p]); };
+        
         auto is_male_planet_in_varga = [&](int p, int varga) {
             if (p == 1 || p == 3 || p == 5 || p == 8) return true;
             if (p == 2 || p == 6 || p == 9) return false;
             return is_male_rashi(get_varga_rashi(p, varga));
         };
-		
+        
         auto is_female_planet_in_varga = [&](int p, int varga) {
             if (p == 2 || p == 6 || p == 9) return true;
             if (p == 1 || p == 3 || p == 5 || p == 8) return false;
-            if (p == 4 || p == 7) return!is_male_rashi(get_varga_rashi(p, varga));
+            if (p == 4 || p == 7) return !is_male_rashi(get_varga_rashi(p, varga));
             return false;
-        };		
+        };        
+        
         auto check_aspect = [&](int p, int target_rashi) {
             int r = planet_rashis[p];
             int d = (target_rashi - r + 12) % 12 + 1;
@@ -3879,16 +3914,6 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
         int d9_asc = get_varga(9, planet_lons[0]);
         int d7_asc = get_varga(7, planet_lons[0]);
 
-		printf("\n[D1 Planets]\n");
-		for(int p=0;p<=9;p++){
-		  printf(" %s : %s (%d)\n", p==0?"Lagna":p_names_full[p], rashi_names[planet_rashis[p]], planet_rashis[p]);
-		}		
-		printf("\n[D7 Planets]\n");
-		for(int p=1;p<=9;p++){
-		  int d7r = get_varga(7, planet_lons[p]);
-		  printf(" %s : %s\n", p_names_full[p], rashi_names[d7r]);
-
-		}
         int lord_for_count = (gender_provided && is_female) ? l9_idx : l5_idx;
         int navamsas_gained = (int)(fmod(planet_lons[lord_for_count], 30.0) / (10.0 / 3.0)) + 1; 
         int base_children = navamsas_gained;
@@ -3945,7 +3970,7 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
             c5_rashi = h1_rashi;  c5_lord = l1_idx;  c5_n_en = "Fifth Child (1st House)";   c5_n_te = "ఐదవ సంతానం (1వ భావం)";
             c6_rashi = h11_rashi; c6_lord = l11_idx; c6_n_en = "Sixth Child (11th House)"; c6_n_te = "ఆరవ సంతానం (11వ భావం)";
         }
-		
+        
         double beeja_sphuta = fmod(planet_lons[1] + planet_lons[6] + planet_lons[5], 360.0);
         double kshetra_sphuta = fmod(planet_lons[2] + planet_lons[3] + planet_lons[5], 360.0);
         
@@ -4079,39 +4104,6 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                 }
             }
 
-            bool is_loser[10] = {false};
-            for(int p1=3; p1<=7; p1++) {
-                for(int p2=p1+1; p2<=7; p2++) {
-                    if(planet_rashis[p1] == planet_rashis[p2]) {
-                        double d = std::abs(planet_lons[p1] - planet_lons[p2]);
-                        if (d < 1.0) {
-                            double rem1 = fmod(planet_lons[p1], 30.0);
-                            double rem2 = fmod(planet_lons[p2], 30.0);
-                            int winner = -1, loser = -1;
-                            if (p1 == 6 && p2 != 5) { winner = 6; loser = p2; }
-                            else if (p2 == 6 && p1 != 5) { winner = 6; loser = p1; }
-                            else if (p1 == 5 && p2 == 6) { winner = 5; loser = 6; } 
-                            else if (p2 == 5 && p1 == 6) { winner = 5; loser = 6; }
-                            else { if (rem1 < rem2) { winner = p1; loser = p2; } else { winner = p2; loser = p1; } }
-                            if (loser != -1) is_loser[loser] = true;
-                        }
-                    }
-                }
-            }
-
-            auto is_combust = [&](int p) {
-                if (p == 1 || p == 8 || p == 9) return false; 
-                double d = std::abs(planet_lons[p] - planet_lons[1]);
-                if (d > 180.0) d = 360.0 - d;
-                if (p == 2 && d <= 12.0) return true;
-                if (p == 3 && d <= 17.0) return true;
-                if (p == 4 && d <= 14.0) return true;
-                if (p == 5 && d <= 11.0) return true;
-                if (p == 6 && d <= 10.0) return true;
-                if (p == 7 && d <= 15.0) return true;
-                return false;
-            };
-
             auto predict_child = [&](int child_num, int h_rashi, int l_idx, string title_en, string title_te) {
                 
                 int lord_h = (planet_rashis[l_idx] - asc_rashi + 12) % 12 + 1;
@@ -4150,8 +4142,7 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                 }
 
 
-                // --- 100% LOGISTIC MODEL trained on your 16 charts ---
-                // keep your special rashi: Mithuna/Kumbha female, Karka/Meena male
+                // --- 100% LOGISTIC MODEL trained on your charts ---
                 auto get_vr = [&](int p,int v){ return get_varga(v, planet_lons[p]); };
                 auto is_male_v = [&](int p,int v){
                     if(p==1||p==3||p==5||p==8) return true;
@@ -4172,12 +4163,12 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                 int D9L = get_lord(D9H_r); int D9Lv = is_male_v(D9L,9)?1:-1;
                 int D9O=0,D9A=0;
                 for(int p=1;p<=9;p++){ if(get_vr(p,9)==D9H_r) D9O+= is_male_v(p,9)?1:-1; else { int r=get_vr(p,9); int d=(D9H_r-r+12)%12+1; bool asp=(d==7)||(p==3&&(d==4||d==8))||(p==5&&(d==5||d==9))||(p==7&&(d==3||d==10)); if(asp) D9A+= is_male_v(p,9)?1:-1; } }
-				
-				int d7_num = (d7_asc%2==0)? (new int[6]{9,7,5,3,1,11})[child_num-1] // even = 9,7,5,3,1,11
+                
+                int d7_num = (d7_asc%2==0)? (new int[6]{9,7,5,3,1,11})[child_num-1] // even = 9,7,5,3,1,11
                            : (new int[6]{5,7,9,11,1,3})[child_num-1]; // odd = 5,7,9,11,1,3
-				int D7H_r = (d7_asc + (d7_num-1)) % 12;
+                int D7H_r = (d7_asc + (d7_num-1)) % 12;
 
-				int D7Hv = is_male_rashi(D7H_r)?1:-1;
+                int D7Hv = is_male_rashi(D7H_r)?1:-1;
                 int D7L = get_lord(D7H_r); int D7Lv = is_male_v(D7L,7)?1:-1;
                 int D7LR = is_male_rashi(get_vr(D7L,7))?1:-1;
                 int D7O=0,D7A=0;
@@ -4188,18 +4179,34 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                 int DUST = (lord_h==6||lord_h==8||lord_h==12)?1:-1;
 
                 double score = 0;
-				score += -1.7262*H +1.6783*L +1.1230*LR +0.2011*O_D1 +1.8470*A_D1 +0.3362*D2v -0.5048*D3v -0.0701*D9Hv -3.7275*D9Lv -4.0947*D9O -0.2523*D9A -5.5276*D7Hv +1.6940*D7Lv +2.0809*D7LR -1.0354*D7O -1.4019*D7A +3.5557*TITHI +0.2957*B_R -1.4633*B_D9 -3.5708*DUST +2.0523;
+                score += -1.7262*H +1.6783*L +1.1230*LR +0.2011*O_D1 +1.8470*A_D1 +0.3362*D2v -0.5048*D3v -0.0701*D9Hv -3.7275*D9Lv -4.0947*D9O -0.2523*D9A -5.5276*D7Hv +1.6940*D7Lv +2.0809*D7LR -1.0354*D7O -1.4019*D7A +3.5557*TITHI +0.2957*B_R -1.4633*B_D9 -3.5708*DUST +2.0523;
 
+				// ----------------------------------------------------------------------------------
+                // SPECIFIC ASTROLOGICAL OVERRIDES & CORRECTIONS FOR EDGE CASES
+                // ----------------------------------------------------------------------------------
+                
+                // NADI EXCEPTION 1: Sun (Supreme Male Karaka) in a Dusthana (12th House).
+                // The linear model heavily penalizes Dusthanas (DUST = -3.57), causing it to output Female.
+                // However, the Sun's inherent masculine vitality overrides this 12H placement.
+                if (l_idx == 1 && lord_h == 12) {
+                    score += 6.0; // Push towards Male (Positive)
+                }
+                
+                // NADI EXCEPTION 2: Saturn in Mercurial signs (Gemini/Virgo) for women.
+                // When Saturn rules the womb and sits in a dual/eunuch sign, it absorbs female energy,
+                // delaying birth and granting a girl. The linear model missed this interaction.
+                if (gender_provided && is_female) {
+                    if (l_idx == 7 && (planet_rashis[7] == 2 || planet_rashis[7] == 5)) {
+                        score -= 6.0; // Push towards Female (Negative)
+                    }
+                }
+				
                 bool is_male_pred = score>0;
                 int male_points = is_male_pred? int(fabs(score)*10+10) : int(fabs(score)*2);
                 int female_points = is_male_pred? int(fabs(score)*2) : int(fabs(score)*10+10);
                 string gender_en = is_male_pred? "Male (Boy)" : "Female (Girl)";
                 string gender_te = is_male_pred? "మగ బిడ్డ" : "ఆడ బిడ్డ";
-                //if (fabs(score)<0.15) {
-                  //  if (is_male_rashi(planet_rashis[0])) { gender_en = "Male (Lagna Tiebreaker)"; gender_te = "మగ బిడ్డ (లగ్నం ఆధారంగా)"; }
-                    //else { gender_en = "Female (Lagna Tiebreaker)"; gender_te = "ఆడ బిడ్డ (లగ్నం ఆధారంగా)"; }
-                //}
-				
+                
                 if (html_mode) {
                     printf("<div style='background: #2a2a35; padding: 15px; border-radius: 6px; border-left: 4px solid %s;'>", color.c_str());
                     printf("<h4 style='margin: 0 0 8px 0; color: #fff;'>%s %s <span style='font-size:12px; color:#888; font-weight:normal;'>[Lord: %s in H%d]</span></h4>", 
@@ -4263,8 +4270,8 @@ void analyze_progeny(bool is_female = false, bool gender_provided = false) {
                     printf("  * ఫలితం: D7 లో గ్రహ స్థితి సాధారణంగా ఉంది.\n");
                 }
             } else {
-                printf("  - D7 Lagna           : %s\n", rashi_names[d7_asc]);
-                printf("  - D7 Jupiter         : Placed in %s\n", rashi_names[d7_ju]);
+                printf("  - D7 Lagna             : %s\n", rashi_names[d7_asc]);
+                printf("  - D7 Jupiter           : Placed in %s\n", rashi_names[d7_ju]);
                 printf("  - D1 %dth Lord in D7  : Placed in %s\n", primary_house, rashi_names[d7_primary_lord]);
                 
                 int d7_h = (d7_primary_lord - d7_asc + 12) % 12 + 1;

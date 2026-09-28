@@ -546,6 +546,38 @@
 <script>
     const getVal = (name, def) => document.querySelector(`input[name="${name}"]`).value || def;
 
+    // --- NEW: ANSI to HTML Terminal Emulator ---
+    function ansiToHtml(text) {
+        // Step 1: Escape standard HTML characters to prevent breaking the DOM
+        let html = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        
+        // Step 2: Define terminal color mapping
+        const ansiMap = {
+            '30': '#888888', '31': '#e74c3c', '32': '#2ecc71', '33': '#f1c40f',
+            '34': '#3498db', '35': '#9b59b6', '36': '#00ffff', '37': '#ffffff',
+            '90': '#aaaaaa', '91': '#ff6b81', '92': '#2ed573', '93': '#f1c40f',
+            '94': '#1e90ff', '95': '#a29bfe', '96': '#00ffff', '97': '#ffffff'
+        };
+
+        // Step 3: Replace ANSI escape codes with CSS spans
+        html = html.replace(/\x1b\[([0-9;]*)m/g, (match, p1) => {
+            if (!p1 || p1 === '0') return '</span>'; // Reset code closes the span
+            let styles = [];
+            p1.split(';').forEach(code => {
+                if (code === '1') styles.push('font-weight:bold');
+                if (ansiMap[code]) styles.push(`color:${ansiMap[code]}`);
+            });
+            return styles.length > 0 ? `<span style="${styles.join(';')}">` : '<span>';
+        });
+        
+        // Step 4: Auto-close any unclosed spans to maintain layout stability
+        const openCount = (html.match(/<span/g) || []).length;
+        const closeCount = (html.match(/<\/span>/g) || []).length;
+        html += '</span>'.repeat(Math.max(0, openCount - closeCount));
+        
+        return html;
+    }
+
     async function fetchTabData(tabId) {
         if (!isWasmReady) {
             alert("Please wait. The astronomical data is still downloading.");
@@ -563,17 +595,16 @@
         try {
             let args = [];
             
-            // --- NEW: DIRECT CLI INTERCEPTOR ---
+            // --- DIRECT CLI INTERCEPTOR ---
             if (tabId === 'tab-cli') {
                 const cliInput = document.querySelector('input[name="cli_command"]').value.trim();
-                if (!cliInput) {
-                    alert("Please enter a command to execute.");
-                    isEngineComputing = false;
-                    spinner.style.display = 'none';
+                if (!cliInput) { 
+                    alert("Please enter a command to execute."); 
+                    isEngineComputing = false; 
+                    spinner.style.display = 'none'; 
                     document.querySelector('.tabs').style.opacity = '1';
-                    return;
+                    return; 
                 }
-                // Regex splits string by space but keeps text wrapped in double quotes together
                 args = cliInput.match(/(?:[^\s"]+|"[^"]*")+/g).map(arg => arg.replace(/"/g, ''));
             } 
             // --- STANDARD TAB ROUTING ---
@@ -618,9 +649,7 @@
                         getVal('transit_year', new Date().getFullYear().toString()),
                         getVal('transit_month', (new Date().getMonth() + 1).toString()),
                         getVal('transit_day', new Date().getDate().toString()),
-                        getVal('transit_hour', '12'),
-                        getVal('transit_minute', '0'),
-                        getVal('transit_second', '0')
+                        getVal('transit_hour', '12'), getVal('transit_minute', '0'), getVal('transit_second', '0')
                     );
                 } 
                 else if (tabId === 'tab-varsh') {
@@ -658,9 +687,7 @@
                         getVal('transit_year', new Date().getFullYear().toString()),
                         getVal('transit_month', (new Date().getMonth() + 1).toString()),
                         getVal('transit_day', new Date().getDate().toString()),
-                        getVal('transit_hour', '12'),
-                        getVal('transit_minute', '0'),
-                        getVal('transit_second', '0')
+                        getVal('transit_hour', '12'), getVal('transit_minute', '0'), getVal('transit_second', '0')
                     );
                 }
             }
@@ -671,15 +698,15 @@
 
             let outHTML = terminalBuffer;
             
-            // If it's a standard tab, try to auto-wrap raw <tr> into valid HTML tables
             if (tabId !== 'tab-cli') {
+                // If it's a standard web tab, inject HTML tables
                 if (outHTML.indexOf("<tr>") !== -1 && outHTML.indexOf("<table") === -1) {
                     outHTML = outHTML.replace(/(<tr>[\s\S]*?<\/tr>(\s*<tr>[\s\S]*?<\/tr>)*)/gi, "<table class='data-table'>$1</table>");
                 }
             } else {
-                // If it is the CLI tab, and the user did NOT supply an "html" flag, escape the output so ASCII tables don't break the DOM
+                // If in CLI tab, render the beautiful ANSI terminal colors natively!
                 if (!args.includes("html") && !args.includes("--html")) {
-                    outHTML = outHTML.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    outHTML = ansiToHtml(outHTML);
                 }
             }
 
@@ -747,7 +774,7 @@
         }
 
         const targetDiv = document.getElementById(tabId);
-        if (targetDiv && targetDiv.innerHTML.trim() === "") {
+        if (targetDiv && targetDiv.innerHTML.trim() === "" && tabId !== 'tab-cli') {
             fetchTabData(tabId);
         }
     }

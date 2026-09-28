@@ -1329,7 +1329,11 @@ void run_alert_scanner(int start_year, int end_year) {
 
         bool is_live = use_current_date && !html_mode;
 
-        if (is_live) {
+		#ifdef __EMSCRIPTEN__
+        is_live = false; 
+		#endif
+        
+		if (is_live) {
             // Hook the Ctrl+C signal to our custom exit function
             signal(SIGINT, restore_cursor);
             // Clear screen ONCE and hide the cursor for smooth, flicker-free rendering

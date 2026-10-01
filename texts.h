@@ -202,20 +202,24 @@ const int natural_enemies[10][10] = {
 
 inline std::string get_gochar_text(int p_idx, int from_mo, int sav, int tara) {
     std::string base = "";
+    
+    // Dynamic Ordinal Formatter for Sun & Mars
+    std::string h_str = std::to_string(from_mo) + (from_mo == 1 ? "st" : from_mo == 2 ? "nd" : from_mo == 3 ? "rd" : "th") + " House";
+
     if (p_idx == 1) { // SURYA
         switch(from_mo) {
             case 3: case 6: case 10: case 11:
-                base = "Highly Auspicious Transit. The bad times have passed. You will experience success in exams, interviews, and career. Great financial gains, government favors, and overall happiness for your family."; break;
+                base = "Transit in " + h_str + ": Highly Auspicious. The bad times have passed. You will experience success in exams, interviews, and career. Great financial gains, government favors, and overall happiness for your family."; break;
             case 1: case 2: case 4: case 5: case 7: case 8: case 9: case 12:
-                base = "Challenging Transit. The Sun's position is currently unfavorable. You may experience unnecessary travel, physical fatigue, minor health issues (heat/eyes), or friction with authorities. Reduce your workload and stay vigilant."; break;
+                base = "Transit in " + h_str + ": Challenging Phase. The Sun's position is currently unfavorable. You may experience unnecessary travel, physical fatigue, minor health issues (heat/eyes), or friction with authorities. Reduce your workload and stay vigilant."; break;
         }
     }
     else if (p_idx == 3) { // MANGAL
         switch(from_mo) {
             case 3: case 6: case 11:
-                base = "Highly Auspicious Transit. You will exhibit immense courage and effortlessly defeat enemies or competitors. Excellent time for real estate gains, resolving debts, and experiencing robust health."; break;
+                base = "Transit in " + h_str + ": Highly Auspicious. You will exhibit immense courage and effortlessly defeat enemies or competitors. Excellent time for real estate gains, resolving debts, and experiencing robust health."; break;
             case 1: case 2: case 4: case 5: case 7: case 8: case 9: case 10: case 12:
-                base = "Volatile Transit. You may feel aggressive or easily irritated. Beware of heated arguments with family or your spouse. High caution is required regarding sudden accidents, cuts, or blood-pressure fluctuations."; break;
+                base = "Transit in " + h_str + ": Volatile Phase. You may feel aggressive or easily irritated. Beware of heated arguments with family or your spouse. High caution is required regarding sudden accidents, cuts, or blood-pressure fluctuations."; break;
         }
     }
     else if (p_idx == 5) { // GURU
@@ -306,6 +310,7 @@ inline std::string get_gochar_text(int p_idx, int from_mo, int sav, int tara) {
 
     return base + sav_text + tara_text;
 }
+
 // =========================================================================
 // NEW: DYNAMIC VIMSHOTTARI DASHA PREDICTIONS (ENGLISH)
 // =========================================================================

@@ -6132,29 +6132,43 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                 string date_injection = html_mode ? " <span style='color: var(--accent); font-weight: bold;'>[ " + nak_start_dt + " &rarr; " + nak_end_dt + " ]</span>"
                                                   : " [ " + nak_start_dt + " -> " + nak_end_dt + " ]";
 
-                string gochar_text_en = get_gochar_text(i, from_mo, r_sav, tara_idx);
-                string gochar_text_te = te_get_gochar_text(i, from_mo, r_sav, tara_idx);
+                // CHANDRA LAGNA GOCHARA (Mental/Psychological Impact)
+                string gochar_text_en_mo = get_gochar_text(i, from_mo, r_sav, tara_idx);
+                string gochar_text_te_mo = te_get_gochar_text(i, from_mo, r_sav, tara_idx);
+                
+                // ASENDANT LAGNA GOCHARA (Physical/Material Impact)
+                string gochar_text_en_asc = get_gochar_text(i, from_asc, r_sav, tara_idx);
+                string gochar_text_te_asc = te_get_gochar_text(i, from_asc, r_sav, tara_idx);
 
-                size_t pos_en = gochar_text_en.find(" star");
-                if (pos_en != string::npos) {
-                    gochar_text_en.insert(pos_en + 5, date_injection); 
-                }
-
+                // Inject specific dates into Chandra text
+                size_t pos_en = gochar_text_en_mo.find(" star");
+                if (pos_en != string::npos) gochar_text_en_mo.insert(pos_en + 5, date_injection); 
+                
                 string target_te_phrase = " నక్షత్రం";
-                size_t pos_te = gochar_text_te.find(target_te_phrase);
-                if (pos_te != string::npos) {
-                    gochar_text_te.insert(pos_te + target_te_phrase.length(), date_injection);
-                }
+                size_t pos_te = gochar_text_te_mo.find(target_te_phrase);
+                if (pos_te != string::npos) gochar_text_te_mo.insert(pos_te + target_te_phrase.length(), date_injection); 
                 
+                // Prepare Double-Layer Output
                 string gochar_payload = "";
+
                 if (html_mode) {
-                    gochar_payload = (telugu_mode ? "<b>కాల వ్యవధి:</b> " : "<b>Timeline:</b> ") + date_range + "<br><br>" + 
-                                     (telugu_mode ? gochar_text_te : gochar_text_en);
+                    gochar_payload = string(telugu_mode ? "<b>కాల వ్యవధి:</b> " : "<b>Timeline:</b> ") + date_range + "<br><br>";
+                    gochar_payload += "<div style='margin-bottom: 10px; padding: 10px; background: rgba(52, 152, 219, 0.1); border-left: 3px solid #3498db;'>";
+                    gochar_payload += string("<b style='color:#3498db;'>") + (telugu_mode ? "చంద్రుని నుండి (మానసిక & సామాజిక ప్రభావం):" : "From Moon (Mental & Social Impact):") + "</b><br>";
+                    gochar_payload += (telugu_mode ? gochar_text_te_mo : gochar_text_en_mo);
+                    gochar_payload += "</div>";
+                    
+                    gochar_payload += "<div style='padding: 10px; background: rgba(46, 204, 113, 0.1); border-left: 3px solid #2ecc71;'>";
+                    gochar_payload += string("<b style='color:#2ecc71;'>") + (telugu_mode ? "లగ్నం నుండి (భౌతిక & వాస్తవిక ప్రభావం):" : "From Lagna (Physical & Material Impact):") + "</b><br>";
+                    gochar_payload += (telugu_mode ? gochar_text_te_asc : gochar_text_en_asc);
+                    gochar_payload += "</div>";
                 } else {
-                    gochar_payload = (telugu_mode ? "కాల వ్యవధి: " : "Timeline: ") + date_range + "\n        " + 
-                                     (telugu_mode ? gochar_text_te : gochar_text_en);
+                    gochar_payload = string(telugu_mode ? "కాల వ్యవధి: " : "Timeline: ") + date_range + "\n";
+                    gochar_payload += string("        ") + (telugu_mode ? "▶ చంద్రుని నుండి (మానసిక & సామాజిక ప్రభావం): " : "▶ From Moon (Mental & Social Impact): ") + "\n        " + (telugu_mode ? gochar_text_te_mo : gochar_text_en_mo) + "\n";
+                    gochar_payload += string("        ") + (telugu_mode ? "▶ లగ్నం నుండి (భౌతిక & వాస్తవిక ప్రభావం): " : "▶ From Lagna (Physical & Material Impact): ") + "\n        " + (telugu_mode ? gochar_text_te_asc : gochar_text_en_asc);
                 }
                 
+                transit_triggers[i].push_back({"GOCHAR_RESULT", gochar_payload});                
                 transit_triggers[i].push_back({"GOCHAR_RESULT", gochar_payload});
             }
         }
@@ -6220,11 +6234,11 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
             printf("|                 |                 |                 |                 |\n");
             printf("| %-15s | %-15s | %-15s | %-15s |\n", p12.c_str(), p1.c_str(), p2.c_str(), p3.c_str());
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
-            printf("|                 |                                     |                 |\n");
-            printf("| %-15s |            TRANSIT CHART            | %-15s |\n", p11.c_str(), p4.c_str());
-            printf("+-----------------+               (Gochar)              +-----------------+\n");
-            printf("|                 |                                     |                 |\n");
-            printf("| %-15s |                                     | %-15s |\n", p10.c_str(), p5.c_str());
+            printf("|                 |                                   |                 |\n");
+            printf("| %-15s |             TRANSIT CHART             | %-15s |\n", p11.c_str(), p4.c_str());
+            printf("+-----------------+               (Gochar)                +-----------------+\n");
+            printf("|                 |                                   |                 |\n");
+            printf("| %-15s |                                   | %-15s |\n", p10.c_str(), p5.c_str());
             printf("+-----------------+-----------------+-----------------+-----------------+\n");
             printf("|                 |                 |                 |                 |\n");
             printf("| %-15s | %-15s | %-15s | %-15s |\n", p9.c_str(), p8.c_str(), p7.c_str(), p6.c_str());
@@ -6283,17 +6297,17 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                                telugu_mode ? get_planet_name(mp).c_str() : p_names_full[mp],
                                telugu_mode ? "గమనము" : "TRANSIT",
                                telugu_mode ? "ప్రస్తుతం" : "Currently in",
-                               (t_rashis[mp] - natal_mo_rashi + 12) % 12 + 1,
+                               (t_rashis[mp] - natal_asc_rashi + 12) % 12 + 1,
                                telugu_mode ? "వ భావంలో" : "th House",
                                dasha_alert.c_str(), av_alert.c_str());
-                        printf("<p style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</p>", gochar_text.c_str());
+                        printf("<div style='margin:5px 0; font-size:14px; line-height:1.6;'>%s</div>", gochar_text.c_str());
                         printf("</div>\n");
                     } else {
                         if (telugu_mode) {
-                            printf("\n⭐ %s గమనము (ప్రస్తుతం %dవ భావంలో)%s%s\n", get_planet_name(mp).c_str(), (t_rashis[mp] - natal_mo_rashi + 12) % 12 + 1, dasha_alert.c_str(), av_alert.c_str());
+                            printf("\n⭐ %s గమనము (ప్రస్తుతం %dవ భావంలో)%s%s\n", get_planet_name(mp).c_str(), (t_rashis[mp] - natal_asc_rashi + 12) % 12 + 1, dasha_alert.c_str(), av_alert.c_str());
                             printf("   %s\n", gochar_text.c_str());
                         } else {
-                            printf("\n⭐ %s TRANSIT (Currently in %dth House)%s%s\n", p_names_full[mp], (t_rashis[mp] - natal_mo_rashi + 12) % 12 + 1, dasha_alert.c_str(), av_alert.c_str());
+                            printf("\n⭐ %s TRANSIT (Currently in %dth House)%s%s\n", p_names_full[mp], (t_rashis[mp] - natal_asc_rashi + 12) % 12 + 1, dasha_alert.c_str(), av_alert.c_str());
                             printf("   %s\n", gochar_text.c_str());
                         }
                     }
@@ -6607,7 +6621,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
                 {telugu_mode ? "లగ్నాధిపతి (ఆరోగ్యం & వ్యక్తిత్వం)" : "Lagna Lord (Self & Vitality)", planet_lons[l1_idx_ausp]},
                 {telugu_mode ? "5వ భావాధిపతి (పూర్వ పుణ్యం & అదృష్టం)" : "5th Lord (Poorva Punya & Merit)", planet_lons[l5_idx_ausp]},
                 {telugu_mode ? "9వ భావాధిపతి (భాగ్యం & అదృష్టం)" : "9th Lord (Bhagya & Fortune)", planet_lons[l9_idx_ausp]},
-                {telugu_mode ? "యోగి బిందువు (ఆర్థిక వృద్ధి కేంద్రం)" : "Yogi Point (Core Prosperity Axis)", yogi_point_ausp},
+                {telugu_mode ? "యోగి బిందువు (ఆर्थिक వృద్ధి కేంద్రం)" : "Yogi Point (Core Prosperity Axis)", yogi_point_ausp},
                 {telugu_mode ? "భృగు బిందు (విధి మలుపు)" : "Bhrigu Bindu (Destiny Catalyst)", bhrigu_bindu},
                 {telugu_mode ? "దారకారక (జీవిత భాగస్వామి)" : "Darakaraka (Spouse / Partnership)", planet_lons[darakaraka_idx]},
                 {telugu_mode ? "ఉపపద లగ్నం (వివాహ స్థానం)" : "Upapada Lagna (Marriage Axis)", ul_lon}
@@ -6702,6 +6716,7 @@ void calculate_transits(int t_year, int t_month, int t_day, int t_hour, int t_mi
         
         fflush(stdout); 
     }
+
 struct DayScore{string date; int score; string reason; double jd;};
 
 void decode_exact_date(int target_year, int asc_rashi, int h7_rashi, int h8_rashi, int dk_rashi, int l7_rashi_val, int l8_rashi_val, int target_natal_rashi, int planet_rashis[]){

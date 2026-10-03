@@ -2256,51 +2256,38 @@ void analyze_lordships(int lagna_rasi, int* p_rasi) {
         }
         if (html_mode) printf("</div>\n");
     }
-	
+
 void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
         if (!json_mode) {
             if (html_mode) {
-                printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_mode ? "సమగ్ర గ్రహ శుభ/అశుభ విశ్లేషణ" : "Comprehensive Planetary Auspiciousness");
+                printf("<h2 style='margin-top: 30px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_mode ? "సమగ్ర గ్రహ విశ్లేషణ (8-Step Engine)" : "Comprehensive Planetary Matrix (8-Step Engine)");
                 printf("<table class='data-table' style='margin-top: 0;'><tr>");
                 printf("<th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", 
                        telugu_mode ? "గ్రహం" : "Graha", 
-                       telugu_mode ? "స్కోరు" : "Score", 
-                       telugu_mode ? "స్థితి" : "Status", 
-                       telugu_mode ? "వివరణాత్మక లెక్కింపు" : "Detailed Breakdown");
+                       telugu_mode ? "బలం/ఉద్దేశ్యం" : "Power/Intent", 
+                       telugu_mode ? "స్థితి (Status)" : "Status",
+                       telugu_mode ? "పరిహార విధానం" : "Remedy Phase");
             } else {
                 if (telugu_mode) {
-                    printf("\n[సమగ్ర గ్రహ శుభ/అశుభ & పరిహార విశ్లేషణ (AUSPICIOUSNESS MATRIX)]\n");
-                    printf("-----------------------------------------------------------------------------------------------------------------\n");
-                    printf("%-10s | %-6s | %-15s | %-60s\n", "గ్రహం", "స్కోరు", "స్థితి", "వివరణాత్మక లెక్కింపు");
+                    printf("\n[సమగ్ర గ్రహ శుభ/అశుభ & పరిహార విశ్లేషణ (8-STEP AUSPICIOUSNESS MATRIX)]\n");
+                    printf("----------------------------------------------------------------------------------------------------------------------\n");
+                    printf("%-10s | %-15s | %-35s | %-45s\n", "గ్రహం", "బలం/ఉద్దేశ్యం", "స్థితి", "పరిహార విధానం");
                 } else {
-                    printf("\n[COMPREHENSIVE PLANETARY AUSPICIOUSNESS & REMEDY MATRIX]\n");
-                    printf("-----------------------------------------------------------------------------------------------------------------\n");
-                    printf("%-8s | %-6s | %-6s | %-60s\n", "Graha", "Score", "Status", "Detailed Calculation Breakdown");
+                    printf("\n[COMPREHENSIVE PLANETARY MATRIX (8-STEP ENGINE)]\n");
+                    printf("----------------------------------------------------------------------------------------------------------------------\n");
+                    printf("%-8s | %-15s | %-35s | %-45s\n", "Graha", "Power / Intent", "Status", "Remedy Phase");
                 }
-                printf("-----------------------------------------------------------------------------------------------------------------\n");
+                printf("----------------------------------------------------------------------------------------------------------------------\n");
             }
         }
-        
-        int d9_rashis[10];
-        for(int i=1; i<=9; i++) d9_rashis[i] = get_varga(9, planet_lons[i]);
-
-        double yogi_point = fmod((sun_lon + moon_lon + 93.3333333), 360.0);
-        int y_nak_idx = (int)(yogi_point / (360.0 / 27.0));
-        double avayogi_point = fmod((yogi_point + 186.6666667), 360.0);
-        int ay_nak_idx = (int)(avayogi_point / (360.0 / 27.0));
-        
-        int lord_map[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
-        int yogi_planet = lord_map[y_nak_idx % 9];
-        int avayogi_planet = lord_map[ay_nak_idx % 9];
-        int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0));
         
         auto get_lord = [](int rashi) {
             const int lords[] = {3, 6, 4, 2, 1, 4, 6, 3, 5, 7, 7, 5}; 
             return lords[rashi % 12];
         };
 
-        // Naisargika Maitri (Natural Friendship Array: 1=Friend, -1=Enemy, 0=Neutral)
-        int maitri[8][8] = {
+        // --- BPHS NATURAL FRIENDSHIP MATRIX ---
+        int nat_friend[8][8] = {
             {0, 0, 0, 0, 0, 0, 0, 0},
             {0, 0, 1, 1, 0, 1,-1,-1}, // Sun
             {0, 1, 0, 0, 1, 0, 0, 0}, // Moon
@@ -2311,113 +2298,842 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
             {0,-1,-1,-1, 1, 0, 1, 0}  // Sat
         };
 
-        for (int p = 1; p <= 9; p++) {
-            int score = 0; string breakdown = "";
-            int exaltation_signs[] = {0, 0, 1, 9, 5, 3, 11, 6, 2, 7}; 
-            int debilitation_signs[] = {0, 6, 7, 3, 11, 9, 5, 0, 8, 1}; 
-            int own_signs1[] = {0, 4, 3, 0, 2, 8, 1, 9, -1, -1}; 
-            int own_signs2[] = {0, -1, -1, 7, 5, 11, 6, 10, -1, -1};
-            
-            if (p <= 7) {
-                bool is_exalt_own_deb = false;
-                if (p_rasi[p] == exaltation_signs[p]) { score += 4; breakdown += telugu_mode ? "ఉచ్ఛ(+4) " : "Exalted(+4) "; is_exalt_own_deb = true; }
-                else if (p_rasi[p] == debilitation_signs[p]) { score -= 3; breakdown += telugu_mode ? "నీచ(-3) " : "Debilitated(-3) "; is_exalt_own_deb = true; }
-                else if (p_rasi[p] == own_signs1[p] || p_rasi[p] == own_signs2[p]) { score += 3; breakdown += telugu_mode ? "స్వక్షేత్రం(+3) " : "Own Sign(+3) "; is_exalt_own_deb = true; }
-                
-                // Advanced Naisargika Maitri check (No more generic "+1" for everything)
-                if (!is_exalt_own_deb) {
-                    int r_lord_idx = get_lord(p_rasi[p]);
-                    int relationship = maitri[p][r_lord_idx];
-                    if (relationship == 1) { score += 1; breakdown += telugu_mode ? "మిత్ర స్థానం(+1) " : "Friendly Rasi(+1) "; }
-                    else if (relationship == -1) { score -= 1; breakdown += telugu_mode ? "శత్రు స్థానం(-1) " : "Enemy Rasi(-1) "; }
-                    else { breakdown += telugu_mode ? "తటస్థ స్థానం(0) " : "Neutral Rasi(0) "; }
-                }
+        // --- GLOBAL VARIABLES FOR THE 8-STEP ENGINE ---
+        int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0));
+        
+        int ex_signs[8] = {-1, 0, 1, 9, 5, 3, 11, 6}; 
+        int deb_signs[8] = {-1, 6, 7, 3, 11, 9, 5, 0}; 
+        int mt_signs[8] = {-1, 4, 1, 0, 5, 8, 6, 10}; 
+        int own_1[8] = {-1, 4, 3, 0, 2, 8, 1, 9};
+        int own_2[8] = {-1, 4, 3, 7, 5, 11, 6, 10};
 
-                bool rules_trikona = false, rules_dusthana = false, rules_kendra = false;
-                for (int h = 1; h <= 12; h++) {
-                    int rashi_of_house = (lagna_rasi + h - 1) % 12;
-                    if (rashi_lords[rashi_of_house] == string(p_names_full[p])) {
-                        if (h == 1 || h == 5 || h == 9) rules_trikona = true;
-                        if (h == 3 || h == 6 || h == 8 || h == 11) rules_dusthana = true;
-                        if (h == 4 || h == 7 || h == 10) rules_kendra = true;
+        // Pre-calculate Jaimini Atmakaraka (7-Planet Scheme)
+        vector<pair<int, double>> jaimini_deg;
+        for (int i=1; i<=7; i++) {
+            double deg = fmod(planet_lons[i], 30.0);
+            jaimini_deg.push_back({i, deg});
+        }
+        sort(jaimini_deg.begin(), jaimini_deg.end(), [](const pair<int, double>& a, const pair<int, double>& b) { return a.second > b.second; });
+        int atmakaraka = jaimini_deg[0].first;
+        int amatyakaraka = jaimini_deg[1].first;
+
+        // Yogi / Avayogi (Strictly 186°40' offset)
+        double yogi_point = fmod((sun_lon + moon_lon + 93.3333333), 360.0);
+        int y_nak_idx = (int)(yogi_point / (360.0 / 27.0));
+        double avayogi_point = fmod((yogi_point + 186.6666667), 360.0);
+        int ay_nak_idx = (int)(avayogi_point / (360.0 / 27.0));
+
+        int lord_map[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
+        int yogi_planet = lord_map[y_nak_idx % 9];
+        int avayogi_planet = lord_map[ay_nak_idx % 9];
+
+        // ========================================================
+        // NATIVE SHADBALA COMPONENT CALCULATOR 
+        // ========================================================
+        double p_uchcha[8] = {0}, p_yuddha[8] = {0}, p_ishta[8] = {0}, p_kashta[8] = {0};
+        double exaltation_deg[] = {10.0, 33.0, 298.0, 165.0, 95.0, 357.0, 200.0};
+
+        for (int i = 0; i < 7; i++) {
+            int p = i + 1;
+            double dist_ex = std::abs(planet_lons[p] - exaltation_deg[i]);
+            if (dist_ex > 180.0) dist_ex = 360.0 - dist_ex;
+            p_uchcha[p] = (180.0 - dist_ex) / 3.0;
+
+            double cheshta = 30.0;
+            if (p != 1 && p != 2) {
+                double elongation = std::abs(planet_lons[p] - planet_lons[1]);
+                if (elongation > 180.0) elongation = 360.0 - elongation;
+                cheshta = (elongation / 180.0) * 60.0;
+            }
+            if (cheshta == 0.0) cheshta = 30.0;
+            
+            p_ishta[p] = std::sqrt(p_uchcha[p] * cheshta);
+            p_kashta[p] = std::sqrt((60.0 - p_uchcha[p]) * (60.0 - cheshta));
+        }
+
+        // Graha Yuddha (Planetary War) Logic
+        for (int i = 3; i <= 7; i++) {
+            for (int j = i + 1; j <= 7; j++) {
+                if (std::abs(planet_lons[i] - planet_lons[j]) <= 1.0) {
+                    double diff = std::abs(p_uchcha[i] - p_uchcha[j]);
+                    if (planet_lons[i] < planet_lons[j]) { p_yuddha[i] += diff; p_yuddha[j] -= diff; }
+                    else { p_yuddha[j] += diff; p_yuddha[i] -= diff; }
+                }
+            }
+        }
+
+        // Global Kala Sarpa Check
+        int r_rahu = p_rasi[8], r_ketu = p_rasi[9];
+        bool all_one_side = true, all_other_side = true;
+        for (int i=1; i<=7; i++) {
+            int d1 = (p_rasi[i] - r_rahu + 12) % 12;
+            int d2 = (r_ketu - r_rahu + 12) % 12;
+            if (d1 > d2) all_one_side = false;
+            if (d1 < d2 && d1 != 0) all_other_side = false; 
+        }
+        bool has_kala_sarpa = (all_one_side || all_other_side);
+
+        // ========================================================
+        // GEOMETRIC HELPER LAMBDAS
+        // ========================================================
+        auto is_kendra_from = [&](int r1, int r2) {
+            int d = (r1 - r2 + 12) % 12 + 1; return (d==1 || d==4 || d==7 || d==10);
+        };
+        auto is_trikona_from = [&](int r1, int r2) {
+            int d = (r1 - r2 + 12) % 12 + 1; return (d==1 || d==5 || d==9);
+        };
+        auto is_dusthana_from = [&](int r1, int r2) {
+            int d = (r1 - r2 + 12) % 12 + 1; return (d==6 || d==8 || d==12);
+        };
+        auto has_drishti = [&](int p_source, int r_target) {
+            int src_r = p_rasi[p_source];
+            int d = (r_target - src_r + 12) % 12 + 1;
+            if (d == 7) return true;
+            if (p_source == 3 && (d == 4 || d == 8)) return true;
+            if (p_source == 5 && (d == 5 || d == 9)) return true;
+            if (p_source == 7 && (d == 3 || d == 10)) return true;
+            return false;
+        };
+
+        struct PlanetEval {
+            double power = 0.0;
+            double intent = 0.0;
+            string status_text;
+            string remedy_text;
+            vector<string> breakdown;
+        };
+        PlanetEval p_details[10];
+        double vimsopaka_raw_scores[8] = {0.0};
+
+        // Process Core Physical Planets First (Sun to Saturn)
+        for (int p = 1; p <= 7; p++) {
+            double &pow = p_details[p].power;
+            double &intt = p_details[p].intent;
+            
+            auto add_pow = [&](double pts, string en_txt, string te_txt) {
+                pow += pts;
+                char buf[128]; snprintf(buf, sizeof(buf), "%s (%s%.1f)", telugu_mode ? te_txt.c_str() : en_txt.c_str(), pts >= 0 ? "+" : "", pts);
+                p_details[p].breakdown.push_back(string(buf) + " [Power]");
+            };
+            auto add_int = [&](double pts, string en_txt, string te_txt) {
+                intt += pts;
+                char buf[128]; snprintf(buf, sizeof(buf), "%s (%s%.1f)", telugu_mode ? te_txt.c_str() : en_txt.c_str(), pts >= 0 ? "+" : "", pts);
+                p_details[p].breakdown.push_back(string(buf) + " [Intent]");
+            };
+            auto add_over = [&](double pts, string en_txt, string te_txt) {
+                pow += pts;
+                char buf[128]; snprintf(buf, sizeof(buf), "<b>%s (%s%.1f)</b>", telugu_mode ? te_txt.c_str() : en_txt.c_str(), pts >= 0 ? "+" : "", pts);
+                p_details[p].breakdown.push_back(string(buf) + (pts < 0 ? " <b style='color:#e74c3c;'>[OVERRIDE]</b>" : " <b style='color:#f39c12;'>[OVERRIDE]</b>"));
+            };
+
+            int r = p_rasi[p];
+            double deg = fmod(planet_lons[p], 30.0);
+            int h = (r - lagna_rasi + 12) % 12 + 1;
+
+            double speed = 1.0;
+            int se_p = (p==1)?SE_SUN:(p==2)?SE_MOON:(p==3)?SE_MARS:(p==4)?SE_MERCURY:(p==5)?SE_JUPITER:(p==6)?SE_VENUS:SE_SATURN;
+            double xx[6]; char serr[256];
+            swe_calc_ut(tjd_ut, se_p, iflag, xx, serr);
+            speed = xx[3];
+
+            bool is_malefic_planet = (p == 1 || p == 3 || p == 7);
+            bool is_benefic_planet = (p == 4 || p == 5 || p == 6);
+            if (p == 2) {
+                double lunar_phase = fmod(planet_lons[2] - planet_lons[1] + 360.0, 360.0);
+                if (lunar_phase < 60.0 || lunar_phase > 300.0) is_malefic_planet = true;
+                else is_benefic_planet = true;
+            }
+
+            // ==========================================
+            // STEP 1 & 2: PURE VIMSOPAKA BALA ALGORITHM
+            // ==========================================
+            double vargas_16[] = {3.5, 1.0, 1.0, 0.5, 0.5, 3.0, 0.5, 0.5, 2.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 5.0}; // Sum = 20.0
+            int v_nums[] = {1, 2, 3, 4, 7, 9, 10, 12, 16, 20, 24, 27, 30, 40, 45, 60};
+            
+            double vim_score = 0.0;
+            for (int i = 0; i < 16; i++) {
+                int vr = get_varga(v_nums[i], planet_lons[p]);
+                double mult = 0.5; // Sama default
+                
+                if (vr == ex_signs[p]) mult = 1.0;
+                else if (vr == deb_signs[p]) mult = 0.2;
+                else if (vr == mt_signs[p]) mult = 0.9;
+                else if (vr == own_1[p] || vr == own_2[p]) mult = 0.8;
+                else {
+                    int r_lord = get_lord(vr);
+                    int p_to_l = nat_friend[p][r_lord];
+                    int l_to_p = nat_friend[r_lord][p];
+                    
+                    if (p_to_l == 1 && l_to_p == 1) mult = 0.7; // Adhi-Mitra
+                    else if (p_to_l == 1) mult = 0.6; // Mitra
+                    else if (p_to_l == 0) mult = 0.5; // Sama
+                    else if (p_to_l == -1 && l_to_p == -1) mult = 0.3; // Adhi-Satru
+                    else if (p_to_l == -1) mult = 0.4; // Satru
+                }
+                vim_score += (vargas_16[i] * mult);
+            }
+            
+            vimsopaka_raw_scores[p] = vim_score;
+            char v_buf[64]; snprintf(v_buf, sizeof(v_buf), "Vimsopaka Bala [%.1f/20]", vim_score);
+
+            if (vim_score >= 18.0) add_pow(2.5, v_buf, "పూర్ణ వింశోపక బలం");
+            else if (vim_score >= 15.0) add_pow(1.5, v_buf, "ఉత్కృష్ట వింశోపక బలం");
+            else if (vim_score >= 10.0) add_pow(0.0, v_buf, "మధ్యమ వింశోపక బలం");
+            else if (vim_score >= 5.0) add_pow(-1.5, v_buf, "అల్ప వింశోపక బలం");
+            else add_pow(-2.5, v_buf, "కష్ట వింశోపక బలం");
+
+            // ==========================================
+            // STEP 3: MAKE-OR-BREAK FILTERS (Overrides)
+            // ==========================================
+            bool is_gandanta = false;
+            if ((r==3||r==7||r==11) && deg >= 26.6666) is_gandanta = true;
+            if ((r==0||r==4||r==8) && deg <= 3.3333) is_gandanta = true;
+            
+            if (is_gandanta) add_over(-4.0, "Gandanta (Karmic Knot)", "గండాంత దోషం");
+            else add_over(0.0, "Gandanta Checked (Safe)", "గండాంత దోషం లేదు");
+
+            bool is_combust = false;
+            if (p != 1) {
+                double dist_sun = std::abs(fmod(planet_lons[p] - sun_lon + 360.0, 360.0));
+                if (dist_sun > 180.0) dist_sun = 360.0 - dist_sun;
+                if (dist_sun < 8.0) {
+                    is_combust = true;
+                    if (p == 4) add_over(-2.0, "Combust (Budha Exception 50%)", "అస్తంగత దోషం (బుధ)");
+                    else add_over(-4.0, "Combust (<8 deg from Sun)", "అస్తంగత దోషం");
+                } else {
+                    add_over(0.0, "Combustion Checked (Safe)", "అస్తంగత దోషం లేదు");
+                }
+            }
+
+            if (p >= 3 && p <= 7) {
+                double y_bala = p_yuddha[p];
+                if (y_bala < 0.0) add_over(-3.0, "Graha Yuddha Loser (War Defeat)", "గ్రహ యుద్ధంలో ఓటమి");
+                else if (y_bala > 0.0) add_over(1.0, "Graha Yuddha Winner", "గ్రహ యుద్ధంలో విజయం");
+                else add_over(0.0, "Graha Yuddha Checked (Safe)", "గ్రహ యుద్ధం లేదు");
+            }
+
+            bool is_mks = false;
+            if (p==1 && h==12) is_mks=true;
+            if (p==2 && h==8) is_mks=true;
+            if (p==3 && h==7) is_mks=true;
+            if (p==4 && (h==4||h==7)) is_mks=true;
+            if (p==5 && h==3) is_mks=true;
+            if (p==6 && h==6) is_mks=true;
+            if (p==7 && h==1) is_mks=true;
+            
+            if (is_mks) add_over(-3.0, "Marana Karaka Sthana (MKS)", "మారణ కారక స్థానం (MKS)");
+            else add_over(0.0, "MKS Checked (Safe)", "MKS దోషం లేదు");
+
+            double sr = ShadbalaEngine::final_ratios[p];
+            char sr_buf[128];
+            snprintf(sr_buf, sizeof(sr_buf), "%s: %.2f <b style='color:#95a5a6;'>[Info - Not Counted]</b>", telugu_mode ? "షడ్బల నిష్పత్తి" : "Shadbala Ratio", sr);
+            p_details[p].breakdown.push_back(string(sr_buf));
+
+            // ==========================================
+            // STEP 4: AVASTHA & MATHEMATICAL BALA (Power)
+            // ==========================================
+            bool is_retro = (speed < 0.0) && (p != 1 && p != 2);
+            if (is_retro) {
+                add_pow(2.0, "Retrograde (Vakra)", "వక్ర గమనం");
+                if (is_benefic_planet) add_int(-1.0, "Retrograde Benefic", "వక్ర శుభ గ్రహం");
+                else add_int(-2.0, "Retrograde Malefic", "వక్ర పాప గ్రహం");
+            } else if (p != 1 && p != 2) {
+                add_pow(0.0, "Direct Motion (Margi)", "రుజు గమనం");
+            }
+
+            if (p != atmakaraka) {
+                bool is_odd = (r % 2 == 0); 
+                if (deg >= 24.0) add_pow(is_odd ? -2.0 : 0.0, is_odd ? "Mrita Avastha (Dead)" : "Bala Avastha (Infant)", is_odd ? "మృత అవస్థ" : "బాల అవస్థ");
+                else if (deg >= 18.0) add_pow(is_odd ? -1.0 : +1.0, is_odd ? "Vriddha Avastha (Old)" : "Kumara Avastha (Youth)", is_odd ? "వృద్ధ అవస్థ" : "కుమార అవస్థ");
+                else if (deg >= 12.0) add_pow(+2.0, "Yuva Avastha (Prime)", "యువ అవస్థ");
+                else if (deg >= 6.0) add_pow(is_odd ? +1.0 : -1.0, is_odd ? "Kumara Avastha" : "Vriddha Avastha", is_odd ? "కుమార అవస్థ" : "వృద్ధ అవస్థ");
+                else add_pow(is_odd ? 0.0 : -2.0, is_odd ? "Bala Avastha" : "Mrita Avastha", is_odd ? "బాల అవస్థ" : "మృత అవస్థ");
+            } else {
+                add_pow(0.0, "Avastha Ignored (Atmakaraka Exception)", "ఆత్మకారక మినహాయింపు");
+            }
+
+            // DYNAMIC HOUSE-BASED DIGBALA
+            int strong_h = 1;
+            if (p == 1 || p == 3) strong_h = 10;
+            else if (p == 2 || p == 6) strong_h = 4;
+            else if (p == 4 || p == 5) strong_h = 1;
+            else if (p == 7) strong_h = 7;
+
+            int d_dist = std::abs(h - strong_h);
+            if (d_dist > 6) d_dist = 12 - d_dist;
+            bool in_dusthana = (h == 6 || h == 8 || h == 12);
+            
+            if (d_dist == 0) {
+                if (in_dusthana) add_pow(0.0, "Digbala (Neutral - Dusthana)", "సాధారణ దిగ్బలం (దుస్థాన)");
+                else add_pow(2.0, "Digbala (High)", "పూర్ణ దిగ్బలం");
+            }
+            else if (d_dist == 1) {
+                if (in_dusthana) add_pow(0.0, "Digbala (Neutral - Dusthana)", "సాధారణ దిగ్బలం (దుస్థాన)");
+                else add_pow(1.0, "Digbala (Medium)", "మధ్యస్థ దిగ్బలం");
+            }
+            else if (d_dist == 2) {
+                add_pow(0.0, "Digbala (Neutral)", "సాధారణ దిగ్బలం");
+            }
+            else if (d_dist == 3 || d_dist == 4) {
+                add_pow(-1.0, "Digbala (Low)", "తక్కువ దిగ్బలం");
+            }
+            else { 
+                add_pow(-1.5, "Digbala (Very Low)", "దిగ్బల హీనం");
+            }
+
+            int push_deg[] = {21, 14, 24, 7, 21, 14, 24, 14, 24, 14, 24, 9};
+            if (std::abs(deg - push_deg[r]) <= 1.0) add_pow(2.0, "Pushkara Bhaga", "పుష్కర భాగ");
+
+            int mb_deg[][12] = {
+                {0,0,0,0,0,0,0,0,0,0,0,0}, 
+                {20, 9, 12, 6, 8, 24, 16, 17, 22, 2, 3, 23}, 
+                {26, 12, 13, 25, 24, 11, 26, 14, 13, 25, 5, 12}, 
+                {19, 28, 25, 23, 29, 28, 14, 21, 2, 15, 11, 6}, 
+                {15, 14, 13, 12, 8, 18, 20, 10, 21, 22, 7, 5}, 
+                {19, 29, 12, 27, 6, 4, 13, 10, 17, 11, 15, 28}, 
+                {28, 15, 11, 17, 10, 13, 4, 6, 27, 12, 29, 19}, 
+                {10, 4, 7, 9, 12, 16, 3, 18, 28, 14, 13, 15}, 
+                {14, 13, 12, 11, 24, 23, 22, 21, 10, 20, 18, 8}, 
+                {8, 18, 20, 10, 21, 22, 23, 24, 11, 12, 13, 14}  
+            };
+            if (std::abs(deg - mb_deg[p][r]) <= 1.0) add_pow(-2.0, "Mrityu Bhaga (Fatal Deg)", "మృత్యు భాగ");
+
+            // ==========================================
+            // STEP 5: INTENT LAYER (Deferred Scoring)
+            // ==========================================
+            double ik_diff = p_ishta[p] - p_kashta[p];
+            char ik_buf[128];
+            snprintf(ik_buf, sizeof(ik_buf), "%s: %.1f <b style='color:#95a5a6;'>[Info - Not Counted]</b>", telugu_mode ? "ఇష్ట/కష్ట ఫల నిష్పత్తి" : "Ishta/Kashta Variance", ik_diff);
+            p_details[p].breakdown.push_back(string(ik_buf));
+
+            int lagnesh = get_lord(lagna_rasi);
+            bool is_lagnesh = (p == lagnesh);
+            
+            bool is_trine = false, is_kendra = false, is_dust = false, is_badh = false, is_mar = false;
+            for (int hs=1; hs<=12; hs++) {
+                int hr = (lagna_rasi + hs - 1) % 12;
+                if (rashi_lords[hr] == string(p_names_full[p])) {
+                    if (hs==1 || hs==5 || hs==9) is_trine = true;
+                    if (hs==1 || hs==4 || hs==7 || hs==10) is_kendra = true;
+                    if (hs==6 || hs==8 || hs==12) is_dust = true;
+                    if (hs==2 || hs==7) is_mar = true;
+                    
+                    if (lagna_rasi % 3 == 0 && hs == 11) is_badh = true;
+                    if (lagna_rasi % 3 == 1 && hs == 9) is_badh = true;
+                    if (lagna_rasi % 3 == 2 && hs == 7) is_badh = true;
+                }
+            }
+
+            bool is_yogakaraka = is_trine && is_kendra;
+
+            // 5a. Lordship Calculation (Deferred Addition)
+            double lord_intent = 0.0;
+            string lord_label_en = "", lord_label_te = "";
+
+            if (is_lagnesh) {
+                lord_intent = 3.0; lord_label_en = "Lagna Lord (Supreme Protector)"; lord_label_te = "లగ్నాధిపతి (రక్షకుడు)";
+            } else if (is_dust && in_dusthana) {
+                lord_intent = 2.0; lord_label_en = "Vipareeta Raja Yoga"; lord_label_te = "విపరీత రాజయోగం";
+            } else {
+                if (is_yogakaraka) { lord_intent = 3.0; lord_label_en = "Yogakaraka Lord"; lord_label_te = "యోగకారక ఆధిపత్యం"; }
+                else if (is_trine) { lord_intent = 2.0; lord_label_en = "Trikona Lord"; lord_label_te = "త్రికోణాధిపతి"; }
+                else if (is_kendra) { lord_intent = 1.0; lord_label_en = "Kendra Lord"; lord_label_te = "కేంద్రాధిపతి"; }
+                
+                if (is_mar) { 
+                    lord_intent -= 2.0; 
+                    if (lord_label_en.empty()) { lord_label_en = "Maraka Lord"; lord_label_te = "మారకాధిపతి"; }
+                    else { lord_label_en += " (Maraka)"; lord_label_te += " (మారక)"; }
+                }
+                if (is_badh) { 
+                    lord_intent -= 2.0; 
+                    if (lord_label_en.empty()) { lord_label_en = "Badhaka Lord (Obstruction)"; lord_label_te = "బాధకాధిపతి (అవరోధం)"; }
+                    else { lord_label_en += " (Badhaka)"; lord_label_te += " (బాధక)"; }
+                }
+                if (is_dust && !in_dusthana) { 
+                    lord_intent -= 2.0; 
+                    if (lord_label_en.empty()) { lord_label_en = "Dusthana Lord"; lord_label_te = "దుస్థానాధిపతి"; }
+                    else { lord_label_en += " (Dusthana Lord)"; lord_label_te += " (దుస్థానాధిపతి)"; }
+                }
+            }
+
+            double lord_intent_added = 0.0;
+            if (lord_intent != 0.0) {
+                if (lord_label_en == "") { lord_label_en = "Functional Lordship"; lord_label_te = "భావ ఆధిపత్యం"; }
+                lord_intent_added = lord_intent;
+            }
+
+            // 5b. Placement Calculation (Deferred Addition)
+            double place_intent_added = 0.0;
+            if (!in_dusthana) {
+                double place_intent = 0.0;
+                if (h==1 || h==5 || h==9) place_intent = 2.0;
+                else if (h==4 || h==7 || h==10) place_intent = 1.0;
+                
+                if (place_intent > 0) {
+                    if (is_yogakaraka || is_trine || is_kendra) place_intent *= 0.5; // Prevent placement double-dip
+                    place_intent_added = place_intent;
+                }
+            } else {
+                if (!(is_dust && in_dusthana && !is_lagnesh)) { 
+                    place_intent_added = -2.0;
+                }
+            }
+
+            int r_2 = (r + 1) % 12;
+            int r_12 = (r + 11) % 12;
+            int m_kartari = 0, b_kartari = 0;
+            for (int i=1; i<=9; i++) {
+                if (i==p) continue;
+                bool is_m = (i==1 || i==3 || i==7 || i==8 || i==9);
+                bool is_b = (i==4 || i==5 || i==6);
+                if (i == 2) {
+                    double lunar_phase = fmod(planet_lons[2] - planet_lons[1] + 360.0, 360.0);
+                    if (lunar_phase < 60.0 || lunar_phase > 300.0) is_m = true;
+                    else is_b = true;
+                }
+                if (p_rasi[i] == r_2 || p_rasi[i] == r_12) {
+                    if (is_m) m_kartari++;
+                    if (is_b) b_kartari++;
+                }
+            }
+            if (m_kartari >= 2 && b_kartari == 0) add_int(-2.0, "Papakartari Yoga (Hemmed by Malefics)", "పాపకర్తరి యోగం");
+            else if (b_kartari >= 2 && m_kartari == 0) add_int(2.0, "Shubhakartari Yoga (Hemmed by Benefics)", "శుభకర్తరి యోగం");
+
+            if (p == 2) {
+                bool is_isolated = true;
+                for (int i=1; i<=9; i++) {
+                    if (i==2 || i==8 || i==9 || i==1) continue; 
+                    int dist = (p_rasi[i] - r + 12) % 12 + 1;
+                    if (dist == 1 || dist == 2 || dist == 12 || dist == 4 || dist == 7 || dist == 10) {
+                        is_isolated = false; 
+                        break;
                     }
                 }
-                if (rules_trikona) { score += 3; breakdown += telugu_mode ? "త్రికోణాధిపతి(+3) " : "Trikona Lord(+3) "; }
-                if (rules_dusthana) { score -= 2; breakdown += telugu_mode ? "దుస్థానాధిపతి(-2) " : "Dusthana Lord(-2) "; }
-                if (rules_kendra && !rules_trikona) { 
-                    if (p == 2 || p == 4 || p == 5 || p == 6) { score -= 1; breakdown += telugu_mode ? "కేంద్రాధిపత్య దోషం(-1) " : "Kendradhipati Dosha(-1) "; }
-                    if (p == 1 || p == 3 || p == 7) { score += 1; breakdown += telugu_mode ? "పాప కేంద్రాధిపతి(+1) " : "Malefic Kendra Lord(+1) "; }
-                }
+                if (is_isolated) add_pow(-3.0, "Kemadruma Yoga (Isolated Moon)", "కేమద్రుమ యోగం (ఏకాకి చంద్రుడు)");
+                else add_pow(0.0, "Kemadruma Checked (Safe/Cancelled)", "కేమద్రుమ లేదు (రద్దు అయింది)");
             }
-
-            int h = (p_rasi[p] - lagna_rasi + 12) % 12 + 1;
-            if (h == 1 || h == 5 || h == 9 || h == 4 || h == 7 || h == 10) { score += 2; breakdown += telugu_mode ? "శుభ భావ స్థితి(+2) " : "Good Placement(+2) "; }
-            else if (h == 8 || h == 12) { score -= 3; breakdown += telugu_mode ? "దుస్థాన స్థితి(-3) " : "Dusthana Placement(-3) "; }
-            
-            if (h == 3 || h == 6 || h == 10 || h == 11) { 
-                if (p == 1 || p == 3 || p == 7 || p == 8 || p == 9) { 
-                    score += 2; breakdown += telugu_mode ? "ఉపచయంలో పాపి(+2) " : "Malefic in Upachaya(+2) "; 
-                } 
-            }
-            if (h == 6) { score -= 3; breakdown += telugu_mode ? "దుస్థాన స్థితి(-3) " : "Dusthana Placement(-3) "; } // Apply dusthana penalty separately to 6th
-            
-            int d9_h = (d9_rashis[p] - d9_rashis[0] + 12) % 12 + 1;
-            if (d9_h == 6 || d9_h == 8 || d9_h == 12) { score -= 1; breakdown += telugu_mode ? "D9 దుస్థానం(-1) " : "D9 Dusthana(-1) "; }
-            if (p_rasi[p] == d9_rashis[p]) { score += 2; breakdown += telugu_mode ? "వర్గోత్తమ(+2) " : "Vargottama(+2) "; }
 
             int nak_idx = (int)(planet_lons[p] / (360.0 / 27.0));
-            int actual_nak_lord = lord_map[nak_idx % 9];
-
             int tara_idx = (nak_idx - natal_mo_nak + 27) % 9;
-            if (tara_idx == 2 || tara_idx == 4 || tara_idx == 6) { score -= 1; breakdown += telugu_mode ? "ప్రతికూల తార(-1) " : "Bad Tara(-1) "; } 
-            else if (tara_idx == 1 || tara_idx == 3 || tara_idx == 5 || tara_idx == 7 || tara_idx == 8) { score += 1; breakdown += telugu_mode ? "శుభ తార(+1) " : "Good Tara(+1) "; }
+            if (tara_idx == 2) add_int(-2.0, "Vipat Tara (Danger)", "విపత్ తార");
+            else if (tara_idx == 4) add_int(-1.5, "Pratyak Tara (Obstacles)", "ప్రత్యక్ తార");
+            else if (tara_idx == 6) add_int(-2.5, "Vadha Tara (Destruction)", "వధ తార");
+            else if (tara_idx == 1) add_int(2.0, "Sampat Tara (Wealth)", "సంపత్ తార");
 
-            if (p == yogi_planet) { score += 3; breakdown += telugu_mode ? "యోగి గ్రహం(+3) " : "YOGI Planet(+3) "; }
-            if (p == avayogi_planet) { score -= 3; breakdown += telugu_mode ? "అవయోగి గ్రహం(-3) " : "AVAYOGI Planet(-3) "; }
+            if (p < 8) {
+                int sav = sav_scores[r];
+                if (sav < 25) add_int(-1.5, "Weak SAV (<25 points)", "అష్టకవర్గ దోషం (<25 SAV)");
+                else if (sav >= 28) add_int(1.5, "Strong SAV (>=28 points)", "బలమైన అష్టకవర్గ (>=28 SAV)");
+            }
 
-            int malefic_influence = 0; int benefic_influence = 0; bool node_conjunction = false;
-            for (int asp = 1; asp <= 9; asp++) {
-                if (asp == p) continue;
-                int dist = (p_rasi[p] - p_rasi[asp] + 12) % 12 + 1;
-                bool is_interacting = false;
-                
-                if (dist == 1) { is_interacting = true; if (asp == 8 || asp == 9) node_conjunction = true; } 
-                else if (dist == 7) is_interacting = true; 
-                else if (asp == 3 && (dist == 4 || dist == 8)) is_interacting = true; 
-                else if (asp == 5 && (dist == 5 || dist == 9)) is_interacting = true; 
-                else if (asp == 7 && (dist == 3 || dist == 10)) is_interacting = true; 
-                
-                if (is_interacting) {
-                    if (asp==1 || asp==3 || asp==7 || asp==8 || asp==9) malefic_influence++;
-                    if (asp==2 || asp==4 || asp==5 || asp==6) benefic_influence++;
+            // ==========================================
+            // STEP 8: CLASSICAL YOGAS (Overrides/Additions)
+            // ==========================================
+            
+            // B. Raja Yogas
+            bool forms_raja = false, forms_lagna_raja = false;
+            bool raja_bhanga_maraka = false;
+            
+            for (int q=1; q<=7; q++) {
+                if (p == q) continue;
+                bool q_is_kl = false, q_is_tl = false, q_is_mar = false, q_is_badh = false;
+                for (int hs=1; hs<=12; hs++) {
+                    if (get_lord((lagna_rasi+hs-1)%12) == q) {
+                        if (hs==1 || hs==4 || hs==7 || hs==10) q_is_kl = true;
+                        if (hs==1 || hs==5 || hs==9) q_is_tl = true;
+                        if (hs==2 || hs==7) q_is_mar = true;
+                        if (lagna_rasi % 3 == 0 && hs == 11) q_is_badh = true;
+                        if (lagna_rasi % 3 == 1 && hs == 9) q_is_badh = true;
+                        if (lagna_rasi % 3 == 2 && hs == 7) q_is_badh = true;
+                    }
+                }
+                if ((is_kendra && q_is_tl) || (is_trine && q_is_kl)) {
+                    if (p_rasi[p] == p_rasi[q] || has_drishti(p, p_rasi[q]) || has_drishti(q, p_rasi[p])) {
+                        forms_raja = true;
+                        if (is_mar || is_badh || q_is_mar || q_is_badh) raja_bhanga_maraka = true;
+                    }
+                }
+                if (is_lagnesh && (q_is_kl || q_is_tl)) {
+                    if (p_rasi[p] == p_rasi[q] || has_drishti(p, p_rasi[q]) || has_drishti(q, p_rasi[p])) {
+                        forms_lagna_raja = true;
+                        if (is_mar || is_badh || q_is_mar || q_is_badh) raja_bhanga_maraka = true;
+                    }
                 }
             }
-            if (node_conjunction) { score -= 2; breakdown += telugu_mode ? "ఛాయా గ్రహ కలయిక(-2) " : "Node Conjunction(-2) "; }
-            if (malefic_influence > 0) { score -= malefic_influence; breakdown += (telugu_mode ? "పాప గ్రహ దృష్టి(-" : "Malefic Hit(-") + to_string(malefic_influence) + ") "; }
-            if (benefic_influence > 0) { score += benefic_influence; breakdown += (telugu_mode ? "శుభ గ్రహ దృష్టి(+" : "Benefic Hit(+") + to_string(benefic_influence) + ") "; }
 
-            string fusion_text = telugu_mode ? (score >= 3 ? "అత్యుత్తమ" : (score >= -1 && score <= 2 ? "సాధారణ" : "ప్రతికూల")) : (score >= 3 ? "BEST" : (score >= -1 && score <= 2 ? "AVERAGE" : "BAD"));
-            double sb = 1.0; 
-            
-            if (sb > 0.0) {
-                if (score >= 3) {
-                    fusion_text = telugu_mode ? "అత్యుత్తమ (GREAT RESULTS)" : "GREAT RESULTS (Adequate Power + Best Intent)";
-                } else if (score <= -3) {
-                    fusion_text = telugu_mode ? "ప్రమాదకరం / పరిహారం అవసరం" : "HIGH FRICTION (Remedy Needed)";
+            if (forms_raja || forms_lagna_raja) {
+                bool low_vim = vimsopaka_raw_scores[p] < 10.0;
+                bool papakartari = (m_kartari >= 2 && b_kartari == 0);
+                
+                p_details[p].breakdown.push_back("<i style='color:#7f8c8d;'>[Lordship & Placement merged into Raja Yoga]</i>");
+
+                if (raja_bhanga_maraka) {
+                    add_int(1.5, "Raja Yoga Bhanga (Maraka/Badhaka Partner)", "మారక/బాధక రాజయోగ భంగం");
+                } else if (low_vim && papakartari) {
+                    add_int(1.0, "Raja Yoga Bhanga (Weak)", "రాజయోగ భంగం (బలహీన)");
                 } else {
-                    fusion_text = telugu_mode ? "సాధారణం (మిశ్రమ ఫలితాలు)" : "AVERAGE (Mixed Intent)";
+                    string r_name_en = (forms_raja && forms_lagna_raja) ? "Lagna & Kendra-Trikona Raja Yoga" : (forms_lagna_raja ? "Lagna Raja Yoga" : "Kendra-Trikona Raja Yoga");
+                    string r_name_te = (forms_raja && forms_lagna_raja) ? "లగ్న మరియు కేంద్ర-త్రికోణ రాజయోగం" : (forms_lagna_raja ? "లగ్న రాజయోగం" : "కేంద్ర-త్రికోణ రాజయోగం");
+                    add_int(2.5, r_name_en, r_name_te);
+                }
+            } else {
+                // Safely add deferred lordship/placement if no Raja Yoga subsumes them
+                if (lord_intent_added != 0.0) {
+                    add_int(lord_intent_added, lord_label_en, lord_label_te);
+                }
+                if (place_intent_added != 0.0) {
+                    if (place_intent_added > 0.0) {
+                        add_int(place_intent_added, "Placed in Kendra/Trikona", "కేంద్ర/త్రికోణ స్థితి");
+                    } else {
+                        add_int(place_intent_added, "Placed in Dusthana", "దుస్థాన స్థితి");
+                    }
+                }
+            }
+
+            if (r == deb_signs[p]) {
+                int disp = get_lord(r);
+                int disp_ex = -1;
+                for (int i=1; i<=7; i++) { if (ex_signs[i] == r) disp_ex = i; }
+                bool disp_in_kendra = is_kendra_from(p_rasi[disp], lagna_rasi) || is_kendra_from(p_rasi[disp], p_rasi[2]);
+                bool neecha_lord_exalted = (p_rasi[disp] == ex_signs[disp]);
+                bool exalt_lord_in_kendra = (disp_ex != -1) && (is_kendra_from(p_rasi[disp_ex], lagna_rasi) || is_kendra_from(p_rasi[disp_ex], p_rasi[2]));
+                if (disp_in_kendra || neecha_lord_exalted || exalt_lord_in_kendra) {
+                    add_pow(2.0, "Neecha Bhanga Raja Yoga", "నీచ భంగ రాజయోగం");
+                    add_int(2.0, "Neecha Bhanga Raja Yoga", "నీచ భంగ రాజయోగం");
+                }
+            }
+
+            // A. Pancha Mahapurusha
+            if (p >= 3 && p <= 7 && vimsopaka_raw_scores[p] >= 10.0 && is_kendra_from(r, lagna_rasi)) {
+                if (r == ex_signs[p] || r == mt_signs[p] || r == own_1[p] || r == own_2[p]) {
+                    string y_name = (p==3)?"Ruchaka":(p==4)?"Bhadra":(p==5)?"Hamsa":(p==6)?"Malavya":"Sasa";
+                    double extra_pow = (pow >= 3.0) ? 0.5 : 2.5;
+                    double extra_int = (forms_raja || forms_lagna_raja) ? 0.5 : 1.5;
+                    add_pow(extra_pow, y_name + " Mahapurusha (Extra)", y_name + " మహాపురుష (అదనం)");
+                    add_int(extra_int, y_name + " Mahapurusha", y_name + " మహాపురుష యోగం");
+                }
+            }
+
+            // C. Dhana Yogas
+            bool is_2 = false, is_5 = false, is_11 = false;
+            for (int hs=1; hs<=12; hs++) {
+                if (get_lord((lagna_rasi+hs-1)%12) == p) {
+                    if (hs==2) is_2 = true;
+                    if (hs==5) is_5 = true;
+                    if (hs==11) is_11 = true;
+                }
+            }
+            bool forms_dhana = false, dhana_bhanga = false;
+            if (is_2 || is_5 || is_11) {
+                for (int q=1; q<=7; q++) {
+                    if (p == q) continue;
+                    bool q_is_2 = false, q_is_5 = false, q_is_11 = false, q_is_mar = false, q_is_badh = false;
+                    for (int hs=1; hs<=12; hs++) {
+                        if (get_lord((lagna_rasi+hs-1)%12) == q) {
+                            if (hs==2) q_is_2 = true;
+                            if (hs==5) q_is_5 = true;
+                            if (hs==11) q_is_11 = true;
+                            if (hs==2 || hs==7) q_is_mar = true;
+                            if (lagna_rasi % 3 == 0 && hs == 11) q_is_badh = true;
+                            if (lagna_rasi % 3 == 1 && hs == 9) q_is_badh = true;
+                            if (lagna_rasi % 3 == 2 && hs == 7) q_is_badh = true;
+                        }
+                    }
+                    if ((is_2 && q_is_11) || (is_11 && q_is_2) || (is_2 && q_is_5) || (is_5 && q_is_2) || (is_5 && q_is_11) || (is_11 && q_is_5)) {
+                        if (p_rasi[p] == p_rasi[q] || has_drishti(p, p_rasi[q]) || has_drishti(q, p_rasi[p])) {
+                            forms_dhana = true;
+                            if (is_mar || is_badh || q_is_mar || q_is_badh) dhana_bhanga = true;
+                        }
+                    }
+                }
+            }
+            if (forms_dhana) {
+                if (!dhana_bhanga) {
+                    bool low_vim = vimsopaka_raw_scores[p] < 10.0;
+                    bool papakartari = (m_kartari >= 2 && b_kartari == 0);
+                    double extra = (is_trine || is_kendra || is_yogakaraka) ? 0.5 : 2.0;
+                    
+                    if (low_vim && papakartari) {
+                        add_int(0.5, "Dhana Yoga Bhanga (Weak)", "ధన యోగ భంగం (బలహీన)");
+                    } else {
+                        add_int(extra, "Dhana Yoga (Wealth)", "ధన యోగం");
+                    }
+                }
+            }
+
+            // D. Chandra Yogas
+            if (p == 2) {
+                bool in_2 = false, in_12 = false;
+                int ch_2 = (r + 1) % 12;
+                int ch_12 = (r + 11) % 12;
+                for (int q=2; q<=7; q++) {
+                    if (q == 2) continue;
+                    if (p_rasi[q] == ch_2) in_2 = true;
+                    if (p_rasi[q] == ch_12) in_12 = true;
+                }
+                if (in_2 && in_12) {
+                    add_int(1.5, "Durudhara Yoga (Lunar Assets)", "దురుధర యోగం");
+                    add_pow(1.0, "Durudhara Yoga (Lunar Assets)", "దురుధర యోగం");
+                } else if (in_2) {
+                    add_int(1.5, "Sunapha Yoga (Lunar Assets)", "సునఫ యోగం");
+                    add_pow(1.0, "Sunapha Yoga (Lunar Assets)", "సునఫ యోగం");
+                } else if (in_12) {
+                    add_int(1.5, "Anapha Yoga (Lunar Assets)", "అనఫ యోగం");
+                    add_pow(1.0, "Anapha Yoga (Lunar Assets)", "అనఫ యోగం");
                 }
             }
             
-            natal_scores[p] = score; 
+            bool jup_combust = false;
+            double dist_sun_jup = std::abs(fmod(planet_lons[5] - sun_lon + 360.0, 360.0));
+            if (dist_sun_jup > 180.0) dist_sun_jup = 360.0 - dist_sun_jup;
+            if (dist_sun_jup < 8.0) jup_combust = true;
+            
+            if (p == 5 || p == 2) {
+                if (is_kendra_from(p_rasi[5], p_rasi[2]) && !jup_combust && vimsopaka_raw_scores[5] >= 10.0) {
+                    add_int(2.0, "Gaja Kesari Yoga", "గజకేసరి యోగం");
+                }
+            }
+
+            if (p == 4 || p == 5 || p == 6) {
+                if (is_kendra_from(r, lagna_rasi) && (r - lagna_rasi + 12) % 12 + 1 == 10) add_int(2.0, "Amala Yoga (Spotless Reputation)", "అమల యోగం");
+                else if (is_kendra_from(r, p_rasi[2]) && (r - p_rasi[2] + 12) % 12 + 1 == 10) add_int(2.0, "Amala Yoga (Spotless Reputation)", "అమల యోగం");
+            }
+
+            // E. Surya Yogas
+            if (p == 1 || p == 4) {
+                if (p_rasi[1] == p_rasi[4]) {
+                    double dist_sun_merc = std::abs(fmod(planet_lons[4] - sun_lon + 360.0, 360.0));
+                    if (dist_sun_merc > 180.0) dist_sun_merc = 360.0 - dist_sun_merc;
+                    if (dist_sun_merc >= 10.0 && vimsopaka_raw_scores[4] >= 10.0) {
+                        add_int(1.5, "Budhaditya Yoga", "బుధాదిత్య యోగం");
+                    }
+                }
+            }
+            if (p == 1) {
+                bool in_2 = false, in_12 = false;
+                int su_2 = (r + 1) % 12;
+                int su_12 = (r + 11) % 12;
+                for (int q : {4, 5, 6}) { 
+                    if (p_rasi[q] == su_2) in_2 = true;
+                    if (p_rasi[q] == su_12) in_12 = true;
+                }
+                if (in_2 && in_12) add_int(1.0, "Ubhayachari Yoga", "ఉభయచారి యోగం");
+                else if (in_2) add_int(1.0, "Vesi Yoga", "వేశి యోగం");
+                else if (in_12) add_int(1.0, "Vosi Yoga", "వాసి యోగం");
+            }
+
+            // F. Parivartana Yoga
+            int p_disp = get_lord(r);
+            if (p_disp != p && p_disp <= 7) {
+                if (get_lord(p_rasi[p_disp]) == p) {
+                    add_pow(1.0, "Parivartana Yoga (Exchange)", "పరివర్తన యోగం");
+                    bool check_dhana = false;
+                    auto check_hs = [&](int pl) {
+                        for(int hs=1; hs<=12; hs++) {
+                            if(get_lord((lagna_rasi+hs-1)%12) == pl && (hs==2 || hs==11 || hs==5 || hs==9)) return true;
+                        }
+                        return false;
+                    };
+                    if (check_hs(p) && check_hs(p_disp)) add_int(2.0, "Maha Dhana Parivartana", "మహా ధన పరివర్తన");
+                    else add_int(2.0, "Parivartana Yoga", "పరివర్తన యోగం");
+                }
+            }
+
+            // G. Inauspicious Yogas
+            if (p == 2 || p == 5) {
+                if (!is_kendra_from(p_rasi[2], lagna_rasi) && is_dusthana_from(p_rasi[5], p_rasi[2])) {
+                    add_int(-2.5, "Sakata Yoga (Fluctuations)", "శకట యోగం");
+                }
+            }
+
+            bool is_11th = false;
+            for(int hs=1; hs<=12; hs++) {
+                if(get_lord((lagna_rasi+hs-1)%12) == p && hs==11) is_11th = true;
+            }
+            if (is_11th && is_dusthana_from(r, lagna_rasi)) {
+                bool ben_aspect = has_drishti(4, r) || has_drishti(5, r) || has_drishti(6, r);
+                if (!ben_aspect) add_int(-2.5, "Daridra Yoga (Poverty/Struggle)", "దరిద్ర యోగం");
+            }
+
+            // Kala Sarpa checked securely within scope of `is_lagnesh`
+            if (has_kala_sarpa && is_lagnesh) {
+                add_int(-2.5, "Kala Sarpa Dosha", "కాల సర్ప దోషం");
+            }
+        }
+
+        // ==========================================
+        // RAHU / KETU SPECIFIC RULES 
+        // ==========================================
+        for (int p = 8; p <= 9; p++) {
+            double &pow = p_details[p].power;
+            double &intt = p_details[p].intent;
+
+            auto add_pow = [&](double pts, string en_txt, string te_txt) {
+                pow += pts;
+                char buf[128]; snprintf(buf, sizeof(buf), "%s (%s%.1f)", telugu_mode ? te_txt.c_str() : en_txt.c_str(), pts >= 0 ? "+" : "", pts);
+                p_details[p].breakdown.push_back(string(buf) + " [Power]");
+            };
+            auto add_int = [&](double pts, string en_txt, string te_txt) {
+                intt += pts;
+                char buf[128]; snprintf(buf, sizeof(buf), "%s (%s%.1f)", telugu_mode ? te_txt.c_str() : en_txt.c_str(), pts >= 0 ? "+" : "", pts);
+                p_details[p].breakdown.push_back(string(buf) + " [Intent]");
+            };
+
+            int r = p_rasi[p];
+            int h = (r - lagna_rasi + 12) % 12 + 1;
+            int disp = get_lord(r);
+            
+            // Nodes inherit Dispositor's Vimsopaka Power 
+            double vim_add = 0.0;
+            if (vimsopaka_raw_scores[disp] > 0) {
+                double node_vim = vimsopaka_raw_scores[disp] * 0.5;
+                if (node_vim >= 9.0) vim_add = 2.5;
+                else if (node_vim >= 7.5) vim_add = 1.5;
+                else if (node_vim >= 5.0) vim_add = 0.0;
+                else if (node_vim >= 2.5) vim_add = -1.5;
+                else vim_add = -2.5;
+            }
+            add_pow(vim_add, "Dispositor Vimsopaka Inheritance", "రాశ్యాధిపతి వింశోపక బలం");
+            add_pow(-1.0, "Shadow Node Base Penalty", "ఛాయా గ్రహ దోషం");
+
+            double disp_int = p_details[disp].intent;
+            if (disp_int < 0) add_int(-2.0, "Bad Dispositor Intent", "దుష్ట రాశ్యాధిపతి ఉద్దేశ్యం");
+            else add_int(1.0, "Good Dispositor Intent", "శుభ రాశ్యాధిపతి ఉద్దేశ్యం");
+
+            if (h == 3 || h == 6 || h == 10 || h == 11) add_int(2.0, "Node in Upachaya", "ఉపచయంలో ఛాయా గ్రహం");
+            if (h == 8 || h == 12) add_int(-3.0, "Node in Dusthana", "దుస్థానంలో ఛాయా గ్రహం");
+            
+            int push_deg[] = {21, 14, 24, 7, 21, 14, 24, 14, 24, 14, 24, 9};
+            if (std::abs(fmod(planet_lons[p], 30.0) - push_deg[r]) <= 1.0) add_pow(2.0, "Pushkara Bhaga", "పుష్కర భాగ");
+            
+            int nak_idx = (int)(planet_lons[p] / (360.0 / 27.0));
+            int tara_idx = (nak_idx - natal_mo_nak + 27) % 9;
+            if (tara_idx == 2) add_int(-2.0, "Vipat Tara (Danger)", "విపత్ తార");
+            else if (tara_idx == 4) add_int(-1.5, "Pratyak Tara (Obstacles)", "ప్రత్యక్ తార");
+            else if (tara_idx == 6) add_int(-2.5, "Vadha Tara (Destruction)", "వధ తార");
+            else if (tara_idx == 1) add_int(2.0, "Sampat Tara (Wealth)", "సంపత్ తార");
+        }
+
+        // ==========================================
+        // Grahana Dosha (Eclipses)
+        // ==========================================
+        for (int p = 1; p <= 2; p++) { 
+            double dist_r = std::abs(fmod(planet_lons[p] - planet_lons[8] + 360.0, 360.0));
+            if (dist_r > 180.0) dist_r = 360.0 - dist_r;
+            double dist_k = std::abs(fmod(planet_lons[p] - planet_lons[9] + 360.0, 360.0));
+            if (dist_k > 180.0) dist_k = 360.0 - dist_k;
+
+            if (dist_r < 6.0 || dist_k < 6.0) {
+                p_details[p].power -= 2.0;
+                p_details[p].breakdown.push_back("<b>Grahana Dosha (<6 deg from Node) (-2.0)</b> <b style='color:#e74c3c;'>[OVERRIDE]</b>");
+            }
+        }
+
+        // ==========================================
+        // STEP 9: JAIMINI CROSS-CHECK & REMEDY FLOORS
+        // ==========================================
+        for (int p = 1; p <= 9; p++) {
+            double &pow = p_details[p].power;
+            double &intt = p_details[p].intent;
+
+            if (p == atmakaraka) {
+                p_details[p].breakdown.push_back("<b>Atmakaraka (Soul Planet) [3x Impact applied to final events]</b>");
+            } else if (p == amatyakaraka) {
+                p_details[p].breakdown.push_back("<b>Amatyakaraka (Career Planet) [2x Impact applied to final events]</b>");
+            }
+
+            if (p == yogi_planet) {
+                intt += 2.5;
+                p_details[p].breakdown.push_back(telugu_mode ? "యోగి గ్రహం (+2.5) [Intent]" : "Yogi Planet (+2.5) [Intent]");
+                if (intt < 0.0) { 
+                    intt = std::max(intt, 0.0) + 1.0; 
+                    p_details[p].breakdown.push_back("<b>Yogi Protection Floor (Intent restored to +1.0)</b> <b style='color:#f39c12;'>[OVERRIDE]</b>"); 
+                }
+            }
+            if (p == avayogi_planet) {
+                intt -= 2.5;
+                p_details[p].breakdown.push_back(telugu_mode ? "అవయోగి గ్రహం (-2.5) [Intent]" : "Avayogi Planet (-2.5) [Intent]");
+                if (intt > 0.0) { 
+                    intt = std::min(intt, 0.0) - 1.0; 
+                    p_details[p].breakdown.push_back("<b>Avayogi Ceiling (Intent capped at -1.0)</b> <b style='color:#e74c3c;'>[OVERRIDE]</b>"); 
+                }
+            }
+
+            // ==========================================
+            // FINAL DECISION (3x3 Matrix)
+            // ==========================================
+            string status = "", color = "", remedy = "";
+            
+            int p_level = (pow >= 2.0) ? 2 : (pow >= 0.0) ? 1 : 0; 
+            int i_level = (intt >= 2.0) ? 2 : (intt > -0.99) ? 1 : 0;
+
+            string p_str_en = (p_level == 2) ? "Strong" : (p_level == 1) ? "Medium" : "Weak";
+            string i_str_en = (i_level == 2) ? "Good" : (i_level == 1) ? "Mixed" : "Bad";
+            string combo_en = "(" + p_str_en + " + " + i_str_en + " Intent)";
+
+            string p_str_te = (p_level == 2) ? "బలమైన" : (p_level == 1) ? "మధ్యస్థ" : "బలహీన";
+            string i_str_te = (i_level == 2) ? "శుభ" : (i_level == 1) ? "మిశ్రమ" : "చెడు";
+            string combo_te = "(" + p_str_te + " + " + i_str_te + " ఉద్దేశ్యం)";
+
+            if (i_level == 2) {
+                if (p_level == 2) {
+                    status = (telugu_mode ? "అత్యుత్తమ " + combo_te : "GREAT RESULTS " + combo_en);
+                    color = "#2ecc71"; remedy = telugu_mode ? "పరిహారం అవసరం లేదు" : "No Remedy Needed";
+                } else if (p_level == 1) {
+                    status = (telugu_mode ? "సాధారణ శుభం " + combo_te : "AVERAGE GOOD " + combo_en);
+                    color = "#27ae60"; remedy = telugu_mode ? "రత్నధారణ ద్వారా బలాన్ని పెంచాలి" : "Strengthening (Gemstone/Metal)";
+                } else {
+                    status = (telugu_mode ? "బలహీన శుభం " + combo_te : "WEAK BENEFIC " + combo_en);
+                    color = "#3498db"; remedy = telugu_mode ? "కచ్చితంగా రత్నధారణ అవసరం" : "Gemstone Required";
+                }
+            } else if (i_level == 0) {
+                if (p_level == 2) {
+                    status = (telugu_mode ? "ప్రమాదకరం " + combo_te : "DANGEROUS " + combo_en);
+                    color = "#c0392b"; remedy = telugu_mode ? "జపాలు/దానాలు మాత్రమే (రత్నధారణ చేయకూడదు)" : "Mantra/Daanam ONLY (NEVER Gemstone)";
+                } else if (p_level == 1) {
+                    status = (telugu_mode ? "సాధారణ ప్రతికూలం " + combo_te : "AVERAGE BAD " + combo_en);
+                    color = "#e67e22"; remedy = telugu_mode ? "జపాలు/దానాలు అవసరం" : "Mantra/Daanam";
+                } else {
+                    status = (telugu_mode ? "బలహీన ప్రతికూలం " + combo_te : "LOW & BAD " + combo_en);
+                    color = "#e74c3c"; remedy = telugu_mode ? "ముందు జపాలు, తర్వాత స్వల్ప రత్నధారణ" : "Mantra/Daanam first, then mild strengthening";
+                }
+            } else {
+                status = (telugu_mode ? "సాధారణం " + combo_te : "AVERAGE " + combo_en);
+                color = "#f1c40f"; remedy = telugu_mode ? "సాధారణ గ్రహ జపాలు" : "Standard Planetary Mantras";
+            }
+            
+            // Special Remedy Overrides
+            if (p == avayogi_planet || (p == atmakaraka && intt <= -1.0)) {
+                remedy = telugu_mode ? "ఆత్మకారక/అవయోగి దోషం - కేవలం మంత్ర సాధన మాత్రమే" : "Mantra/Sadhana ONLY (Avayogi / Afflicted AK)";
+            }
+            if (p <= 7 && (p_rasi[p] - lagna_rasi + 12) % 12 + 1 != 6 && (p_rasi[p] - lagna_rasi + 12) % 12 + 1 != 8 && (p_rasi[p] - lagna_rasi + 12) % 12 + 1 != 12) {
+                bool is_trine = false, is_kendra = false;
+                for (int hs=1; hs<=12; hs++) {
+                    int hr = (lagna_rasi + hs - 1) % 12;
+                    if (rashi_lords[hr] == string(p_names_full[p])) {
+                        if (hs==1 || hs==5 || hs==9) is_trine = true;
+                        if (hs==1 || hs==4 || hs==7 || hs==10) is_kendra = true;
+                    }
+                }
+                if (is_trine && is_kendra && intt < 0.0) {
+                    remedy = telugu_mode ? "40 రోజుల శాంతి తర్వాత రత్నధారణ (యోగకారక)" : "Shanti first for 40 days, then mild strengthening (Yogakaraka)";
+                }
+            }
+            
+            p_details[p].status_text = status;
+            p_details[p].remedy_text = remedy;
+
+            // --- PRINT SUMMARY ROW ---
             if (!json_mode) {
                 if (html_mode) {
-                    printf("<tr><td>%s</td><td>%d</td><td>%s</td><td>%s</td></tr>", 
+                    char score_buf[64]; snprintf(score_buf, sizeof(score_buf), "P: %.1f | I: %.1f", pow, intt);
+                    printf("<tr><td>%s</td><td><b style='color:#fff;'>%s</b></td><td><b style='color:%s;'>%s</b></td><td>%s</td></tr>", 
                            telugu_mode ? get_planet_name(p).c_str() : p_names_full[p], 
-                           score, fusion_text.c_str(), breakdown.c_str());
+                           score_buf, color.c_str(), status.c_str(), remedy.c_str());
                 } else {
-                    if (telugu_mode) printf("%-10s | %-6d | %-40s | %s\n", get_planet_name(p).c_str(), score, fusion_text.c_str(), breakdown.c_str());
-                    else printf("%-8s | %-6d | %-65s | %s\n", p_names_full[p], score, fusion_text.c_str(), breakdown.c_str());
+                    char score_buf[64]; snprintf(score_buf, sizeof(score_buf), "P:%.1f I:%.1f", pow, intt);
+                    if (telugu_mode) printf("%-10s | %-13s | %-35s | %-45s\n", get_planet_name(p).c_str(), score_buf, status.c_str(), remedy.c_str());
+                    else printf("%-8s | %-13s | %-35s | %-45s\n", p_names_full[p], score_buf, status.c_str(), remedy.c_str());
                 }
             }
         }
@@ -2426,21 +3142,59 @@ void analyze_auspiciousness(int lagna_rasi, int* p_rasi) {
             if (html_mode) {
                 printf("</table>");
                 printf("<p style='color: #888; font-size: 14px; margin-top: 10px;'>%s</p>", 
-                       telugu_mode ? "* గమనిక: 'ప్రతికూలం / ప్రమాదకరం' అని ఉన్న గ్రహాలకు జపాలు, దానాలు వంటి నిర్దిష్ట పరిహారాలు అవసరం.<br>* గమనిక: 'సాధారణం' అని ఉన్న గ్రహాలకు రత్నధారణ ద్వారా బలాన్ని పెంచుకోవచ్చు." 
-                                   : "* NOTE: Planets marked 'HIGH FRICTION' require specific Remedies (Mantras/Daanams).<br>* NOTE: Planets marked 'AVERAGE' can be strengthened with Gemstones or Colors.");
-            } else {
-                printf("-----------------------------------------------------------------------------------------------------------------\n");
-                if (telugu_mode) {
-                    printf(" * గమనిక: 'ప్రతికూల/ప్రమాదకర' అని ఉన్న గ్రహాలకు జపాలు/దానాలు వంటి నిర్దిష్ట పరిహారాలు అవసరం.\n");
-                    printf(" * గమనిక: 'ఉపయోగపడని శక్తి' అని ఉన్న గ్రహాలకు రత్నధారణ/యంత్రాల ద్వారా బలాన్ని పెంచాలి.\n");
-                } else {
-                    printf(" * NOTE: Planets marked 'HIGH FRICTION' require specific Remedies (Mantras/Daanams).\n");
-                    printf(" * NOTE: Planets marked 'AVERAGE' require Strengthening (Gemstones/Metals).\n");
+                       telugu_mode ? "<b>P: బలం (Power)</b> | <b>I: ఉద్దేశ్యం (Intent)</b><br>* గమనిక: 'ప్రమాదకరం' అని ఉన్న గ్రహాలకు ఎప్పటికీ రత్నధారణ చేయకూడదు. దానాలు, జపాలు మాత్రమే చేయాలి." 
+                                   : "<b>P: Power (Ability to manifest)</b> | <b>I: Intent (Agenda towards you)</b><br>* NOTE: NEVER wear a gemstone for a planet marked 'DANGEROUS'. Use Mantras/Daanams to pacify it.");
+                
+                printf("<h3 style='color: var(--accent); margin-top: 35px; margin-bottom: 10px;'>%s</h3>", telugu_mode ? "వివరణాత్మక గ్రహ విశ్లేషణ" : "Detailed Planetary Breakdown");
+                printf("<div style='display: grid; gap: 15px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));'>");
+                for (int p = 1; p <= 9; p++) {
+                    string color = (p_details[p].power >= 2 && p_details[p].intent >= 2) ? "#2ecc71" : ((p_details[p].power >= 2 && p_details[p].intent < 0) ? "#e74c3c" : "#34495e");
+                    printf("<div style='background: #1e1e24; padding: 15px; border-radius: 6px; border-left: 4px solid %s;'>", color.c_str());
+                    printf("<h4 style='margin: 0 0 10px 0; color: #fff;'>%s <span style='color:#f1c40f;'>[P: %.1f | I: %.1f]</span></h4>", 
+                           telugu_mode ? get_planet_name(p).c_str() : p_names_full[p], p_details[p].power, p_details[p].intent);
+                    printf("<ul style='margin: 0; padding-left: 20px; color: #ccc; font-size: 14px; line-height: 1.6;'>");
+                    for (const string& item : p_details[p].breakdown) {
+                        printf("<li>%s</li>", item.c_str());
+                    }
+                    printf("</ul></div>");
                 }
+                printf("</div>\n");
+
+            } else {
+                printf("----------------------------------------------------------------------------------------------------------------------\n");
+                if (telugu_mode) {
+                    printf(" * P = బలం (శక్తి), I = ఉద్దేశ్యం (కర్మ లక్ష్యం)\n");
+                    printf(" * గమనిక: 'ప్రమాదకరం' అని ఉన్న గ్రహాలకు రత్నధారణ చేయకూడదు. దానాలు, జపాలు మాత్రమే చేయాలి.\n");
+                    printf("\n[వివరణాత్మక గ్రహ విశ్లేషణ (DETAILED PLANETARY BREAKDOWN)]\n");
+                } else {
+                    printf(" * P = Power (Ability to manifest), I = Intent (Karmic Agenda)\n");
+                    printf(" * NOTE: NEVER wear a gemstone for a planet marked 'DANGEROUS'. Use Mantras/Daanams to pacify it.\n");
+                    printf("\n[DETAILED PLANETARY BREAKDOWN]\n");
+                }
+                printf("----------------------------------------------------------------------------------------------------------------------\n");
+                
+                for (int p = 1; p <= 9; p++) {
+                    printf(" => %s [Power: %.1f | Intent: %.1f]\n", (telugu_mode ? get_planet_name(p).c_str() : p_names_full[p]), p_details[p].power, p_details[p].intent);
+                    for (const string& item : p_details[p].breakdown) {
+                        string clean = item;
+                        size_t pos;
+                        while ((pos = clean.find("<b>")) != string::npos) clean.replace(pos, 3, "");
+                        while ((pos = clean.find("</b>")) != string::npos) clean.replace(pos, 4, "");
+                        while ((pos = clean.find("<b style='color:#e74c3c;'>")) != string::npos) clean.replace(pos, 26, "");
+                        while ((pos = clean.find("<b style='color:#f39c12;'>")) != string::npos) clean.replace(pos, 26, "");
+                        while ((pos = clean.find("<b style='color:#95a5a6;'>")) != string::npos) clean.replace(pos, 26, "");
+                        while ((pos = clean.find("<i style='color:#7f8c8d;'>")) != string::npos) clean.replace(pos, 26, "");
+                        while ((pos = clean.find("</i>")) != string::npos) clean.replace(pos, 4, "");
+                        
+                        printf("    * %s\n", clean.c_str());
+                    }
+                    printf("\n");
+                }
+                printf("----------------------------------------------------------------------------------------------------------------------\n");
             }
         }
     }
-	
+
 void search_exact_degree(string planet_name, string sign_name, int deg, int min, int sec, int search_year, int search_month, int search_day = 0) {
         // 1. Resolve Planet Index
         string p_lower = planet_name;

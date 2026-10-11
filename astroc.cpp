@@ -9550,10 +9550,205 @@ void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2,
     struct Hit { int y, m, d; int s1, s2, total; string cons_env, arch1, arch2, res1, res2, t_pos; };
     vector<Hit> peak_hits;
 
+    // --- PRE-CALCULATE EXACT NATAL SYNASTRY CONJUNCTIONS (TETHERS) ---
+    struct SynastryHit { int p1_idx, p2_idx; double lon; string name1, name2; };
+    vector<SynastryHit> karmic_triggers;
+    auto get_dist = [](double l1, double l2) {
+        double d = std::abs(l1 - l2);
+        if (d > 180.0) d = 360.0 - d;
+        return d;
+    };
+
+    for (int i = 1; i <= 9; i++) {
+        for (int j = 1; j <= 9; j++) {
+            if (get_dist(p1.planet_lons[i], p2.planet_lons[j]) <= 2.0) { // 2° Orb for Natal Overlays
+                double mid_lon = (p1.planet_lons[i] + p2.planet_lons[j]) / 2.0; 
+                if (std::abs(p1.planet_lons[i] - p2.planet_lons[j]) > 180.0) mid_lon = fmod(mid_lon + 180.0, 360.0);
+                karmic_triggers.push_back({i, j, mid_lon, p_names_full[i], p_names_full[j]});
+            }
+        }
+    }
+
     for (double jd = start_jd; jd <= end_jd; jd += 1.0) {
         string r1 = "", e1 = "", a1 = "", r2 = "", e2 = "", a2 = "";
         int s1 = calculate_person_score(p1, jd, r1, e1, a1);
         int s2 = calculate_person_score(p2, jd, r2, e2, a2);
+
+        // -----------------------------------------------------------------------
+        // DEFINITE COMMUNICATION TRIGGER LOGIC (EXACT DEGREE TELEPATHY & TRINES)
+        // -----------------------------------------------------------------------
+        int p1_lagna_rasi = p1.planet_rashis[0];
+        int p2_lagna_rasi = p2.planet_rashis[0];
+        int p2_m_rasi = p2.planet_rashis[2];
+
+        int p1_h3 = (p1_lagna_rasi + 2) % 12;
+        int p1_h7 = (p1_lagna_rasi + 6) % 12;
+
+        double xx_mo[6], xx_ma[6], xx_me[6]; char serr[256];
+        swe_calc_ut(jd, SE_MOON, p1.iflag, xx_mo, serr);
+        swe_calc_ut(jd, SE_MARS, p1.iflag, xx_ma, serr);
+        swe_calc_ut(jd, SE_MERCURY, p1.iflag, xx_me, serr);
+
+        double tr_mo_lon = xx_mo[0];
+        double tr_ma_lon = xx_ma[0];
+        double tr_me_lon = xx_me[0];
+
+        int tr_moon = (int)(tr_mo_lon / 30.0);
+        int tr_mars = (int)(tr_ma_lon / 30.0);
+        int tr_merc = (int)(tr_me_lon / 30.0);
+
+        auto get_lord = [](int rashi) {
+            const int lords[] = {3, 6, 4, 2, 1, 4, 6, 3, 5, 7, 7, 5}; 
+            return lords[rashi % 12];
+        };
+
+        int p1_3L = get_lord(p1_h3);
+        double xx_3L[6];
+        int se_3L = (p1_3L == 1) ? SE_SUN : (p1_3L == 2) ? SE_MOON : (p1_3L == 3) ? SE_MARS : (p1_3L == 4) ? SE_MERCURY : (p1_3L == 5) ? SE_JUPITER : (p1_3L == 6) ? SE_VENUS : SE_SATURN;
+        swe_calc_ut(jd, se_3L, p1.iflag, xx_3L, serr);
+        int tr_3L = (int)(xx_3L[0] / 30.0);
+
+        int comm_score = 0;
+        string comm_reasons = "";
+
+        // EXACT DEGREE LOGIC (Orb <= 1.5°) - Now includes 120/240 Trines
+        auto exact_aspect = [&](double t_lon, double n_lon) {
+            if (get_dist(t_lon, n_lon) <= 1.5) return true; // Conjunction
+            if (get_dist(fmod(t_lon + 180.0, 360.0), n_lon) <= 1.5) return true; // Opposition
+            if (get_dist(fmod(t_lon + 120.0, 360.0), n_lon) <= 1.5) return true; // Trine 1
+            if (get_dist(fmod(t_lon + 240.0, 360.0), n_lon) <= 1.5) return true; // Trine 2
+            return false;
+        };
+
+        // 1. Mercury Return / Exact Hit (Forces communication instantly)
+        if (exact_aspect(tr_me_lon, p1.planet_lons[4])) { comm_score += 4; comm_reasons += "[Tr.Budha exact hits P1.Budha] "; }
+        if (exact_aspect(tr_me_lon, p2.planet_lons[4])) { comm_score += 4; comm_reasons += "[Tr.Budha exact hits P2.Budha] "; }
+        
+        // 2. Mercury hitting the Mind/Body
+        if (exact_aspect(tr_me_lon, p1.planet_lons[2]) || exact_aspect(tr_me_lon, p1.planet_lons[0])) { comm_score += 3; comm_reasons += "[Tr.Budha exact hits P1.Mind/Body] "; }
+        if (exact_aspect(tr_me_lon, p2.planet_lons[2]) || exact_aspect(tr_me_lon, p2.planet_lons[0])) { comm_score += 3; comm_reasons += "[Tr.Budha exact hits P2.Mind/Body] "; }
+
+        // 3. Mind hitting the Message
+        if (exact_aspect(tr_mo_lon, p1.planet_lons[4])) { comm_score += 2; comm_reasons += "[Tr.Moon exact hits P1.Budha] "; }
+        if (exact_aspect(tr_mo_lon, p2.planet_lons[4])) { comm_score += 2; comm_reasons += "[Tr.Moon exact hits P2.Budha] "; }
+
+        // 4. Dasha Resonance (Are they in a communication timeline?)
+        int d_map_comm[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
+        int p1_md, p1_ad; p1.get_active_dasha_lords(jd, p1_md, p1_ad);
+        int p2_md, p2_ad; p2.get_active_dasha_lords(jd, p2_md, p2_ad);
+        if (d_map_comm[p1_md] == 4 || d_map_comm[p1_ad] == 4) { comm_score += 2; comm_reasons += "[P1 in Budha Dasha] "; }
+        if (d_map_comm[p2_md] == 4 || d_map_comm[p2_ad] == 4) { comm_score += 2; comm_reasons += "[P2 in Budha Dasha] "; }
+
+        // 5. Broad Sign-Based Triggers (Original Logic)
+        if (tr_moon == p1_h3) { comm_score += 2; comm_reasons += "[Moon in 3H] "; }
+        if (tr_moon == p1_h7) { comm_score += 2; comm_reasons += "[Moon in 7H] "; }
+        if (tr_moon == p2_lagna_rasi || tr_moon == p2_m_rasi) { comm_score += 2; comm_reasons += "[Moon hits P2] "; }
+
+        if (tr_merc == p1_h3) { comm_score += 2; comm_reasons += "[Budha in 3H] "; }
+        if (tr_merc == p1_h7) { comm_score += 2; comm_reasons += "[Budha in 7H] "; }
+        if (tr_merc == p2_lagna_rasi || tr_merc == p2_m_rasi) { comm_score += 2; comm_reasons += "[Budha hits P2] "; }
+
+        if (tr_mars == p1_h3) { comm_score += 2; comm_reasons += "[Mangal in 3H (Impulse)] "; }
+        if (tr_3L == p1_h7 || tr_3L == p2_lagna_rasi) { comm_score += 2; comm_reasons += "[3rd Lord hits 7H/P2] "; }
+
+        if (comm_score >= 4) {
+            char comm_buf[512];
+            if (html) {
+                snprintf(comm_buf, sizeof(comm_buf), "<br><b style='color:#e74c3c;'>📞 COMMUNICATION SPIKE (Score %d): %s</b>", comm_score, comm_reasons.c_str());
+            } else {
+                snprintf(comm_buf, sizeof(comm_buf), "\n           | \033[1;31m📞 COMMUNICATION SPIKE (Score %d): %s\033[0m", comm_score, comm_reasons.c_str());
+            }
+            if (r1.find("COMMUNICATION SPIKE") == string::npos) r1 += string(comm_buf);
+            
+            // Priority Boost: Ensure this communication spike bypasses the standard threshold to be logged!
+            if (s1 < 16) s1 = 16;
+            if (s2 < 11) s2 = 11;
+        }
+
+        // -----------------------------------------------------------------------
+        // [FATED SYNASTRY RESONANCE - EXACT DEGREE & TRINE MATCH TRIGGERS]
+        // -----------------------------------------------------------------------
+        bool fated_encounter = false;
+        vector<string> fated_reasons_list;
+
+        for (const auto& kt : karmic_triggers) {
+            int check_planets[] = {kt.p1_idx, kt.p2_idx, 4, 2}; // Involved planets + Mercury + Moon
+            
+            for (int i = 0; i < 4; i++) {
+                int cp = check_planets[i];
+                if (i == 1 && cp == kt.p1_idx) continue; 
+                if (i == 2 && (cp == kt.p1_idx || cp == kt.p2_idx)) continue;
+                if (i == 3 && (cp == kt.p1_idx || cp == kt.p2_idx || cp == 4)) continue;
+
+                double t_lon;
+                if (cp == 2) t_lon = tr_mo_lon;
+                else if (cp == 3) t_lon = tr_ma_lon;
+                else if (cp == 4) t_lon = tr_me_lon;
+                else {
+                    double xx_tmp[6]; char serr_tmp[256];
+                    int se_tmp = (cp == 1)? SE_SUN : (cp == 5)? SE_JUPITER : (cp == 6)? SE_VENUS : (cp == 7)? SE_SATURN : (cp == 8||cp == 9)? p1.node_calc_type : SE_MOON;
+                    swe_calc_ut(jd, se_tmp, p1.iflag, xx_tmp, serr_tmp);
+                    t_lon = (cp == 9) ? fmod(xx_tmp[0] + 180.0, 360.0) : xx_tmp[0];
+                }
+
+                double dist_conj = get_dist(t_lon, kt.lon);
+                double dist_opp = get_dist(fmod(t_lon + 180.0, 360.0), kt.lon);
+                double dist_t1 = get_dist(fmod(t_lon + 120.0, 360.0), kt.lon);
+                double dist_t2 = get_dist(fmod(t_lon + 240.0, 360.0), kt.lon);
+
+                double exact_orb = 1.5;
+                bool is_hit = (dist_conj <= exact_orb || dist_opp <= exact_orb || dist_t1 <= exact_orb || dist_t2 <= exact_orb);
+
+                // Special Vedic Aspects for Mars and Saturn
+                if (!is_hit && cp == 3) {
+                    if (get_dist(fmod(t_lon + 90.0, 360.0), kt.lon) <= exact_orb) is_hit = true;
+                    if (get_dist(fmod(t_lon + 210.0, 360.0), kt.lon) <= exact_orb) is_hit = true;
+                }
+                if (!is_hit && cp == 7) {
+                    if (get_dist(fmod(t_lon + 60.0, 360.0), kt.lon) <= exact_orb) is_hit = true;
+                    if (get_dist(fmod(t_lon + 270.0, 360.0), kt.lon) <= exact_orb) is_hit = true;
+                }
+
+                if (is_hit) {
+                    fated_encounter = true;
+                    string aspect_type = "Conjuncts";
+                    if (dist_opp <= exact_orb) aspect_type = "Aspects(7H)";
+                    else if (dist_t1 <= exact_orb || dist_t2 <= exact_orb) aspect_type = "Trines(5H/9H)";
+                    else if (cp == 3 && get_dist(fmod(t_lon + 90.0, 360.0), kt.lon) <= exact_orb) aspect_type = "Aspects(4H)";
+                    else if (cp == 3 && get_dist(fmod(t_lon + 210.0, 360.0), kt.lon) <= exact_orb) aspect_type = "Aspects(8H)";
+                    else if (cp == 7 && get_dist(fmod(t_lon + 60.0, 360.0), kt.lon) <= exact_orb) aspect_type = "Aspects(3H)";
+                    else if (cp == 7 && get_dist(fmod(t_lon + 270.0, 360.0), kt.lon) <= exact_orb) aspect_type = "Aspects(10H)";
+
+                    string reason_str;
+                    if (kt.p1_idx == kt.p2_idx) {
+                        reason_str = "[Tr." + string(p_names_full[cp]) + " " + aspect_type + " Shared Natal " + kt.name1 + "]";
+                    } else {
+                        reason_str = "[Tr." + string(p_names_full[cp]) + " " + aspect_type + " Natal " + kt.name1 + "-" + kt.name2 + " Overlay]";
+                    }
+                    if (find(fated_reasons_list.begin(), fated_reasons_list.end(), reason_str) == fated_reasons_list.end()) {
+                        fated_reasons_list.push_back(reason_str);
+                    }
+                }
+            }
+        }
+
+        if (fated_encounter) {
+            string combined_reasons = "";
+            for (const string& s : fated_reasons_list) combined_reasons += s + " ";
+            
+            char fated_buf[1024];
+            if (html) {
+                snprintf(fated_buf, sizeof(fated_buf), "<br><b style='color:#fff; background:#c0392b; padding:2px 6px; border-radius:4px;'>🚨 FATED EMERGENCY COMM: %s</b>", combined_reasons.c_str());
+            } else {
+                snprintf(fated_buf, sizeof(fated_buf), "\n           | \033[1;41;37m 🚨 FATED EMERGENCY COMM: %s \033[0m", combined_reasons.c_str());
+            }
+            if (r1.find("FATED EMERGENCY COMM") == string::npos) r1 += string(fated_buf);
+            
+            // Massive priority boost to force logging of this fated encounter
+            if (s1 < 16) s1 = 18;
+            if (s2 < 16) s2 = 18;
+        }
+        // -----------------------------------------------------------------------
 
         if (s1 >= 11 && s2 >= 11 && (s1 >= 16 || s2 >= 16)) {
             int y, m, d; double jut;
@@ -9611,7 +9806,7 @@ void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2,
             int count = 0;
             for (const auto& hit : peak_hits) {
                 if (count++ >= 10) break;
-                printf("%02d/%02d/%04d | P1: %d/22 pts | P2: %d/22 pts | %-19s | %-30s | %-20s | %-20s\n", 
+                printf("%02d/%02d/%04d | P1: %2d/22 pts | P2: %2d/22 pts | %-19s | %-30s | %-20s | %-20s\n", 
                        hit.d, hit.m, hit.y, hit.s1, hit.s2, hit.t_pos.c_str(), hit.cons_env.c_str(), hit.arch1.c_str(), hit.arch2.c_str());
                 printf("           | %-120s \n", hit.res1.c_str());
                 printf("           | %-120s \n", hit.res2.c_str());
@@ -9619,7 +9814,6 @@ void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2,
             }
         }
     }
-    if (!html) printf("=================================================================\n");
 }
 
 void run_ayush_analysis(JyotishaEngine& p) {
@@ -10333,8 +10527,7 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-
-else if (strcasecmp(cmd.c_str(), "degree") == 0) {
+		else if (strcasecmp(cmd.c_str(), "degree") == 0) {
             // 1. DUAL EXACT DEGREE SEARCH (Syntax: degree p1 s1 d1 m1 sec1 p2 s2 d2 m2 sec2 year)
             if (clean_argc >= 20 && engine.get_planet_idx(clean_argv[14]) != -1) {
                 string p1 = clean_argv[9];
@@ -10365,18 +10558,16 @@ else if (strcasecmp(cmd.c_str(), "degree") == 0) {
                 
                 engine.search_dual_rashi_overlap(p1, s1, p2, s2, s_year, s_month);
             }
-            // 3. ORIGINAL SINGLE DEGREE CATCHES
+            // 3. SINGLE DEGREE CATCHES (Includes "all" logic)
             else if (clean_argc >= 11) {
                 string arg1 = clean_argv[9];
                 string arg2 = clean_argv[10];
 
+                bool is_all_arg1 = (strcasecmp(arg1.c_str(), "all") == 0);
+                bool is_all_arg2 = (strcasecmp(arg2.c_str(), "all") == 0);
+
                 int tgt_p_idx = engine.get_planet_idx(arg2);
                 int tgt_s_idx = engine.get_rashi_idx(arg2);
-
-                bool is_year_only = true;
-                for(char c : arg2) if(!isdigit(c)) { is_year_only = false; break; }
-                
-                bool is_all = (strcasecmp(arg2.c_str(), "all") == 0);
 
                 bool include_aspects = false;
                 vector<int> nums;
@@ -10388,21 +10579,41 @@ else if (strcasecmp(cmd.c_str(), "degree") == 0) {
                     }
                 }
 
-                if (is_all) {
+                if (is_all_arg2) { // Format: <planet> all <year>
                     int s_year = 0, s_month = 0, s_day = 0;
                     if (nums.size() >= 1) s_year = nums[0];
                     if (nums.size() >= 2) s_month = nums[1];
                     if (nums.size() >= 3) s_day = nums[2];
                     engine.search_planet_all_natal_hits(arg1, s_year, s_month, s_day, include_aspects);
                 }
-                else if (tgt_p_idx != -1) {
+                else if (is_all_arg1) { // Format: all <planet/sign> <year>
+                    int s_year = 0, s_month = 0, s_day = 0;
+                    if (nums.size() >= 1) s_year = nums[0];
+                    if (nums.size() >= 2) s_month = nums[1];
+                    if (nums.size() >= 3) s_day = nums[2];
+                    
+                    vector<string> all_planets = {"sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn", "rahu", "ketu"};
+                    
+                    if (tgt_p_idx != -1) {
+                        for (string p : all_planets) {
+                            engine.search_planet_conjunct_planet(p, arg2, s_year, s_month, s_day, include_aspects);
+                        }
+                    } else if (tgt_s_idx != -1) {
+                        for (string p : all_planets) {
+                            engine.search_planet_transit_rashi(p, arg2, s_year, s_month, s_day, include_aspects);
+                        }
+                    } else {
+                        printf("Error: Target '%s' is not a recognized planet or sign.\n", arg2.c_str());
+                    }
+                }
+                else if (tgt_p_idx != -1) { // Format: <planet> <planet> <year>
                     int s_year = 0, s_month = 0, s_day = 0;
                     if (nums.size() >= 1) s_year = nums[0];
                     if (nums.size() >= 2) s_month = nums[1];
                     if (nums.size() >= 3) s_day = nums[2];
                     engine.search_planet_conjunct_planet(arg1, arg2, s_year, s_month, s_day, include_aspects);
                 } 
-                else if (tgt_s_idx != -1) {
+                else if (tgt_s_idx != -1) { // Format: <planet> <sign>
                     if (nums.size() > 0) {
                         if (nums[0] > 1000 || nums.size() < 3) {
                             int s_year = nums[0], s_month = 0, s_day = 0;
@@ -10410,9 +10621,7 @@ else if (strcasecmp(cmd.c_str(), "degree") == 0) {
                             if (nums.size() >= 3) s_day = nums[2];
                             engine.search_planet_transit_rashi(arg1, arg2, s_year, s_month, s_day, include_aspects);
                         } else {
-                            int s_deg = nums[0];
-                            int s_min = nums[1];
-                            int s_sec = nums[2];
+                            int s_deg = nums[0], s_min = nums[1], s_sec = nums[2];
                             int s_year = 0, s_month = 0, s_day = 0;
                             if (nums.size() >= 4) s_year = nums[3];
                             if (nums.size() >= 5) s_month = nums[4];
@@ -10422,24 +10631,14 @@ else if (strcasecmp(cmd.c_str(), "degree") == 0) {
                     } else {
                         engine.search_planet_transit_rashi(arg1, arg2, 0, 0, 0, include_aspects);
                     }
-                } 
-                else if (is_year_only) {
-                    int s_year = stoi(arg2);
-                    bool show_padas = false;
-                    for (int k = 11; k < clean_argc; k++) {
-                        if (strcasecmp(clean_argv[k], "pada") == 0) show_padas = true;
-                    }
-                    engine.search_planet_all_transits(arg1, s_year, show_padas);
-                }
-                else {
-                    printf("Error: Target '%s' is neither a recognized planet, sign, nor a valid year.\n", arg2.c_str());
                 }
             } else {
                 printf("Error: 'degree' requires at least a Source Planet and a Target (Planet, Sign, 'all', or Year).\n");
             }
             printf("\n"); fflush(stdout); 
             return 0;
-        }		
+        }
+
 		else if (strcasecmp(cmd.c_str(), "tithi") == 0) {
             if (clean_argc >= 10) engine.calculate_tithi_return(stoi(clean_argv[9]));
             else printf("Error: 'tithi' requires a target year. Example: tithi 2026\n");

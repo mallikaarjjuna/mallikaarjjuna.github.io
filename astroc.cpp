@@ -3612,244 +3612,6 @@ void search_dual_rashi_overlap(string p1_name, string s1_name, string p2_name, s
         if (html_mode) printf("</table>\n");
         else printf("--------------------------------------------------------------------------------------------------------\n");
     }
-	
-void search_planet_conjunct_planet(string src_name, string tgt_name, int search_year, int search_month, int search_day, bool include_aspects = false) {
-        int src_idx = get_planet_idx(src_name);
-        int tgt_idx = get_planet_idx(tgt_name);
-        if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
-        if (tgt_idx == -1) { printf("Error: Target planet '%s' not recognized.\n", tgt_name.c_str()); return; }
-
-        double base_target_lon = planet_lons[tgt_idx];
-
-        struct AspectTarget { double lon; string name; };
-        vector<AspectTarget> targets;
-        targets.push_back({base_target_lon, "1st (Conjunction)"});
-        
-        if (include_aspects) {
-            targets.push_back({fmod(base_target_lon + 180.0, 360.0), "7th Aspect"});
-            if (src_idx == 3) {
-                targets.push_back({fmod(base_target_lon + 270.0, 360.0), "4th Aspect"});
-                targets.push_back({fmod(base_target_lon + 150.0, 360.0), "8th Aspect"});
-            } else if (src_idx == 5 || src_idx == 8 || src_idx == 9) {
-                targets.push_back({fmod(base_target_lon + 240.0, 360.0), "5th Aspect"});
-                targets.push_back({fmod(base_target_lon + 120.0, 360.0), "9th Aspect"});
-            } else if (src_idx == 7) {
-                targets.push_back({fmod(base_target_lon + 300.0, 360.0), "3rd Aspect"});
-                targets.push_back({fmod(base_target_lon + 90.0, 360.0), "10th Aspect"});
-            }
-        }
-
-        double start_jd, end_jd;
-        string scope_str = "";
-        
-        if (search_year > 0 && search_month > 0 && search_day > 0) {
-            start_jd = swe_julday(search_year, search_month, search_day, 0.0 - location.tz_offset, SE_GREG_CAL);
-            end_jd = start_jd + 1.0;
-            char buf[64]; snprintf(buf, sizeof(buf), "Exact Day: %02d/%02d/%04d", search_day, search_month, search_year);
-            scope_str = string(buf);
-        } else if (search_year > 0 && search_month > 0) {
-            start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            int next_m = search_month == 12 ? 1 : search_month + 1;
-            int next_y = search_month == 12 ? search_year + 1 : search_year;
-            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
-        } else if (search_year > 0) {
-            start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            scope_str = "Year: " + to_string(search_year);
-        } else {
-            if (src_idx == 0 || src_idx == 2) {
-                int y, m, d; double jut;
-                swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
-                start_jd = swe_julday(y, m, d, 0.0 - location.tz_offset, SE_GREG_CAL);
-                end_jd = start_jd + 1.0;
-                char buf[64]; snprintf(buf, sizeof(buf), "Base Day: %02d/%02d/%04d", d, m, y);
-                scope_str = string(buf);
-            } else {
-                start_jd = tjd_ut; 
-                end_jd = start_jd + (120.0 * TRUE_SIDEREAL_YEAR);
-                scope_str = "LIFESPAN (120 Years)";
-            }
-        }
-
-        string print_src = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
-        string print_tgt = (tgt_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[tgt_idx]);
-
-        printf("\n=== PLANET %s SEARCH (2° ORB) ===\n", include_aspects ? "ASPECT" : "CONJUNCTION");
-        printf("Transit Source : %s\n", print_src.c_str());
-        printf("Natal Target   : %s (%.2f°)\n", print_tgt.c_str(), base_target_lon);
-        printf("Scope          : %s\n", scope_str.c_str());
-        printf("--------------------------------------------------------------------------------------------------------------------------------\n");
-        printf(" %-20s | %-19s | %-20s | %-15s | %-20s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Movement", "Aspect Type");
-        printf("--------------------------------------------------------------------------------------------------------------------------------\n");
-
-        double step = (src_idx == 2) ? (1.0 / 24.0) : (4.0 / 24.0);
-        if (src_idx == 0) step = 1.0 / 1440.0;
-        
-        const double orb = 2.0;
-        int hits = 0;
-
-        for (double jd = start_jd; jd < end_jd; jd += step) {
-            double trans_lon = get_planet_lon_on_jd(src_idx, jd);
-            
-            for (const auto& tgt : targets) {
-                double dist = get_dist(trans_lon, tgt.lon);
-                if (dist <= orb) {
-                    double e_in, e_peak, e_out;
-                    refine_bubble(src_idx, tgt.lon, jd, orb, e_in, e_peak, e_out, 1);
-                    
-                    double lon1 = get_planet_lon_on_jd(src_idx, e_in);
-                    double lon2 = get_planet_lon_on_jd(src_idx, e_out);
-                    double d_move = fmod(lon2 - lon1 + 360.0, 360.0);
-                    if (d_move > 180.0) d_move -= 360.0;
-                    string dir = (d_move < 0) ? "Retrograde" : "Direct";
-
-                    if (e_peak >= start_jd && e_peak <= end_jd) {
-                        if (html_mode) {
-                            printf("<tr><td><b style='color:#3498db;'>%s</b></td><td>%s</td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td><td>%s</td></tr>\n", 
-                                   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dir.c_str(), tgt.name.c_str());
-                        } else {
-                            printf(" \033[1;34m%-19s\033[0m | %-19s | \033[1;31m%-19s\033[0m | %-15s | %-20s\n", 
-                                   jd_to_string(e_in).c_str(), jd_to_string(e_peak).c_str(), jd_to_string(e_out).c_str(), dir.c_str(), tgt.name.c_str());
-                        }
-                        hits++;
-                    }
-                    jd = e_out; 
-                    break;
-                }
-            }
-        }
-        if (hits == 0) printf(" No events found within the 2° orb in this timeframe.\n");
-        printf("--------------------------------------------------------------------------------------------------------------------------------\n");
-    }
-	
-void search_planet_all_natal_hits(string src_name, int search_year, int search_month, int search_day, bool include_aspects) {
-        int src_idx = get_planet_idx(src_name);
-        if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
-
-        struct AspectTarget { double lon; string asp_name; int np_idx; };
-        vector<AspectTarget> targets;
-
-        for (int np = 0; np <= 9; np++) {
-            double base_target_lon = planet_lons[np];
-            targets.push_back({base_target_lon, "1st (Conjunction)", np});
-            
-            if (include_aspects) {
-                targets.push_back({fmod(base_target_lon + 180.0, 360.0), "7th Aspect", np});
-                if (src_idx == 3) {
-                    targets.push_back({fmod(base_target_lon + 270.0, 360.0), "4th Aspect", np});
-                    targets.push_back({fmod(base_target_lon + 150.0, 360.0), "8th Aspect", np});
-                } else if (src_idx == 5 || src_idx == 8 || src_idx == 9) {
-                    targets.push_back({fmod(base_target_lon + 240.0, 360.0), "5th Aspect", np});
-                    targets.push_back({fmod(base_target_lon + 120.0, 360.0), "9th Aspect", np});
-                } else if (src_idx == 7) {
-                    targets.push_back({fmod(base_target_lon + 300.0, 360.0), "3rd Aspect", np});
-                    targets.push_back({fmod(base_target_lon + 90.0, 360.0), "10th Aspect", np});
-                }
-            }
-        }
-
-        double start_jd, end_jd;
-        string scope_str = "";
-        
-        if (search_year > 0 && search_month > 0 && search_day > 0) {
-            start_jd = swe_julday(search_year, search_month, search_day, 0.0 - location.tz_offset, SE_GREG_CAL);
-            end_jd = start_jd + 1.0;
-            char buf[64]; snprintf(buf, sizeof(buf), "Exact Day: %02d/%02d/%04d", search_day, search_month, search_year);
-            scope_str = string(buf);
-        } else if (search_year > 0 && search_month > 0) {
-            start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            int next_m = search_month == 12 ? 1 : search_month + 1;
-            int next_y = search_month == 12 ? search_year + 1 : search_year;
-            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
-        } else if (search_year > 0) {
-            start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            scope_str = "Year: " + to_string(search_year);
-        } else {
-            if (src_idx == 0 || src_idx == 2) {
-                int y, m, d; double jut;
-                swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
-                start_jd = swe_julday(y, m, d, 0.0 - location.tz_offset, SE_GREG_CAL);
-                end_jd = start_jd + 1.0;
-                char buf[64]; snprintf(buf, sizeof(buf), "Base Day: %02d/%02d/%04d", d, m, y);
-                scope_str = string(buf);
-            } else {
-                start_jd = tjd_ut; 
-                end_jd = start_jd + (120.0 * TRUE_SIDEREAL_YEAR);
-                scope_str = "LIFESPAN (120 Years)";
-            }
-        }
-
-        string print_src = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
-
-        printf("\n=== PLANET %s SEARCH -> ALL NATAL HITS (2° ORB) ===\n", include_aspects ? "ASPECTS & CONJUNCTIONS" : "CONJUNCTIONS ONLY");
-        printf("Transit Source : %s\n", print_src.c_str());
-        printf("Scope          : %s\n", scope_str.c_str());
-        printf("-----------------------------------------------------------------------------------------------------------------------------------\n");
-        printf(" %-20s | %-19s | %-20s | %-12s | %-15s | %-20s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Movement", "Target Natal", "Aspect Type");
-        printf("-----------------------------------------------------------------------------------------------------------------------------------\n");
-
-        double step = (src_idx == 2) ? (1.0 / 24.0) : (4.0 / 24.0);
-        if (src_idx == 0) step = 1.0 / 1440.0;
-        
-        const double orb = 2.0;
-        int hits = 0;
-
-        struct EventHit { double e_in, e_peak, e_out; string dir; string target_name; string asp_name; };
-        vector<EventHit> all_hits;
-        map<string, double> last_trigger;
-
-        for (double jd = start_jd; jd < end_jd; jd += step) {
-            double trans_lon = get_planet_lon_on_jd(src_idx, jd);
-            
-            for (const auto& tgt : targets) {
-                double dist = get_dist(trans_lon, tgt.lon);
-                if (dist <= orb) {
-                    string key = to_string(tgt.np_idx) + "_" + tgt.asp_name;
-                    
-                    if (last_trigger.find(key) == last_trigger.end() || (jd - last_trigger[key]) > 15.0) {
-                        double e_in, e_peak, e_out;
-                        refine_bubble(src_idx, tgt.lon, jd, orb, e_in, e_peak, e_out, 1);
-                        
-                        if (e_peak >= start_jd && e_peak <= end_jd) {
-                            double lon1 = get_planet_lon_on_jd(src_idx, e_in);
-                            double lon2 = get_planet_lon_on_jd(src_idx, e_out);
-                            double d_move = fmod(lon2 - lon1 + 360.0, 360.0);
-                            if (d_move > 180.0) d_move -= 360.0;
-                            string dir = (d_move < 0) ? "Retrograde" : "Direct";
-                            
-                            string t_name = (tgt.np_idx == 0) ? "Lagna" : string(p_names_full[tgt.np_idx]);
-                            all_hits.push_back({e_in, e_peak, e_out, dir, t_name, tgt.asp_name});
-                        }
-                        last_trigger[key] = e_out;
-                    }
-                }
-            }
-        }
-
-        sort(all_hits.begin(), all_hits.end(), [](const EventHit& a, const EventHit& b) {
-            return a.e_peak < b.e_peak;
-        });
-
-        for (const auto& h : all_hits) {
-            if (html_mode) {
-                printf("<tr><td><b style='color:#3498db;'>%s</b></td><td>%s</td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td><td>%s</td><td>%s</td></tr>\n", 
-                       jd_to_string(h.e_in).c_str(), jd_to_string(h.e_peak).c_str(), jd_to_string(h.e_out).c_str(), 
-                       h.dir.c_str(), h.target_name.c_str(), h.asp_name.c_str());
-            } else {
-                printf(" \033[1;34m%-19s\033[0m | %-19s | \033[1;31m%-19s\033[0m | %-12s | %-15s | %-20s\n", 
-                       jd_to_string(h.e_in).c_str(), jd_to_string(h.e_peak).c_str(), jd_to_string(h.e_out).c_str(), 
-                       h.dir.c_str(), h.target_name.c_str(), h.asp_name.c_str());
-            }
-            hits++;
-        }
-
-        if (hits == 0) printf(" No events found within the 2° orb in this timeframe.\n");
-        printf("-----------------------------------------------------------------------------------------------------------------------------------\n");
-    }
-	
 void search_planet_all_transits(string p_name, int search_year, bool show_padas = false) {
         int p_idx = get_planet_idx(p_name);
         if (p_idx == -1) { printf("Error: Planet '%s' not recognized.\n", p_name.c_str()); return; }
@@ -4056,27 +3818,153 @@ void search_planet_all_transits(string p_name, int search_year, bool show_padas 
         if (hits == 0) printf(" No transit events found in the specified timeframe.\n");
         printf("------------------------------------------------------------------------------------------------------\n");
     }
-	
-void search_planet_transit_rashi(string src_name, string rashi_name, int search_year, int search_month, int search_day, bool include_aspects = false) {
-        int src_idx = get_planet_idx(src_name);
-        int target_rashi_idx = get_rashi_idx(rashi_name);
-        if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
-        if (target_rashi_idx == -1) { printf("Error: Sign '%s' not recognized.\n", rashi_name.c_str()); return; }
 
-        map<int, string> aspect_map;
-        aspect_map[target_rashi_idx] = "1st (Conjunction)";
-        if (include_aspects) {
-            aspect_map[(target_rashi_idx + 6) % 12] = "7th Aspect";
-            if (src_idx == 3) {
-                aspect_map[(target_rashi_idx + 9) % 12] = "4th Aspect";
-                aspect_map[(target_rashi_idx + 5) % 12] = "8th Aspect";
-            } else if (src_idx == 5 || src_idx == 8 || src_idx == 9) {
-                aspect_map[(target_rashi_idx + 8) % 12] = "5th Aspect";
-                aspect_map[(target_rashi_idx + 4) % 12] = "9th Aspect";
-            } else if (src_idx == 7) {
-                aspect_map[(target_rashi_idx + 10) % 12] = "3rd Aspect";
-                aspect_map[(target_rashi_idx + 3) % 12] = "10th Aspect";
+void search_planet_conjunct_planet(string src_name, string tgt_name, int search_year, int search_month, int search_day, bool include_aspects = false, string sort_by = "time") {
+        string p_lower = src_name; transform(p_lower.begin(), p_lower.end(), p_lower.begin(), ::tolower);
+        vector<int> src_indices;
+        if (p_lower == "all") {
+            for (int i=1; i<=9; i++) src_indices.push_back(i);
+        } else {
+            int src_idx = get_planet_idx(src_name);
+            if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
+            src_indices.push_back(src_idx);
+        }
+
+        int tgt_idx = get_planet_idx(tgt_name);
+        if (tgt_idx == -1) { printf("Error: Target planet '%s' not recognized.\n", tgt_name.c_str()); return; }
+
+        double base_target_lon = planet_lons[tgt_idx];
+
+        double start_jd, end_jd;
+        string scope_str = "";
+        
+        if (search_year > 0 && search_month > 0 && search_day > 0) {
+            start_jd = swe_julday(search_year, search_month, search_day, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = start_jd + 1.0;
+            char buf[64]; snprintf(buf, sizeof(buf), "Exact Day: %02d/%02d/%04d", search_day, search_month, search_year);
+            scope_str = string(buf);
+        } else if (search_year > 0 && search_month > 0) {
+            start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = search_month == 12 ? 1 : search_month + 1;
+            int next_y = search_month == 12 ? search_year + 1 : search_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
+        } else if (search_year > 0) {
+            start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Year: " + to_string(search_year);
+        } else {
+            if (src_indices[0] == 0 || src_indices[0] == 2) {
+                int y, m, d; double jut;
+                swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+                start_jd = swe_julday(y, m, d, 0.0 - location.tz_offset, SE_GREG_CAL);
+                end_jd = start_jd + 1.0;
+                char buf[64]; snprintf(buf, sizeof(buf), "Base Day: %02d/%02d/%04d", d, m, y);
+                scope_str = string(buf);
+            } else {
+                start_jd = tjd_ut; 
+                end_jd = start_jd + (120.0 * TRUE_SIDEREAL_YEAR);
+                scope_str = "LIFESPAN (120 Years)";
             }
+        }
+
+        string print_src = (p_lower == "all") ? (telugu_mode ? "అన్ని గ్రహాలు (All)" : "ALL PLANETS") : ((src_indices[0] == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_indices[0]]));
+        string print_tgt = (tgt_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[tgt_idx]);
+
+        printf("\n=== UNIFIED PLANETARY %s SEARCH (2° ORB) ===\n", include_aspects ? "ASPECT & CONJUNCTION" : "CONJUNCTION");
+        printf("Transit Source : %s\n", print_src.c_str());
+        printf("Natal Target   : %s (%.2f°)\n", print_tgt.c_str(), base_target_lon);
+        printf("Scope          : %s\n", scope_str.c_str());
+        printf("Sort Mode      : %s\n", (sort_by == "planet" ? "By Transit Planet" : "Chronological (Peak Time)"));
+        printf("---------------------------------------------------------------------------------------------------------------------------------------------\n");
+        printf(" %-20s | %-19s | %-20s | %-10s | %-15s | %-20s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Transit", "Movement", "Aspect Type");
+        printf("---------------------------------------------------------------------------------------------------------------------------------------------\n");
+
+        struct UnifiedHit { double e_in, e_peak, e_out; string p_src, dir, aspect_type; int p_idx; };
+        vector<UnifiedHit> all_hits;
+
+        for (int src_idx : src_indices) {
+            struct AspectTarget { double lon; string name; };
+            vector<AspectTarget> targets;
+            targets.push_back({base_target_lon, "1st (Conjunction)"});
+            
+            if (include_aspects) {
+                targets.push_back({fmod(base_target_lon + 180.0, 360.0), "7th Aspect"});
+                if (src_idx == 3) {
+                    targets.push_back({fmod(base_target_lon + 270.0, 360.0), "4th Aspect"}); 
+                    targets.push_back({fmod(base_target_lon + 150.0, 360.0), "8th Aspect"}); 
+                } else if (src_idx == 5 || src_idx == 8 || src_idx == 9) {
+                    targets.push_back({fmod(base_target_lon + 240.0, 360.0), "5th Aspect"});
+                    targets.push_back({fmod(base_target_lon + 120.0, 360.0), "9th Aspect"});
+                } else if (src_idx == 7) {
+                    targets.push_back({fmod(base_target_lon + 300.0, 360.0), "3rd Aspect"});
+                    targets.push_back({fmod(base_target_lon + 90.0, 360.0), "10th Aspect"});
+                }
+            }
+
+            double step = (src_idx == 2) ? (1.0 / 24.0) : (4.0 / 24.0);
+            if (src_idx == 0) step = 1.0 / 1440.0;
+            
+            const double orb = 2.0;
+
+            for (double jd = start_jd; jd < end_jd; jd += step) {
+                double trans_lon = get_planet_lon_on_jd(src_idx, jd);
+                
+                for (const auto& tgt : targets) {
+                    double dist = get_dist(trans_lon, tgt.lon);
+                    if (dist <= orb) {
+                        double e_in, e_peak, e_out;
+                        refine_bubble(src_idx, tgt.lon, jd, orb, e_in, e_peak, e_out, 1);
+                        
+                        double lon1 = get_planet_lon_on_jd(src_idx, e_in);
+                        double lon2 = get_planet_lon_on_jd(src_idx, e_out);
+                        double d_move = fmod(lon2 - lon1 + 360.0, 360.0);
+                        if (d_move > 180.0) d_move -= 360.0;
+                        string dir = (d_move < 0) ? "Retrograde" : "Direct";
+
+                        if (e_peak >= start_jd && e_peak <= end_jd) {
+                            string p_src_str = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
+                            all_hits.push_back({e_in, e_peak, e_out, p_src_str, dir, tgt.name, src_idx});
+                        }
+                        jd = e_out; 
+                        break;
+                    }
+                }
+            }
+        }
+
+        sort(all_hits.begin(), all_hits.end(), [&](const UnifiedHit& a, const UnifiedHit& b) { 
+            if (sort_by == "planet") {
+                if (a.p_idx != b.p_idx) return a.p_idx < b.p_idx;
+                return a.e_peak < b.e_peak;
+            }
+            return a.e_peak < b.e_peak; 
+        });
+
+        for (const auto& h : all_hits) {
+            if (html_mode) {
+                printf("<tr><td><b style='color:#3498db;'>%s</b></td><td>%s</td><td><b style='color:#e74c3c;'>%s</b></td><td><b style='color:var(--accent);'>%s</b></td><td>%s</td><td>%s</td></tr>\n", 
+                       jd_to_string(h.e_in).c_str(), jd_to_string(h.e_peak).c_str(), jd_to_string(h.e_out).c_str(), 
+                       h.p_src.c_str(), h.dir.c_str(), h.aspect_type.c_str());
+            } else {
+                printf(" \033[1;34m%-19s\033[0m | %-19s | \033[1;31m%-19s\033[0m | \033[1;33m%-10s\033[0m | %-15s | %-20s\n", 
+                       jd_to_string(h.e_in).c_str(), jd_to_string(h.e_peak).c_str(), jd_to_string(h.e_out).c_str(), 
+                       h.p_src.c_str(), h.dir.c_str(), h.aspect_type.c_str());
+            }
+        }
+        if (all_hits.empty()) printf(" No events found within the 2° orb in this timeframe.\n");
+        printf("---------------------------------------------------------------------------------------------------------------------------------------------\n");
+    }
+
+void search_planet_all_natal_hits(string src_name, int search_year, int search_month, int search_day, bool include_aspects, string sort_by = "time") {
+        string p_lower = src_name; transform(p_lower.begin(), p_lower.end(), p_lower.begin(), ::tolower);
+        vector<int> src_indices;
+        if (p_lower == "all") {
+            for (int i=1; i<=9; i++) src_indices.push_back(i);
+        } else {
+            int src_idx = get_planet_idx(src_name);
+            if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
+            src_indices.push_back(src_idx);
         }
 
         double start_jd, end_jd;
@@ -4098,7 +3986,7 @@ void search_planet_transit_rashi(string src_name, string rashi_name, int search_
             end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
             scope_str = "Year: " + to_string(search_year);
         } else {
-            if (src_idx == 0 || src_idx == 2) {
+            if (src_indices[0] == 0 || src_indices[0] == 2) {
                 int y, m, d; double jut;
                 swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
                 start_jd = swe_julday(y, m, d, 0.0 - location.tz_offset, SE_GREG_CAL);
@@ -4112,78 +4000,252 @@ void search_planet_transit_rashi(string src_name, string rashi_name, int search_
             }
         }
 
-        string print_src = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
+        string print_src = (p_lower == "all") ? (telugu_mode ? "అన్ని గ్రహాలు (All)" : "ALL PLANETS") : ((src_indices[0] == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_indices[0]]));
 
-        printf("\n=== RASHI %s SEARCH (0° to 30°) ===\n", include_aspects ? "ASPECT" : "TRANSIT");
+        printf("\n=== UNIFIED PLANETARY %s SEARCH -> ALL NATAL HITS (2° ORB) ===\n", include_aspects ? "ASPECTS & CONJUNCTIONS" : "CONJUNCTIONS ONLY");
+        printf("Transit Source : %s\n", print_src.c_str());
+        printf("Scope          : %s\n", scope_str.c_str());
+        printf("Sort Mode      : %s\n", (sort_by == "planet" ? "By Transit & Target Planet" : "Chronological (Peak Time)"));
+        printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+        printf(" %-20s | %-19s | %-20s | %-10s | %-12s | %-15s | %-20s\n", "Enter (2° Orb)", "Exact Peak (0°)", "Exit (2° Orb)", "Transit", "Movement", "Target Natal", "Aspect Type");
+        printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+
+        struct EventHit { double e_in, e_peak, e_out; string p_src, dir; string target_name; string asp_name; int src_idx, np_idx; };
+        vector<EventHit> all_hits;
+
+        for (int src_idx : src_indices) {
+            struct AspectTarget { double lon; string asp_name; int np_idx; };
+            vector<AspectTarget> targets;
+
+            for (int np = 0; np <= 9; np++) {
+                double base_target_lon = planet_lons[np];
+                targets.push_back({base_target_lon, "1st (Conjunction)", np});
+                
+                if (include_aspects) {
+                    targets.push_back({fmod(base_target_lon + 180.0, 360.0), "7th Aspect", np});
+                    if (src_idx == 3) {
+                        targets.push_back({fmod(base_target_lon + 270.0, 360.0), "4th Aspect", np});
+                        targets.push_back({fmod(base_target_lon + 150.0, 360.0), "8th Aspect", np});
+                    } else if (src_idx == 5 || src_idx == 8 || src_idx == 9) {
+                        targets.push_back({fmod(base_target_lon + 240.0, 360.0), "5th Aspect", np});
+                        targets.push_back({fmod(base_target_lon + 120.0, 360.0), "9th Aspect", np});
+                    } else if (src_idx == 7) {
+                        targets.push_back({fmod(base_target_lon + 300.0, 360.0), "3rd Aspect", np});
+                        targets.push_back({fmod(base_target_lon + 90.0, 360.0), "10th Aspect", np});
+                    }
+                }
+            }
+
+            double step = (src_idx == 2) ? (1.0 / 24.0) : (4.0 / 24.0);
+            if (src_idx == 0) step = 1.0 / 1440.0;
+            
+            const double orb = 2.0;
+            map<string, double> last_trigger;
+
+            for (double jd = start_jd; jd < end_jd; jd += step) {
+                double trans_lon = get_planet_lon_on_jd(src_idx, jd);
+                
+                for (const auto& tgt : targets) {
+                    double dist = get_dist(trans_lon, tgt.lon);
+                    if (dist <= orb) {
+                        string key = to_string(tgt.np_idx) + "_" + tgt.asp_name;
+                        
+                        if (last_trigger.find(key) == last_trigger.end() || (jd - last_trigger[key]) > 15.0) {
+                            double e_in, e_peak, e_out;
+                            refine_bubble(src_idx, tgt.lon, jd, orb, e_in, e_peak, e_out, 1);
+                            
+                            if (e_peak >= start_jd && e_peak <= end_jd) {
+                                double lon1 = get_planet_lon_on_jd(src_idx, e_in);
+                                double lon2 = get_planet_lon_on_jd(src_idx, e_out);
+                                double d_move = fmod(lon2 - lon1 + 360.0, 360.0);
+                                if (d_move > 180.0) d_move -= 360.0;
+                                string dir = (d_move < 0) ? "Retrograde" : "Direct";
+                                
+                                string p_src_str = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
+                                string t_name = (tgt.np_idx == 0) ? "Lagna" : string(p_names_full[tgt.np_idx]);
+                                all_hits.push_back({e_in, e_peak, e_out, p_src_str, dir, t_name, tgt.asp_name, src_idx, tgt.np_idx});
+                            }
+                            last_trigger[key] = e_out;
+                        }
+                    }
+                }
+            }
+        }
+
+        sort(all_hits.begin(), all_hits.end(), [&](const EventHit& a, const EventHit& b) {
+            if (sort_by == "planet") {
+                if (a.src_idx != b.src_idx) return a.src_idx < b.src_idx;
+                if (a.np_idx != b.np_idx) return a.np_idx < b.np_idx;
+                return a.e_peak < b.e_peak;
+            }
+            return a.e_peak < b.e_peak;
+        });
+
+        int hits = 0;
+        for (const auto& h : all_hits) {
+            if (html_mode) {
+                printf("<tr><td><b style='color:#3498db;'>%s</b></td><td>%s</td><td><b style='color:#e74c3c;'>%s</b></td><td><b style='color:var(--accent);'>%s</b></td><td>%s</td><td><b style='color:var(--accent);'>%s</b></td><td>%s</td></tr>\n", 
+                       jd_to_string(h.e_in).c_str(), jd_to_string(h.e_peak).c_str(), jd_to_string(h.e_out).c_str(), 
+                       h.p_src.c_str(), h.dir.c_str(), h.target_name.c_str(), h.asp_name.c_str());
+            } else {
+                printf(" \033[1;34m%-19s\033[0m | %-19s | \033[1;31m%-19s\033[0m | \033[1;33m%-10s\033[0m | %-12s | \033[1;36m%-15s\033[0m | %-20s\n", 
+                       jd_to_string(h.e_in).c_str(), jd_to_string(h.e_peak).c_str(), jd_to_string(h.e_out).c_str(), 
+                       h.p_src.c_str(), h.dir.c_str(), h.target_name.c_str(), h.asp_name.c_str());
+            }
+            hits++;
+        }
+
+        if (hits == 0) printf(" No events found within the 2° orb in this timeframe.\n");
+        printf("------------------------------------------------------------------------------------------------------------------------------------------------------\n");
+    }
+	
+    void search_planet_transit_rashi(string src_name, string rashi_name, int search_year, int search_month, int search_day, bool include_aspects = false, string sort_by = "time") {
+        string p_lower = src_name; transform(p_lower.begin(), p_lower.end(), p_lower.begin(), ::tolower);
+        vector<int> src_indices;
+        if (p_lower == "all") {
+            for (int i=1; i<=9; i++) src_indices.push_back(i);
+        } else {
+            int src_idx = get_planet_idx(src_name);
+            if (src_idx == -1) { printf("Error: Source planet '%s' not recognized.\n", src_name.c_str()); return; }
+            src_indices.push_back(src_idx);
+        }
+
+        int target_rashi_idx = get_rashi_idx(rashi_name);
+        if (target_rashi_idx == -1) { printf("Error: Sign '%s' not recognized.\n", rashi_name.c_str()); return; }
+
+        double start_jd, end_jd;
+        string scope_str = "";
+        
+        if (search_year > 0 && search_month > 0 && search_day > 0) {
+            start_jd = swe_julday(search_year, search_month, search_day, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = start_jd + 1.0;
+            char buf[64]; snprintf(buf, sizeof(buf), "Exact Day: %02d/%02d/%04d", search_day, search_month, search_year);
+            scope_str = string(buf);
+        } else if (search_year > 0 && search_month > 0) {
+            start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = search_month == 12 ? 1 : search_month + 1;
+            int next_y = search_month == 12 ? search_year + 1 : search_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
+        } else if (search_year > 0) {
+            start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Year: " + to_string(search_year);
+        } else {
+            if (src_indices[0] == 0 || src_indices[0] == 2) {
+                int y, m, d; double jut;
+                swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+                start_jd = swe_julday(y, m, d, 0.0 - location.tz_offset, SE_GREG_CAL);
+                end_jd = start_jd + 1.0;
+                char buf[64]; snprintf(buf, sizeof(buf), "Base Day: %02d/%02d/%04d", d, m, y);
+                scope_str = string(buf);
+            } else {
+                start_jd = tjd_ut; 
+                end_jd = start_jd + (120.0 * TRUE_SIDEREAL_YEAR);
+                scope_str = "LIFESPAN (120 Years)";
+            }
+        }
+
+        string print_src = (p_lower == "all") ? (telugu_mode ? "అన్ని గ్రహాలు (All)" : "ALL PLANETS") : ((src_indices[0] == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_indices[0]]));
+
+        printf("\n=== UNIFIED RASHI %s SEARCH (0° to 30°) ===\n", include_aspects ? "ASPECT & TRANSIT" : "TRANSIT");
         printf("Transit Source : %s\n", print_src.c_str());
         printf("Target Sign    : %s\n", rashi_names[target_rashi_idx]);
         printf("Scope          : %s\n", scope_str.c_str());
-        printf("--------------------------------------------------------------------------------------------------------\n");
-        printf(" %-19s | %-16s | %-20s | %-20s\n", "Date & Time", "Event", "Position", "Aspect Type");
-        printf("--------------------------------------------------------------------------------------------------------\n");
+        printf("Sort Mode      : %s\n", (sort_by == "planet" ? "By Transit Planet" : "Chronological (Peak Time)"));
+        printf("-----------------------------------------------------------------------------------------------------------------------------\n");
+        printf(" %-19s | %-16s | %-10s | %-20s | %-20s\n", "Date & Time", "Event", "Transit", "Position", "Aspect Type");
+        printf("-----------------------------------------------------------------------------------------------------------------------------\n");
 
-        double step = (src_idx == 2) ? 0.05 : 0.25; 
-        if (src_idx == 0) step = 1.0 / 1440.0;
-        
-        double prev_lon = get_planet_lon_on_jd(src_idx, start_jd - step);
-        int prev_rashi = (int)(prev_lon / 30.0);
-        int hits = 0;
-        
-        for (double jd = start_jd; jd < end_jd; jd += step) {
-            double lon = get_planet_lon_on_jd(src_idx, jd);
-            int curr_rashi = (int)(lon / 30.0);
-            
-            double d_move = fmod(lon - prev_lon + 360.0, 360.0);
-            if (d_move > 180.0) d_move -= 360.0;
-            bool is_retro = (d_move < 0);
-            
-            if (curr_rashi != prev_rashi) {
-                double t_low = jd - step, t_high = jd;
-                for (int i=0; i<40; i++) {
-                    double t_mid = (t_low + t_high)/2.0;
-                    double mid_lon = get_planet_lon_on_jd(src_idx, t_mid);
-                    int mid_rashi = (int)(mid_lon / 30.0);
-                    if (mid_rashi == prev_rashi) t_low = t_mid; else t_high = t_mid;
-                }
-                double exact_jd = (t_low + t_high)/2.0;
-                
-                bool prev_in = aspect_map.count(prev_rashi) > 0;
-                bool curr_in = aspect_map.count(curr_rashi) > 0;
+        struct RashiHit { double exact_jd; string ev_type, p_src, position, aspect_type; int p_idx; };
+        vector<RashiHit> all_hits;
 
-                if (prev_in && exact_jd >= start_jd && exact_jd <= end_jd) {
-                    char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° 00' 00\"", rashi_names[prev_rashi], is_retro ? 0 : 30);
-                    string ev_type = is_retro ? "EXIT (Retro)" : "EXIT (Direct)";
-                    if (html_mode) {
-                        printf("<tr><td>%s</td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td><td>%s</td></tr>\n", 
-                               jd_to_string(exact_jd).c_str(), ev_type.c_str(), buf, aspect_map[prev_rashi].c_str());
-                    } else {
-                        printf(" %-19s | \033[1;31m%-16s\033[0m | %-20s | %-20s\n", 
-                               jd_to_string(exact_jd).c_str(), ev_type.c_str(), buf, aspect_map[prev_rashi].c_str());
-                    }
-                    hits++;
-                }
-
-                if (curr_in && exact_jd >= start_jd && exact_jd <= end_jd) {
-                    char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° 00' 00\"", rashi_names[curr_rashi], is_retro ? 30 : 0);
-                    string ev_type = is_retro ? "ENTER (Retro)" : "ENTER (Direct)";
-                    if (html_mode) {
-                        printf("<tr><td>%s</td><td><b style='color:#3498db;'>%s</b></td><td>%s</td><td>%s</td></tr>\n", 
-                               jd_to_string(exact_jd).c_str(), ev_type.c_str(), buf, aspect_map[curr_rashi].c_str());
-                    } else {
-                        printf(" %-19s | \033[1;34m%-16s\033[0m | %-20s | %-20s\n", 
-                               jd_to_string(exact_jd).c_str(), ev_type.c_str(), buf, aspect_map[curr_rashi].c_str());
-                    }
-                    hits++;
+        for (int src_idx : src_indices) {
+            map<int, string> aspect_map;
+            aspect_map[target_rashi_idx] = "1st (Conjunction)";
+            if (include_aspects) {
+                aspect_map[(target_rashi_idx + 6) % 12] = "7th Aspect";
+                if (src_idx == 3) {
+                    aspect_map[(target_rashi_idx + 9) % 12] = "4th Aspect";
+                    aspect_map[(target_rashi_idx + 5) % 12] = "8th Aspect";
+                } else if (src_idx == 5 || src_idx == 8 || src_idx == 9) {
+                    aspect_map[(target_rashi_idx + 8) % 12] = "5th Aspect";
+                    aspect_map[(target_rashi_idx + 4) % 12] = "9th Aspect";
+                } else if (src_idx == 7) {
+                    aspect_map[(target_rashi_idx + 10) % 12] = "3rd Aspect";
+                    aspect_map[(target_rashi_idx + 3) % 12] = "10th Aspect";
                 }
             }
-            prev_lon = lon;
-            prev_rashi = curr_rashi;
+
+            double step = (src_idx == 2) ? 0.05 : 0.25; 
+            if (src_idx == 0) step = 1.0 / 1440.0;
+            
+            double prev_lon = get_planet_lon_on_jd(src_idx, start_jd - step);
+            int prev_rashi = (int)(prev_lon / 30.0);
+            
+            for (double jd = start_jd; jd < end_jd; jd += step) {
+                double lon = get_planet_lon_on_jd(src_idx, jd);
+                int curr_rashi = (int)(lon / 30.0);
+                
+                double d_move = fmod(lon - prev_lon + 360.0, 360.0);
+                if (d_move > 180.0) d_move -= 360.0;
+                bool is_retro = (d_move < 0);
+                
+                if (curr_rashi != prev_rashi) {
+                    double t_low = jd - step, t_high = jd;
+                    for (int i=0; i<40; i++) {
+                        double t_mid = (t_low + t_high)/2.0;
+                        double mid_lon = get_planet_lon_on_jd(src_idx, t_mid);
+                        int mid_rashi = (int)(mid_lon / 30.0);
+                        if (mid_rashi == prev_rashi) t_low = t_mid; else t_high = t_mid;
+                    }
+                    double exact_jd = (t_low + t_high)/2.0;
+                    
+                    bool prev_in = aspect_map.count(prev_rashi) > 0;
+                    bool curr_in = aspect_map.count(curr_rashi) > 0;
+                    string p_src_str = (src_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[src_idx]);
+
+                    if (prev_in && exact_jd >= start_jd && exact_jd <= end_jd) {
+                        char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° 00' 00\"", rashi_names[prev_rashi], is_retro ? 0 : 30);
+                        string ev_type = is_retro ? "EXIT (Retro)" : "EXIT (Direct)";
+                        all_hits.push_back({exact_jd, ev_type, p_src_str, string(buf), aspect_map[prev_rashi], src_idx});
+                    }
+
+                    if (curr_in && exact_jd >= start_jd && exact_jd <= end_jd) {
+                        char buf[32]; snprintf(buf, sizeof(buf), "%s %02d° 00' 00\"", rashi_names[curr_rashi], is_retro ? 30 : 0);
+                        string ev_type = is_retro ? "ENTER (Retro)" : "ENTER (Direct)";
+                        all_hits.push_back({exact_jd, ev_type, p_src_str, string(buf), aspect_map[curr_rashi], src_idx});
+                    }
+                }
+                prev_lon = lon;
+                prev_rashi = curr_rashi;
+            }
         }
-        
-        if (hits == 0) printf(" No transit events found in the specified timeframe.\n");
-        printf("--------------------------------------------------------------------------------------------------------\n");
-    }
-	
+
+        sort(all_hits.begin(), all_hits.end(), [&](const RashiHit& a, const RashiHit& b) { 
+            if (sort_by == "planet") {
+                if (a.p_idx != b.p_idx) return a.p_idx < b.p_idx;
+                return a.exact_jd < b.exact_jd;
+            }
+            return a.exact_jd < b.exact_jd; 
+        });
+
+        for (const auto& h : all_hits) {
+            string color_ev = (h.ev_type.find("ENTER") != string::npos) ? "\033[1;34m" : "\033[1;31m";
+            string color_ev_html = (h.ev_type.find("ENTER") != string::npos) ? "#3498db" : "#e74c3c";
+            
+            if (html_mode) {
+                printf("<tr><td>%s</td><td><b style='color:%s;'>%s</b></td><td><b style='color:var(--accent);'>%s</b></td><td>%s</td><td>%s</td></tr>\n", 
+                       jd_to_string(h.exact_jd).c_str(), color_ev_html.c_str(), h.ev_type.c_str(), h.p_src.c_str(), h.position.c_str(), h.aspect_type.c_str());
+            } else {
+                printf(" %-19s | %s%-16s\033[0m | \033[1;33m%-10s\033[0m | %-20s | %-20s\n", 
+                       jd_to_string(h.exact_jd).c_str(), color_ev.c_str(), h.ev_type.c_str(), h.p_src.c_str(), h.position.c_str(), h.aspect_type.c_str());
+            }
+        }
+
+        if (all_hits.empty()) printf(" No transit events found in the specified timeframe.\n");
+        printf("-----------------------------------------------------------------------------------------------------------------------------\n");
+    }	
 	void analyze_varga_synthesis(int v_num, int d1_lagna, int v_lagna, int* d1_rasi, int* v_rasi) {
         printf("\n[D1 TO VARGA SUPERIMPOSITION (Cross-Reference Matrix)]\n");
         
@@ -10527,6 +10589,7 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
+		
 		else if (strcasecmp(cmd.c_str(), "degree") == 0) {
             // 1. DUAL EXACT DEGREE SEARCH (Syntax: degree p1 s1 d1 m1 sec1 p2 s2 d2 m2 sec2 year)
             if (clean_argc >= 20 && engine.get_planet_idx(clean_argv[14]) != -1) {
@@ -10558,33 +10621,51 @@ int main(int argc, char *argv[]) {
                 
                 engine.search_dual_rashi_overlap(p1, s1, p2, s2, s_year, s_month);
             }
-            // 3. SINGLE DEGREE CATCHES (Includes "all" logic)
+            // 3. SINGLE DEGREE CATCHES (Includes unified "all" logic)
             else if (clean_argc >= 11) {
                 string arg1 = clean_argv[9];
                 string arg2 = clean_argv[10];
+                
+                // Intelligent Parsing: Check if arg2 is actually a year (all digits)
+                bool arg2_is_year = true;
+                for (char c : arg2) if (!isdigit(c)) { arg2_is_year = false; break; }
+
+                string target_arg;
+                int k_start = 11;
+                if (arg2_is_year) { // User typed: degree all 2026
+                    target_arg = "all";
+                    k_start = 10;   // 2026 is at index 10, so start reading numbers there
+                } else {
+                    target_arg = arg2;
+                    k_start = 11;
+                }
 
                 bool is_all_arg1 = (strcasecmp(arg1.c_str(), "all") == 0);
-                bool is_all_arg2 = (strcasecmp(arg2.c_str(), "all") == 0);
+                bool is_all_arg2 = (strcasecmp(target_arg.c_str(), "all") == 0);
 
-                int tgt_p_idx = engine.get_planet_idx(arg2);
-                int tgt_s_idx = engine.get_rashi_idx(arg2);
+                int tgt_p_idx = engine.get_planet_idx(target_arg);
+                int tgt_s_idx = engine.get_rashi_idx(target_arg);
 
                 bool include_aspects = false;
+                string sort_type = "time"; // Default sorting
                 vector<int> nums;
-                for (int k = 11; k < clean_argc; k++) {
+
+                for (int k = k_start; k < clean_argc; k++) {
                     string a = clean_argv[k];
                     if (strcasecmp(a.c_str(), "aspects") == 0) include_aspects = true;
+                    else if (strcasecmp(a.c_str(), "sort=planet") == 0) sort_type = "planet";
+                    else if (strcasecmp(a.c_str(), "sort=time") == 0) sort_type = "time";
                     else if (isdigit(a[0]) || (a[0] == '-' && a.length() > 1 && isdigit(a[1]))) {
                         nums.push_back(stoi(a));
                     }
                 }
 
-                if (is_all_arg2) { // Format: <planet> all <year>
+                if (is_all_arg2) { // Format: <planet> all <year> OR all 2026 (all all 2026)
                     int s_year = 0, s_month = 0, s_day = 0;
                     if (nums.size() >= 1) s_year = nums[0];
                     if (nums.size() >= 2) s_month = nums[1];
                     if (nums.size() >= 3) s_day = nums[2];
-                    engine.search_planet_all_natal_hits(arg1, s_year, s_month, s_day, include_aspects);
+                    engine.search_planet_all_natal_hits(arg1, s_year, s_month, s_day, include_aspects, sort_type); 
                 }
                 else if (is_all_arg1) { // Format: all <planet/sign> <year>
                     int s_year = 0, s_month = 0, s_day = 0;
@@ -10592,18 +10673,12 @@ int main(int argc, char *argv[]) {
                     if (nums.size() >= 2) s_month = nums[1];
                     if (nums.size() >= 3) s_day = nums[2];
                     
-                    vector<string> all_planets = {"sun", "moon", "mars", "mercury", "jupiter", "venus", "saturn", "rahu", "ketu"};
-                    
                     if (tgt_p_idx != -1) {
-                        for (string p : all_planets) {
-                            engine.search_planet_conjunct_planet(p, arg2, s_year, s_month, s_day, include_aspects);
-                        }
+                        engine.search_planet_conjunct_planet("all", target_arg, s_year, s_month, s_day, include_aspects, sort_type);
                     } else if (tgt_s_idx != -1) {
-                        for (string p : all_planets) {
-                            engine.search_planet_transit_rashi(p, arg2, s_year, s_month, s_day, include_aspects);
-                        }
+                        engine.search_planet_transit_rashi("all", target_arg, s_year, s_month, s_day, include_aspects, sort_type);
                     } else {
-                        printf("Error: Target '%s' is not a recognized planet or sign.\n", arg2.c_str());
+                        printf("Error: Target '%s' is not a recognized planet or sign.\n", target_arg.c_str());
                     }
                 }
                 else if (tgt_p_idx != -1) { // Format: <planet> <planet> <year>
@@ -10611,25 +10686,25 @@ int main(int argc, char *argv[]) {
                     if (nums.size() >= 1) s_year = nums[0];
                     if (nums.size() >= 2) s_month = nums[1];
                     if (nums.size() >= 3) s_day = nums[2];
-                    engine.search_planet_conjunct_planet(arg1, arg2, s_year, s_month, s_day, include_aspects);
+                    engine.search_planet_conjunct_planet(arg1, target_arg, s_year, s_month, s_day, include_aspects, sort_type);
                 } 
-                else if (tgt_s_idx != -1) { // Format: <planet> <sign>
+                else if (tgt_s_idx != -1) { // Format: <planet> <sign> <year>
                     if (nums.size() > 0) {
                         if (nums[0] > 1000 || nums.size() < 3) {
                             int s_year = nums[0], s_month = 0, s_day = 0;
                             if (nums.size() >= 2) s_month = nums[1];
                             if (nums.size() >= 3) s_day = nums[2];
-                            engine.search_planet_transit_rashi(arg1, arg2, s_year, s_month, s_day, include_aspects);
+                            engine.search_planet_transit_rashi(arg1, target_arg, s_year, s_month, s_day, include_aspects, sort_type);
                         } else {
                             int s_deg = nums[0], s_min = nums[1], s_sec = nums[2];
                             int s_year = 0, s_month = 0, s_day = 0;
                             if (nums.size() >= 4) s_year = nums[3];
                             if (nums.size() >= 5) s_month = nums[4];
                             if (nums.size() >= 6) s_day = nums[5];
-                            engine.search_exact_degree(arg1, arg2, s_deg, s_min, s_sec, s_year, s_month, s_day);
+                            engine.search_exact_degree(arg1, target_arg, s_deg, s_min, s_sec, s_year, s_month, s_day);
                         }
                     } else {
-                        engine.search_planet_transit_rashi(arg1, arg2, 0, 0, 0, include_aspects);
+                        engine.search_planet_transit_rashi(arg1, target_arg, 0, 0, 0, include_aspects, sort_type);
                     }
                 }
             } else {
@@ -10638,7 +10713,7 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-
+		
 		else if (strcasecmp(cmd.c_str(), "tithi") == 0) {
             if (clean_argc >= 10) engine.calculate_tithi_return(stoi(clean_argv[9]));
             else printf("Error: 'tithi' requires a target year. Example: tithi 2026\n");

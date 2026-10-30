@@ -10062,395 +10062,464 @@ void calculate_synastry(const JyotishaEngine& p1, const JyotishaEngine& p2, stri
 void predict_synastry_events(const JyotishaEngine& p1, const JyotishaEngine& p2, int start_year, int end_year) {
     bool html = p1.html_mode;
     bool te = p1.telugu_mode;
-
+    
     if (html) {
-        printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>", te ? "పరస్పర సంఘటనల స్కానర్ (Mutual Event Scanner)" : "Mutual Event Scanner (Synastry Double-Blind Cross-Transit)");
-        printf("<p style='color:#ccc; margin-bottom:15px;'>Scanning %d to %d for exact Jup/Sat/Sun/Ven/Dasha alignments...</p>", start_year, end_year);
+        printf("<h2 style='color: var(--accent); margin-top: 30px; border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", te ? "ఉమ్మడి సంఘటనల స్కానర్ (Mutual Event Scanner)" : "MUTUAL EVENT SCANNER (SYNASTRY DOUBLE-BLIND CROSS-TRANSIT)");
+        printf("<p style='color: #888;'>Scanning %d to %d for days where BOTH charts hit critical mass...</p>", start_year, end_year);
+        printf("<table class='data-table'><tr><th>Mutual Day</th><th>P1 Power</th><th>P2 Power</th><th>Cosmic Clock</th><th>Consolidated Env</th><th>P1 Life Theme</th><th>P2 Life Theme</th></tr>\n");
     } else {
         printf("\n=================================================================\n");
-        printf("=== MUTUAL EVENT SCANNER (SYNASTRY DOUBLE-BLIND CROSS-TRANSIT) ===\n");
+        printf("=== %s ===\n", te ? "ఉమ్మడి సంఘటనల స్కానర్ (MUTUAL EVENT SCANNER)" : "MUTUAL EVENT SCANNER (SYNASTRY DOUBLE-BLIND CROSS-TRANSIT)");
         printf("=================================================================\n");
         printf("Scanning %d to %d for days where BOTH charts hit critical mass...\n\n", start_year, end_year);
+        printf("%-10s | %-13s | %-13s | %-19s | %-30s | %-20s | %-20s\n", "Mutual Day", "P1 Power", "P2 Power", "Cosmic Clock", "Consolidated Env", "P1 Life Theme", "P2 Life Theme");
+        printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
     }
 
-    auto calculate_person_score = [](const JyotishaEngine& p, double jd, string& reason, string& env, string& archetype) -> int {
+    double start_jd = swe_julday(start_year, 1, 1, 0.0 - p1.location.tz_offset, SE_GREG_CAL);
+    double end_jd = swe_julday(end_year + 1, 1, 1, 0.0 - p1.location.tz_offset, SE_GREG_CAL);
+
+    // --- Core Lords & Arudhas for P1 ---
+    int p1_asc = p1.planet_rashis[0], p1_mo = p1.planet_rashis[2], p1_su = p1.planet_rashis[1];
+    int p1_7L = 1, p1_3L = 1, p1_2L = 1, p1_11L = 1;
+    for (int p=1; p<=7; p++) {
+        if (string(rashi_lords[(p1_asc+6)%12]) == p_names_full[p]) p1_7L = p;
+        if (string(rashi_lords[(p1_asc+2)%12]) == p_names_full[p]) p1_3L = p;
+        if (string(rashi_lords[(p1_asc+1)%12]) == p_names_full[p]) p1_2L = p;
+        if (string(rashi_lords[(p1_asc+10)%12]) == p_names_full[p]) p1_11L = p;
+    }
+    int p1_dk = p1.darakaraka_idx, p1_a3 = p1.get_arudha(3);
+    double p1_d9_asc = (p1.get_varga(9, p1.planet_lons[0]) * 30.0) + 15.0;
+    double p1_d9_ju  = (p1.get_varga(9, p1.planet_lons[5]) * 30.0) + 15.0;
+
+    // --- Core Lords & Arudhas for P2 ---
+    int p2_asc = p2.planet_rashis[0], p2_mo = p2.planet_rashis[2], p2_su = p2.planet_rashis[1];
+    int p2_7L = 1, p2_3L = 1, p2_2L = 1, p2_11L = 1;
+    for (int p=1; p<=7; p++) {
+        if (string(rashi_lords[(p2_asc+6)%12]) == p_names_full[p]) p2_7L = p;
+        if (string(rashi_lords[(p2_asc+2)%12]) == p_names_full[p]) p2_3L = p;
+        if (string(rashi_lords[(p2_asc+1)%12]) == p_names_full[p]) p2_2L = p;
+        if (string(rashi_lords[(p2_asc+10)%12]) == p_names_full[p]) p2_11L = p;
+    }
+    int p2_dk = p2.darakaraka_idx, p2_a3 = p2.get_arudha(3);
+    double p2_d9_asc = (p2.get_varga(9, p2.planet_lons[0]) * 30.0) + 15.0;
+    double p2_d9_ju  = (p2.get_varga(9, p2.planet_lons[5]) * 30.0) + 15.0;
+
+    // --- DYNAMIC EXACT UL CALCULATION (Adopted perfectly from Phase 5 logic) ---
+    auto calculate_ul = [&](const JyotishaEngine& eng) {
+        int h12_rashi = (eng.planet_rashis[0] + 11) % 12;
+        int l12_idx = 1; 
+        for(int x = 1; x <= 7; x++) { 
+            if(string(rashi_lords[h12_rashi]) == p_names_full[x]) l12_idx = x; 
+        }
+        int distance = (eng.planet_rashis[l12_idx] - h12_rashi + 12) % 12;
+        int ul_rashi = (eng.planet_rashis[l12_idx] + distance) % 12;
+        if (ul_rashi == h12_rashi || ul_rashi == (h12_rashi + 6) % 12) {
+            ul_rashi = (ul_rashi + 9) % 12; 
+        }
+        return ul_rashi;
+    };
+
+    int p1_ul = calculate_ul(p1);
+    int p2_ul = calculate_ul(p2);
+    
+    auto get_arudha_exact = [&](const JyotishaEngine& eng, int r) { 
+        return r * 30.0 + fmod(eng.planet_lons[0], 30.0); // Exact BPHS Lagna degree method
+    };
+    
+    double p1_ul_exact = get_arudha_exact(p1, p1_ul);
+    double p2_ul_exact = get_arudha_exact(p2, p2_ul);
+
+    int p1_7th = (p1_ul + 6) % 12, p2_7th = (p2_ul + 6) % 12;
+    int p1_2nd = (p1_ul + 1) % 12, p2_2nd = (p2_ul + 1) % 12;
+
+    auto get_midpoint = [](double l1, double l2) {
+        double diff = std::abs(l1 - l2);
+        if (diff > 180.0) return fmod((l1 + l2 + 360.0) / 2.0, 360.0);
+        return fmod((l1 + l2) / 2.0, 360.0);
+    };
+    
+    auto short_arc = [](double l1, double l2) {
+        double d = fmod(fmod(l1 - l2, 360.0) + 360.0, 360.0);
+        return d > 180.0 ? 360.0 - d : d;
+    };
+
+    double p1_bb = get_midpoint(p1.planet_lons[8], p1.planet_lons[2]);
+    double p1_yogi = fmod(p1.planet_lons[1] + p1.planet_lons[2] + 93.3333333, 360.0);
+    double p2_bb = get_midpoint(p2.planet_lons[8], p2.planet_lons[2]);
+    double p2_yogi = fmod(p2.planet_lons[1] + p2.planet_lons[2] + 93.3333333, 360.0);
+
+    const char* en_short[] = {"Mes", "Vri", "Mit", "Kar", "Sim", "Kan", "Tul", "Vri", "Dha", "Mak", "Kum", "Mee"};
+    const char* te_short[] = {"మేష", "వృష", "మిథు", "కర్కా", "సింహ", "కన్య", "తుల", "వృశ్చి", "ధను", "మక", "కుంభ", "మీన"};
+    auto get_r_abbr = [&](int r) { return te ? string(te_short[r%12]) : string(en_short[r%12]); };
+
+    struct OverlayHit { double lon; string name; };
+    vector<OverlayHit> karmic_triggers;
+    vector<int> core_targets = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}; 
+
+    // 1. Overlays
+    for (int i : core_targets) {
+        for (int j : core_targets) {
+            if (short_arc(p1.planet_lons[i], p2.planet_lons[j]) <= 2.0) {
+                string n1 = (i==0)?"Lagna":(i==10)?"Vertex":string(p_names_full[i]);
+                string n2 = (j==0)?"Lagna":(j==10)?"Vertex":string(p_names_full[j]);
+                karmic_triggers.push_back({get_midpoint(p1.planet_lons[i], p2.planet_lons[j]), n1 + "-" + n2 + " Overlay"});
+            }
+        }
+    }
+    
+    // 2. GENERALIZED: All natal planets are karmic anchors
+    for(int i : core_targets){
+        string name = (i==0) ? "Lagna" : (i==10) ? "Vertex" : string(p_names_full[i]);
+        karmic_triggers.push_back({p1.planet_lons[i], name + " P1"});
+        karmic_triggers.push_back({p2.planet_lons[i], name + " P2"});
+    }
+    
+    // 3. Derived Points
+    karmic_triggers.push_back({(p1_a3 * 30.0) + 15.0, "P1 A3 (Arudha)"});
+    karmic_triggers.push_back({(p2_a3 * 30.0) + 15.0, "P2 A3 (Arudha)"});
+    karmic_triggers.push_back({p1_bb, "P1 BB"}); 
+    karmic_triggers.push_back({p2_bb, "P2 BB"});
+    karmic_triggers.push_back({p1_yogi, "P1 Yogi"}); 
+    karmic_triggers.push_back({p2_yogi, "P2 Yogi"});
+    karmic_triggers.push_back({p1.planet_lons[10], "P1 Vertex"}); 
+    karmic_triggers.push_back({p2.planet_lons[10], "P2 Vertex"});
+    karmic_triggers.push_back({p1.planet_lons[p1_dk], "P1 DK"}); 
+    karmic_triggers.push_back({p2.planet_lons[p2_dk], "P2 DK"});
+    karmic_triggers.push_back({p1_ul_exact, "P1 UL"}); 
+    karmic_triggers.push_back({p2_ul_exact, "P2 UL"});
+    karmic_triggers.push_back({p1.planet_lons[0], "P1 Lagna"}); 
+    karmic_triggers.push_back({p2.planet_lons[0], "P2 Lagna"});
+
+    // --- RASHI-GENERALIZED CIRCULAR SUPER-NODE CLUSTERING ---
+    struct SuperNode { double lon; int count; int rashi; string rashi_name; };
+    vector<SuperNode> super_nodes;
+
+    for (int r = 0; r < 12; r++) {
+        double sum_sin = 0, sum_cos = 0; 
+        int c = 0;
+        for (auto &t : karmic_triggers) {
+            if ((int)(t.lon / 30.0) == r) { 
+                sum_sin += sin(t.lon * 3.14159265358979323846 / 180.0); 
+                sum_cos += cos(t.lon * 3.14159265358979323846 / 180.0); 
+                c++; 
+            }
+        }
+        if (c >= 2) { 
+            double mean = atan2(sum_sin, sum_cos) * 180.0 / 3.14159265358979323846;
+            if (mean < 0) mean += 360.0;
+            
+            bool is_karmic_rashi = (r == (p1_ul + 1) % 12 || r == (p1_ul + 6) % 12 || r == (p1_ul + 11) % 12 || 
+                                    r == (p2_ul + 1) % 12 || r == (p2_ul + 6) % 12 || r == (p2_ul + 11) % 12);
+            if (is_karmic_rashi) {
+                super_nodes.push_back({mean, c, r, get_r_abbr(r)});
+            }
+        }
+    }
+
+    if (!html) {
+        printf("SuperNodes generalized: ");
+        for (auto &sn : super_nodes) {
+            printf("%s(%d) %s from UL | ", sn.rashi_name.c_str(), sn.count, 
+                   (sn.rashi == (p1_ul + 1) % 12 || sn.rashi == (p2_ul + 1) % 12) ? "2nd" : 
+                   (sn.rashi == (p1_ul + 6) % 12 || sn.rashi == (p2_ul + 6) % 12) ? "7th" : "12th");
+        }
+        printf("\n");
+    }
+
+    auto exact_aspect = [&](double t_lon, double n_lon, int t_planet, double orb) {
+        if (short_arc(t_lon, n_lon) <= orb) return true; 
+        if (short_arc(fmod(t_lon + 180.0, 360.0), n_lon) <= orb) return true; 
+        
+        if (t_planet == 5 || t_planet == 8 || t_planet == 9) { 
+            if (short_arc(fmod(t_lon + 120.0, 360.0), n_lon) <= orb) return true;
+            if (short_arc(fmod(t_lon + 240.0, 360.0), n_lon) <= orb) return true;
+        }
+        else if (t_planet == 3) { 
+            if (short_arc(fmod(t_lon + 90.0, 360.0), n_lon) <= orb) return true;
+            if (short_arc(fmod(t_lon + 210.0, 360.0), n_lon) <= orb) return true;
+        }
+        else if (t_planet == 7) { 
+            if (short_arc(fmod(t_lon + 60.0, 360.0), n_lon) <= orb) return true;
+            if (short_arc(fmod(t_lon + 270.0, 360.0), n_lon) <= orb) return true;
+        }
+        return false;
+    };
+
+    auto calculate_person_score = [&](const JyotishaEngine& eng, int asc, int mo, int su, int l7, int dk, int ul, double d9_asc, double d9_ju, double jd, string& themes) {
         int score = 0;
-        int asc_rashi = p.planet_rashis[0];
+        int md, ad; const_cast<JyotishaEngine&>(eng).get_active_dasha_lords(jd, md, ad);
         
-        // --- Core Lords ---
-        int h7_rashi = (asc_rashi + 6) % 12;
-        int l7_idx = 1; for(int x=1; x<=7; x++) if(string(rashi_lords[h7_rashi]) == p_names_full[x]) l7_idx = x;
+        double xx[6]; char serr[256];
+        swe_calc_ut(jd, SE_JUPITER, eng.iflag, xx, serr); double tr_ju = xx[0];
+        swe_calc_ut(jd, SE_SATURN, eng.iflag, xx, serr); double tr_sa = xx[0];
         
-        int h2_rashi = (asc_rashi + 1) % 12; 
-        int l2_idx = 1; for(int x=1; x<=7; x++) if(string(rashi_lords[h2_rashi]) == p_names_full[x]) l2_idx = x;
-        
-        int h9_rashi = (asc_rashi + 8) % 12; 
-        int l9_idx = 1; for(int x=1; x<=7; x++) if(string(rashi_lords[h9_rashi]) == p_names_full[x]) l9_idx = x;
+        if (exact_aspect(tr_ju, eng.planet_lons[0], 5, 3.0) || exact_aspect(tr_ju, eng.planet_lons[2], 5, 3.0) || exact_aspect(tr_ju, eng.planet_lons[1], 5, 3.0)) { score += 4; themes += "[D1 Jup] "; }
+        if (exact_aspect(tr_ju, eng.planet_lons[l7], 5, 3.0) || exact_aspect(tr_ju, eng.planet_lons[dk], 5, 3.0) || exact_aspect(tr_ju, (ul * 30.0) + 15.0, 5, 5.0)) { score += 5; themes += "[7H/UL Jup] "; }
+        if (exact_aspect(tr_ju, d9_asc, 5, 5.0) || exact_aspect(tr_ju, d9_ju, 5, 5.0)) { score += 3; themes += "[D9 Jup] "; }
 
-        int ul_rashi = p.get_arudha(12);
-        int dk_idx = p.darakaraka_idx;
-        int dk_rashi = p.planet_rashis[dk_idx];
-        
-        int d9_asc = p.get_varga(9, p.planet_lons[0]);
-        int d9_h7 = (d9_asc + 6) % 12;
-        int d9_7L_idx = 1;
-        for(int x=1; x<=7; x++) if(string(rashi_lords[d9_h7]) == p_names_full[x]) d9_7L_idx = x;
-        int d9_7L_rashi = p.get_varga(9, p.planet_lons[d9_7L_idx]);
+        if (exact_aspect(tr_sa, eng.planet_lons[0], 7, 3.0) || exact_aspect(tr_sa, eng.planet_lons[2], 7, 3.0) || exact_aspect(tr_sa, eng.planet_lons[1], 7, 3.0)) { score += 3; themes += "[D1 Sat] "; }
+        if (exact_aspect(tr_sa, eng.planet_lons[l7], 7, 3.0) || exact_aspect(tr_sa, eng.planet_lons[dk], 7, 3.0)) { score += 4; themes += "[7H/DK Sat] "; }
 
-        auto get_trigger_name = [&](int r) {
-            string res = "";
-            if (r == h7_rashi) res += "H7/";
-            if (r == ul_rashi) res += "UL/";
-            if (r == asc_rashi) res += "Asc/";
-            if (r == p.planet_rashis[l7_idx]) res += "7L/";
-            if (r == dk_rashi) res += "DK/";
-            if (res.length() > 0) res.pop_back();
-            return res;
+        int d_map[] = {-1, 2, 3, 4, 8, 6, 1, 7, 5, 0}; 
+        int dasha_l7 = d_map[l7], dasha_dk = d_map[dk];
+        
+        if (md == dasha_l7 || md == dasha_dk || md == 6 || md == 5 || md == 8) { score += 2; themes += "[" + string(dasha_lords[md]) + "/" + string(dasha_lords[ad]) + "] "; }
+        if (ad == dasha_l7 || ad == dasha_dk || ad == 6 || ad == 5 || ad == 8) score += 1;
+        
+        // --- Lagnesh & UL Lord Dusthana Validation ---
+        auto is_dusthana = [](int from_rashi, int to_rashi) {
+            int d = (to_rashi - from_rashi + 12) % 12;
+            return d == 5 || d == 7 || d == 11; // 6th, 8th, 12th placement
         };
 
-        // --- Dasha Readiness ---
-        int d_map[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
-        int md, ad; p.get_active_dasha_lords(jd, md, ad);
-        int md_p = d_map[md]; int ad_p = d_map[ad];
-        
-        bool md_active = (md_p == l7_idx || md_p == l2_idx || md_p == l9_idx || md_p == 6 || md_p == 8 || md_p == 5 || p.planet_rashis[md_p] == ul_rashi || md_p == dk_idx);
-        bool ad_active = (ad_p == l7_idx || ad_p == l2_idx || ad_p == l9_idx || ad_p == 6 || ad_p == 8 || ad_p == 5 || p.planet_rashis[ad_p] == ul_rashi || ad_p == dk_idx);
-        
-        if (md_active) score += 3;
-        if (ad_active) score += 4;
+        int lagnesh_idx = 1;
+        for (int p = 1; p <= 7; p++) {
+            if (string(rashi_lords[asc]) == p_names_full[p]) lagnesh_idx = p;
+        }
+        int lagnesh_rashi = eng.planet_rashis[lagnesh_idx];
 
-        int ad_house = (p.planet_rashis[ad_p] - asc_rashi + 12) % 12 + 1;
-        if (ad_house == 3 || ad_house == 4) env = "Local/Internet";
-        else if (ad_house == 9) env = "Travel/Education";
-        else if (ad_house == 10 || ad_house == 11) env = "Work/Network";
-        else if (ad_house == 2 || ad_house == 7) env = "Direct/Family";
-        else env = "Social setting";
+        int ul_lord_idx = 1;
+        for (int p = 1; p <= 7; p++) {
+            if (string(rashi_lords[ul]) == p_names_full[p]) ul_lord_idx = p;
+        }
+        int ul_lord_rashi = eng.planet_rashis[ul_lord_idx];
 
-        // --- Transit Checks ---
-        double xx_ju[6], xx_sa[6], xx_ve[6], xx_su[6]; char serr[256];
-        swe_calc_ut(jd, SE_JUPITER, p.iflag, xx_ju, serr);
-        int t_ju_rashi = (int)(xx_ju[0] / 30.0);
-        auto ju_aspects = [&](int r) { int d = (r - t_ju_rashi + 12) % 12 + 1; return (d==1||d==5||d==7||d==9); };
+        if (md == d_map[lagnesh_idx]) {
+            if (!is_dusthana(asc, lagnesh_rashi)) { score += 2; themes += "[MD Lagnesh] "; }
+        }
+        if (md == d_map[ul_lord_idx]) {
+            if (!is_dusthana(ul, ul_lord_rashi)) { score += 2; themes += "[MD UL Lord] "; }
+        }
         
-        bool ju_hit_d1 = (ju_aspects(h7_rashi) || ju_aspects(p.planet_rashis[l7_idx]) || ju_aspects(ul_rashi) || ju_aspects(asc_rashi) || ju_aspects(dk_rashi));
-        bool ju_hit_d9 = (ju_aspects(d9_asc) || ju_aspects(d9_7L_rashi));
-        if (ju_hit_d1) score += 4;
-        if (ju_hit_d9) { score += 2; reason += "[D9 Jup] "; }
-
-        swe_calc_ut(jd, SE_SATURN, p.iflag, xx_sa, serr);
-        int t_sa_rashi = (int)(xx_sa[0] / 30.0);
-        auto sa_aspects = [&](int r) { int d = (r - t_sa_rashi + 12) % 12 + 1; return (d==1||d==3||d==7||d==10); };
+        if (ad == d_map[lagnesh_idx]) {
+            if (!is_dusthana(asc, lagnesh_rashi)) { score += 1; themes += "[AD Lagnesh] "; }
+        }
+        if (ad == d_map[ul_lord_idx]) {
+            if (!is_dusthana(ul, ul_lord_rashi)) { score += 1; themes += "[AD UL Lord] "; }
+        }
         
-        bool sa_hit = (sa_aspects(h7_rashi) || sa_aspects(p.planet_rashis[l7_idx]) || sa_aspects(ul_rashi) || sa_aspects(asc_rashi) || sa_aspects(dk_rashi));
-        if (sa_hit) score += 4;
-
-        if (ju_hit_d1 && sa_hit && (md_active || ad_active)) {
-            
-            swe_calc_ut(jd, SE_VENUS, p.iflag, xx_ve, serr);
-            int t_ve_rashi = (int)(xx_ve[0]/30.0);
-            if (t_ve_rashi == h7_rashi || t_ve_rashi == ul_rashi || t_ve_rashi == asc_rashi || t_ve_rashi == p.planet_rashis[l7_idx] || t_ve_rashi == dk_rashi) {
-                score += 3; reason += "[Ven in " + string(short_rashi[t_ve_rashi]) + " hits " + get_trigger_name(t_ve_rashi) + "] ";
-            }
-            
-            swe_calc_ut(jd, SE_SUN, p.iflag, xx_su, serr);
-            int t_su_rashi = (int)(xx_su[0]/30.0);
-            if (t_su_rashi == h7_rashi || t_su_rashi == ul_rashi || t_su_rashi == asc_rashi || t_su_rashi == p.planet_rashis[l7_idx] || t_su_rashi == dk_rashi) {
-                score += 2; reason += "[Sun in " + string(short_rashi[t_su_rashi]) + " hits " + get_trigger_name(t_su_rashi) + "] ";
-                
-                int hit_house = (t_su_rashi - asc_rashi + 12) % 12 + 1;
-                if (hit_house == 5 || hit_house == 9) archetype = "Creation/Lineage";
-                else if (hit_house == 1 || hit_house == 7) archetype = "Union/Partnership";
-                else if (hit_house == 2 || hit_house == 11) archetype = "Family Expand/Gains";
-                else if (hit_house == 4 || hit_house == 12) archetype = "Foundation/Hospital";
-                else if (hit_house == 10) archetype = "Status Shift/Career";
-                else archetype = "Social/Karmic Shift";
-            }
-            
-            if (archetype == "" && t_ve_rashi >= 0) {
-                int hit_house = (t_ve_rashi - asc_rashi + 12) % 12 + 1;
-                if (hit_house == 5 || hit_house == 9) archetype = "Creation/Lineage";
-                else if (hit_house == 1 || hit_house == 7) archetype = "Union/Partnership";
-                else if (hit_house == 2 || hit_house == 11) archetype = "Family Expand/Gains";
-                else if (hit_house == 4 || hit_house == 12) archetype = "Foundation/Hospital";
-                else archetype = "Social/Karmic Shift";
-            }
-        } else { score = 0; } 
-        
-        char md_buf[32]; snprintf(md_buf, sizeof(md_buf), "[%s/%s] ", dasha_lords[md], dasha_lords[ad]);
-        reason = string(md_buf) + reason;
         return score;
     };
 
-    double start_jd = swe_julday(start_year, 1, 1, 0.0, SE_GREG_CAL);
-    double end_jd = swe_julday(end_year, 12, 31, 0.0, SE_GREG_CAL);
+    int last_printed_jd = -9999; 
+    
+    // --- TEMPORAL RESOLUTION: 0.25 (6 Hours) ---
+    for (double jd = start_jd; jd <= end_jd; jd += 0.25) { 
+        string t1 = "", t2 = "";
+        int s1 = calculate_person_score(p1, p1_asc, p1_mo, p1_su, p1_7L, p1_dk, p1_ul, p1_d9_asc, p1_d9_ju, jd, t1);
+        int s2 = calculate_person_score(p2, p2_asc, p2_mo, p2_su, p2_7L, p2_dk, p2_ul, p2_d9_asc, p2_d9_ju, jd, t2);
 
-    struct Hit { int y, m, d; int s1, s2, total; string cons_env, arch1, arch2, res1, res2, t_pos; };
-    vector<Hit> peak_hits;
-
-    // --- PRE-CALCULATE EXACT NATAL SYNASTRY CONJUNCTIONS (TETHERS) ---
-    struct SynastryHit { int p1_idx, p2_idx; double lon; string name1, name2; };
-    vector<SynastryHit> karmic_triggers;
-    auto get_dist = [](double l1, double l2) {
-        double d = std::abs(l1 - l2);
-        if (d > 180.0) d = 360.0 - d;
-        return d;
-    };
-
-    for (int i = 1; i <= 9; i++) {
-        for (int j = 1; j <= 9; j++) {
-            if (get_dist(p1.planet_lons[i], p2.planet_lons[j]) <= 2.0) { // 2° Orb for Natal Overlays
-                double mid_lon = (p1.planet_lons[i] + p2.planet_lons[j]) / 2.0; 
-                if (std::abs(p1.planet_lons[i] - p2.planet_lons[j]) > 180.0) mid_lon = fmod(mid_lon + 180.0, 360.0);
-                karmic_triggers.push_back({i, j, mid_lon, p_names_full[i], p_names_full[j]});
-            }
+        double xx[6]; char serr[256];
+        swe_calc_ut(jd, SE_MERCURY, p1.iflag, xx, serr); double tr_me = xx[0];
+        swe_calc_ut(jd, SE_MOON, p1.iflag, xx, serr); double tr_mo = xx[0];
+        swe_calc_ut(jd, SE_SUN, p1.iflag, xx, serr); double tr_su = xx[0];
+        swe_calc_ut(jd, SE_VENUS, p1.iflag, xx, serr); double tr_ve = xx[0];
+        
+        // Exact Transit Lagna 
+        double tr_asc; 
+        { 
+            double cusps[13], ascmc[10]; 
+            swe_houses(jd, p1.location.lat, p1.location.lon, 'P', cusps, ascmc); 
+            tr_asc = fmod(ascmc[0], 360.0); 
         }
-    }
 
-    for (double jd = start_jd; jd <= end_jd; jd += 1.0) {
-        string r1 = "", e1 = "", a1 = "", r2 = "", e2 = "", a2 = "";
-        int s1 = calculate_person_score(p1, jd, r1, e1, a1);
-        int s2 = calculate_person_score(p2, jd, r2, e2, a2);
-
-        // -----------------------------------------------------------------------
-        // DEFINITE COMMUNICATION TRIGGER LOGIC (EXACT DEGREE TELEPATHY & TRINES)
-        // -----------------------------------------------------------------------
-        int p1_lagna_rasi = p1.planet_rashis[0];
-        int p2_lagna_rasi = p2.planet_rashis[0];
-        int p2_m_rasi = p2.planet_rashis[2];
-
-        int p1_h3 = (p1_lagna_rasi + 2) % 12;
-        int p1_h7 = (p1_lagna_rasi + 6) % 12;
-
-        double xx_mo[6], xx_ma[6], xx_me[6]; char serr[256];
-        swe_calc_ut(jd, SE_MOON, p1.iflag, xx_mo, serr);
-        swe_calc_ut(jd, SE_MARS, p1.iflag, xx_ma, serr);
-        swe_calc_ut(jd, SE_MERCURY, p1.iflag, xx_me, serr);
-
-        double tr_mo_lon = xx_mo[0];
-        double tr_ma_lon = xx_ma[0];
-        double tr_me_lon = xx_me[0];
-
-        int tr_moon = (int)(tr_mo_lon / 30.0);
-        int tr_mars = (int)(tr_ma_lon / 30.0);
-        int tr_merc = (int)(tr_me_lon / 30.0);
-
-        auto get_lord = [](int rashi) {
-            const int lords[] = {3, 6, 4, 2, 1, 4, 6, 3, 5, 7, 7, 5}; 
-            return lords[rashi % 12];
+        int p1_md, p1_ad; const_cast<JyotishaEngine&>(p1).get_active_dasha_lords(jd, p1_md, p1_ad);
+        int p2_md, p2_ad; const_cast<JyotishaEngine&>(p2).get_active_dasha_lords(jd, p2_md, p2_ad);
+        int d_map[] = {-1, 2, 3, 4, 8, 6, 1, 7, 5, 0}; 
+        
+        auto is_comm_dasha = [&](int md, int ad, int l3, int l2, int l11) {
+            int d3 = d_map[l3], d2 = d_map[l2], d11 = d_map[l11];
+            return (md==d3 || md==d2 || md==d11 || md==4 || ad==d3 || ad==d2 || ad==d11 || ad==4);
         };
+        
+        bool p1_comm_dasha = is_comm_dasha(p1_md, p1_ad, p1_3L, p1_2L, p1_11L);
+        bool p2_comm_dasha = is_comm_dasha(p2_md, p2_ad, p2_3L, p2_2L, p2_11L);
 
-        int p1_3L = get_lord(p1_h3);
-        double xx_3L[6];
-        int se_3L = (p1_3L == 1) ? SE_SUN : (p1_3L == 2) ? SE_MOON : (p1_3L == 3) ? SE_MARS : (p1_3L == 4) ? SE_MERCURY : (p1_3L == 5) ? SE_JUPITER : (p1_3L == 6) ? SE_VENUS : SE_SATURN;
-        swe_calc_ut(jd, se_3L, p1.iflag, xx_3L, serr);
-        int tr_3L = (int)(xx_3L[0] / 30.0);
+        bool merc_hit = false; double best_comm_orb = 99.0; string best_comm_name = "";
+        vector<string> comm_hits;
+        
+        vector<pair<double,string>> p1_comm = {{p1.planet_lons[4],"P1 Budha"}, {p1.planet_lons[p1_3L],"P1 3L"}, {p1.planet_lons[p1_2L],"P1 2L"}, {p1.planet_lons[p1_11L],"P1 11L"}, {(p1_a3*30.0)+15.0,"P1 A3"}};
+        vector<pair<double,string>> p2_comm = {{p2.planet_lons[4],"P2 Budha"}, {p2.planet_lons[p2_3L],"P2 3L"}, {p2.planet_lons[p2_2L],"P2 2L"}, {p2.planet_lons[p2_11L],"P2 11L"}, {(p2_a3*30.0)+15.0,"P2 A3"}};
+
+        const double COMM_ORB = 1.5;
+        auto check_comm = [&](double tr) {
+            for(auto &ct: p1_comm) {
+                if(short_arc(tr, ct.first) <= COMM_ORB || short_arc(fmod(tr+180.0, 360.0), ct.first) <= COMM_ORB) {
+                    merc_hit = true;
+                    double d = std::min(short_arc(tr, ct.first), short_arc(fmod(tr+180.0, 360.0), ct.first));
+                    if(d < best_comm_orb) { best_comm_orb = d; best_comm_name = ct.second; }
+                }
+            }
+            for(auto &ct: p2_comm) {
+                if(short_arc(tr, ct.first) <= COMM_ORB || short_arc(fmod(tr+180.0, 360.0), ct.first) <= COMM_ORB) {
+                    merc_hit = true;
+                    double d = std::min(short_arc(tr, ct.first), short_arc(fmod(tr+180.0, 360.0), ct.first));
+                    if(d < best_comm_orb) { best_comm_orb = d; best_comm_name = ct.second; }
+                }
+            }
+        };
+        check_comm(tr_me);
 
         int comm_score = 0;
-        string comm_reasons = "";
+        if(merc_hit) comm_score += 2;
+        if(merc_hit && (p1_comm_dasha || p2_comm_dasha)) { 
+            comm_score += 1; 
+            comm_hits.push_back("[P1/P2 in Comm Dasha]"); 
+        }
+        int tr_me_rashi = (int)(tr_me / 30.0);
+        if(tr_me_rashi == (p1_asc+2)%12 || tr_me_rashi == (p2_asc+2)%12) { 
+            if(merc_hit) comm_score += 1; 
+            comm_hits.push_back("[Budha in 3H]"); 
+        }
+        if(merc_hit) comm_hits.push_back("[Tr.Budha exact hits " + best_comm_name + "]");
+        if(!merc_hit) comm_score = 0;
 
-        // EXACT DEGREE LOGIC (Orb <= 1.5°) - Now includes 120/240 Trines
-        auto exact_aspect = [&](double t_lon, double n_lon) {
-            if (get_dist(t_lon, n_lon) <= 1.5) return true; // Conjunction
-            if (get_dist(fmod(t_lon + 180.0, 360.0), n_lon) <= 1.5) return true; // Opposition
-            if (get_dist(fmod(t_lon + 120.0, 360.0), n_lon) <= 1.5) return true; // Trine 1
-            if (get_dist(fmod(t_lon + 240.0, 360.0), n_lon) <= 1.5) return true; // Trine 2
-            return false;
-        };
+        // --- CONJUNCTION ONLY (FOR PHYSICAL ANCHORS) ---
+        auto is_conj = [&](double a, double b, double orb) { return short_arc(a, b) <= orb; };
 
-        // 1. Mercury Return / Exact Hit (Forces communication instantly)
-        if (exact_aspect(tr_me_lon, p1.planet_lons[4])) { comm_score += 4; comm_reasons += "[Tr.Budha exact hits P1.Budha] "; }
-        if (exact_aspect(tr_me_lon, p2.planet_lons[4])) { comm_score += 4; comm_reasons += "[Tr.Budha exact hits P2.Budha] "; }
+        bool moon_on_UL = is_conj(tr_mo, p1_ul_exact, 1.5) || is_conj(tr_mo, p2_ul_exact, 1.5);
+        bool lagna_on_UL = is_conj(tr_asc, p1_ul_exact, 1.5) || is_conj(tr_asc, p2_ul_exact, 1.5);
+        bool lagna_on_DK_now = is_conj(tr_asc, p1.planet_lons[p1_dk], 1.5) || is_conj(tr_asc, p2.planet_lons[p2_dk], 1.5);
+        bool sun_on_7th = ((int)(tr_su / 30.0) == p1_7th || (int)(tr_su / 30.0) == p2_7th); // Sun ONLY
+
+        vector<string> fated_msgs;
         
-        // 2. Mercury hitting the Mind/Body
-        if (exact_aspect(tr_me_lon, p1.planet_lons[2]) || exact_aspect(tr_me_lon, p1.planet_lons[0])) { comm_score += 3; comm_reasons += "[Tr.Budha exact hits P1.Mind/Body] "; }
-        if (exact_aspect(tr_me_lon, p2.planet_lons[2]) || exact_aspect(tr_me_lon, p2.planet_lons[0])) { comm_score += 3; comm_reasons += "[Tr.Budha exact hits P2.Mind/Body] "; }
-
-        // 3. Mind hitting the Message
-        if (exact_aspect(tr_mo_lon, p1.planet_lons[4])) { comm_score += 2; comm_reasons += "[Tr.Moon exact hits P1.Budha] "; }
-        if (exact_aspect(tr_mo_lon, p2.planet_lons[4])) { comm_score += 2; comm_reasons += "[Tr.Moon exact hits P2.Budha] "; }
-
-        // 4. Dasha Resonance (Are they in a communication timeline?)
-        int d_map_comm[] = {9, 6, 1, 2, 3, 8, 5, 7, 4}; 
-        int p1_md, p1_ad; p1.get_active_dasha_lords(jd, p1_md, p1_ad);
-        int p2_md, p2_ad; p2.get_active_dasha_lords(jd, p2_md, p2_ad);
-        if (d_map_comm[p1_md] == 4 || d_map_comm[p1_ad] == 4) { comm_score += 2; comm_reasons += "[P1 in Budha Dasha] "; }
-        if (d_map_comm[p2_md] == 4 || d_map_comm[p2_ad] == 4) { comm_score += 2; comm_reasons += "[P2 in Budha Dasha] "; }
-
-        // 5. Broad Sign-Based Triggers (Original Logic)
-        if (tr_moon == p1_h3) { comm_score += 2; comm_reasons += "[Moon in 3H] "; }
-        if (tr_moon == p1_h7) { comm_score += 2; comm_reasons += "[Moon in 7H] "; }
-        if (tr_moon == p2_lagna_rasi || tr_moon == p2_m_rasi) { comm_score += 2; comm_reasons += "[Moon hits P2] "; }
-
-        if (tr_merc == p1_h3) { comm_score += 2; comm_reasons += "[Budha in 3H] "; }
-        if (tr_merc == p1_h7) { comm_score += 2; comm_reasons += "[Budha in 7H] "; }
-        if (tr_merc == p2_lagna_rasi || tr_merc == p2_m_rasi) { comm_score += 2; comm_reasons += "[Budha hits P2] "; }
-
-        if (tr_mars == p1_h3) { comm_score += 2; comm_reasons += "[Mangal in 3H (Impulse)] "; }
-        if (tr_3L == p1_h7 || tr_3L == p2_lagna_rasi) { comm_score += 2; comm_reasons += "[3rd Lord hits 7H/P2] "; }
-
-        if (comm_score >= 4) {
-            char comm_buf[512];
-            if (html) {
-                snprintf(comm_buf, sizeof(comm_buf), "<br><b style='color:#e74c3c;'>📞 COMMUNICATION SPIKE (Score %d): %s</b>", comm_score, comm_reasons.c_str());
-            } else {
-                snprintf(comm_buf, sizeof(comm_buf), "\n           | \033[1;31m📞 COMMUNICATION SPIKE (Score %d): %s\033[0m", comm_score, comm_reasons.c_str());
+        // --- LAGNA CROSSING - CHECKING DK WITHIN 6-HOUR STEP ---
+        auto lagna_crossed_today = [&](double dk_lon) {
+            double asc_next; 
+            { 
+                double cusps[13], asc[10]; 
+                swe_houses(jd + 0.25, p1.location.lat, p1.location.lon, 'P', cusps, asc); 
+                asc_next = fmod(asc[0], 360.0); 
             }
-            if (r1.find("COMMUNICATION SPIKE") == string::npos) r1 += string(comm_buf);
-            
-            // Priority Boost: Ensure this communication spike bypasses the standard threshold to be logged!
-            if (s1 < 16) s1 = 16;
-            if (s2 < 11) s2 = 11;
+            double span = fmod(fmod(asc_next - tr_asc, 360.0) + 360.0, 360.0); 
+            double to_dk = fmod(fmod(dk_lon - tr_asc, 360.0) + 360.0, 360.0);
+            return to_dk <= span + 1.5; 
+        };
+        
+        bool lagna_crossed = lagna_crossed_today(p1.planet_lons[p1_dk]) || lagna_crossed_today(p2.planet_lons[p2_dk]);
+        if (lagna_crossed && !lagna_on_DK_now) {
+            fated_msgs.push_back("[Lagna crossed DK today]");
         }
-
-        // -----------------------------------------------------------------------
-        // [FATED SYNASTRY RESONANCE - EXACT DEGREE & TRINE MATCH TRIGGERS]
-        // -----------------------------------------------------------------------
-        bool fated_encounter = false;
-        vector<string> fated_reasons_list;
-
-        for (const auto& kt : karmic_triggers) {
-            int check_planets[] = {kt.p1_idx, kt.p2_idx, 4, 2}; // Involved planets + Mercury + Moon
-            
-            for (int i = 0; i < 4; i++) {
-                int cp = check_planets[i];
-                if (i == 1 && cp == kt.p1_idx) continue; 
-                if (i == 2 && (cp == kt.p1_idx || cp == kt.p2_idx)) continue;
-                if (i == 3 && (cp == kt.p1_idx || cp == kt.p2_idx || cp == 4)) continue;
-
-                double t_lon;
-                if (cp == 2) t_lon = tr_mo_lon;
-                else if (cp == 3) t_lon = tr_ma_lon;
-                else if (cp == 4) t_lon = tr_me_lon;
-                else {
-                    double xx_tmp[6]; char serr_tmp[256];
-                    int se_tmp = (cp == 1)? SE_SUN : (cp == 5)? SE_JUPITER : (cp == 6)? SE_VENUS : (cp == 7)? SE_SATURN : (cp == 8||cp == 9)? p1.node_calc_type : SE_MOON;
-                    swe_calc_ut(jd, se_tmp, p1.iflag, xx_tmp, serr_tmp);
-                    t_lon = (cp == 9) ? fmod(xx_tmp[0] + 180.0, 360.0) : xx_tmp[0];
-                }
-
-                double dist_conj = get_dist(t_lon, kt.lon);
-                double dist_opp = get_dist(fmod(t_lon + 180.0, 360.0), kt.lon);
-                double dist_t1 = get_dist(fmod(t_lon + 120.0, 360.0), kt.lon);
-                double dist_t2 = get_dist(fmod(t_lon + 240.0, 360.0), kt.lon);
-
-                double exact_orb = 1.5;
-                bool is_hit = (dist_conj <= exact_orb || dist_opp <= exact_orb || dist_t1 <= exact_orb || dist_t2 <= exact_orb);
-
-                // Special Vedic Aspects for Mars and Saturn
-                if (!is_hit && cp == 3) {
-                    if (get_dist(fmod(t_lon + 90.0, 360.0), kt.lon) <= exact_orb) is_hit = true;
-                    if (get_dist(fmod(t_lon + 210.0, 360.0), kt.lon) <= exact_orb) is_hit = true;
-                }
-                if (!is_hit && cp == 7) {
-                    if (get_dist(fmod(t_lon + 60.0, 360.0), kt.lon) <= exact_orb) is_hit = true;
-                    if (get_dist(fmod(t_lon + 270.0, 360.0), kt.lon) <= exact_orb) is_hit = true;
-                }
-
-                if (is_hit) {
-                    fated_encounter = true;
-                    string aspect_type = "Conjuncts";
-                    if (dist_opp <= exact_orb) aspect_type = "Aspects(7H)";
-                    else if (dist_t1 <= exact_orb || dist_t2 <= exact_orb) aspect_type = "Trines(5H/9H)";
-                    else if (cp == 3 && get_dist(fmod(t_lon + 90.0, 360.0), kt.lon) <= exact_orb) aspect_type = "Aspects(4H)";
-                    else if (cp == 3 && get_dist(fmod(t_lon + 210.0, 360.0), kt.lon) <= exact_orb) aspect_type = "Aspects(8H)";
-                    else if (cp == 7 && get_dist(fmod(t_lon + 60.0, 360.0), kt.lon) <= exact_orb) aspect_type = "Aspects(3H)";
-                    else if (cp == 7 && get_dist(fmod(t_lon + 270.0, 360.0), kt.lon) <= exact_orb) aspect_type = "Aspects(10H)";
-
-                    string reason_str;
-                    if (kt.p1_idx == kt.p2_idx) {
-                        reason_str = "[Tr." + string(p_names_full[cp]) + " " + aspect_type + " Shared Natal " + kt.name1 + "]";
-                    } else {
-                        reason_str = "[Tr." + string(p_names_full[cp]) + " " + aspect_type + " Natal " + kt.name1 + "-" + kt.name2 + " Overlay]";
-                    }
-                    if (find(fated_reasons_list.begin(), fated_reasons_list.end(), reason_str) == fated_reasons_list.end()) {
-                        fated_reasons_list.push_back(reason_str);
-                    }
-                }
+        
+        // --- SUPER-NODE ACTIVATION - SUN ONLY (TIGHT CONJ OR OPP) ---
+        bool super_node_activation = false;
+        
+        for (const auto& sn : super_nodes) {
+            if (is_conj(tr_su, sn.lon, 1.5) || is_conj(fmod(tr_su + 180.0, 360.0), sn.lon, 1.5)) {
+                super_node_activation = true;
+                char buf[160]; 
+                snprintf(buf, sizeof(buf), "[Tr tight to %s Super-Node(%d) %s from UL]", 
+                         sn.rashi_name.c_str(), sn.count, 
+                         (sn.rashi == (p1_ul + 1) % 12 || sn.rashi == (p2_ul + 1) % 12) ? "2nd" : 
+                         (sn.rashi == (p1_ul + 6) % 12 || sn.rashi == (p2_ul + 6) % 12) ? "7th" : "12th");
+                fated_msgs.push_back(buf);
             }
         }
 
-        if (fated_encounter) {
-            string combined_reasons = "";
-            for (const string& s : fated_reasons_list) combined_reasons += s + " ";
-            
-            char fated_buf[1024];
-            if (html) {
-                snprintf(fated_buf, sizeof(fated_buf), "<br><b style='color:#fff; background:#c0392b; padding:2px 6px; border-radius:4px;'>🚨 FATED EMERGENCY COMM: %s</b>", combined_reasons.c_str());
-            } else {
-                snprintf(fated_buf, sizeof(fated_buf), "\n           | \033[1;41;37m 🚨 FATED EMERGENCY COMM: %s \033[0m", combined_reasons.c_str());
-            }
-            if (r1.find("FATED EMERGENCY COMM") == string::npos) r1 += string(fated_buf);
-            
-            // Massive priority boost to force logging of this fated encounter
-            if (s1 < 16) s1 = 18;
-            if (s2 < 16) s2 = 18;
-        }
-        // -----------------------------------------------------------------------
+        if (lagna_on_DK_now) fated_msgs.push_back("[Tr.Lagna on DK]");
+        if (moon_on_UL) fated_msgs.push_back("[Tr.Moon on UL]");
+        if (lagna_on_UL) fated_msgs.push_back("[Tr.Lagna on UL]");
+        if (sun_on_7th) fated_msgs.push_back("[Tr.Sun on 7th from UL]");
 
-        if (s1 >= 11 && s2 >= 11 && (s1 >= 16 || s2 >= 16)) {
+        // BB Comm is Aspect (Conj or Opp)
+        auto is_aspect = [&](double tr, double natal, double orb) {
+            return short_arc(tr, natal) <= orb || short_arc(fmod(tr + 180.0, 360.0), natal) <= orb;
+        };
+        bool fated_BB_merc = is_aspect(tr_me, p1_bb, 1.5) || is_aspect(tr_me, p2_bb, 1.5);
+        if (fated_BB_merc) {
+            double d = std::min(short_arc(tr_me, p1_bb), short_arc(fmod(tr_me + 180.0, 360.0), p1_bb));
+            d = std::min(d, std::min(short_arc(tr_me, p2_bb), short_arc(fmod(tr_me + 180.0, 360.0), p2_bb)));
+            char buf[128]; snprintf(buf, sizeof(buf), "[Tr.Budha Aspects Bhrigu Bindu (%.1f°)]", d);
+            fated_msgs.push_back(string(buf));
+        }
+
+        // --- PURE MAJOR GATES ---
+        bool meet_A = lagna_on_DK_now && moon_on_UL;
+        bool meet_B = (lagna_on_UL || moon_on_UL) && sun_on_7th && super_node_activation;
+        
+        bool major_comm = (merc_hit && fated_BB_merc);
+        bool major_meet = meet_A || meet_B;
+        
+        if (major_meet && (s1 < 4 || s2 < 3)) major_meet = false; 
+
+        bool major_fated = major_comm || major_meet;
+
+        // Force structural isolation
+        bool structural_pass = false; 
+
+        if (structural_pass || major_fated) {
+            
+            int cur_day = (int)jd;
+            
+            // --- STRICT 7-DAY CHRONOLOGICAL COOLDOWN ---
+            if ((cur_day - last_printed_jd) < 7) continue;
+            last_printed_jd = cur_day;
+            
             int y, m, d; double jut;
-            swe_revjul(jd + (p1.location.tz_offset/24.0), SE_GREG_CAL, &y, &m, &d, &jut);
+            swe_revjul(jd + (p1.location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
             
-            string combined_env = (e1 == e2) ? e1 : e1 + " & " + e2;
+            char date_buf[32]; snprintf(date_buf, sizeof(date_buf), "%02d/%02d/%04d", d, m, y);
+            string ds = string(date_buf);
 
-            double xx_su[6], xx_ve[6]; char serr[256];
-            swe_calc_ut(jd, SE_SUN, p1.iflag, xx_su, serr);
-            swe_calc_ut(jd, SE_VENUS, p1.iflag, xx_ve, serr);
-            char pos_buf[64];
-            snprintf(pos_buf, sizeof(pos_buf), "Su:%02d°%s Ve:%02d°%s", 
-                     (int)fmod(xx_su[0], 30.0), short_rashi[(int)(xx_su[0]/30.0)],
-                     (int)fmod(xx_ve[0], 30.0), short_rashi[(int)(xx_ve[0]/30.0)]);
+            string env = "Social setting & Work/Network";
+            auto get_theme = [&](int rashi, int asc) {
+                int hit_house = (rashi - asc + 12) % 12 + 1;
+                if (hit_house == 5 || hit_house == 9) return "Creation/Lineage";
+                if (hit_house == 1 || hit_house == 7) return "Union/Partnership";
+                if (hit_house == 2 || hit_house == 11) return "Family Expand/Gains";
+                if (hit_house == 4 || hit_house == 12) return "Foundation/Hospital";
+                if (hit_house == 10) return "Status Shift/Career";
+                return "Social/Karmic Shift";
+            };
 
-            bool added = false;
-            for (auto& hit : peak_hits) {
-                if (hit.y == y && hit.m == m) {
-                    if ((s1 + s2) > hit.total) { 
-                        hit.d = d; hit.s1 = s1; hit.s2 = s2; hit.total = s1+s2; 
-                        hit.cons_env = combined_env; hit.res1 = r1; hit.res2 = r2; 
-                        hit.arch1 = a1; hit.arch2 = a2; hit.t_pos = string(pos_buf); 
-                    }
-                    added = true; break;
+            string a1 = get_theme((int)(tr_su/30.0), p1_asc);
+            string a2 = get_theme((int)(tr_su/30.0), p2_asc);
+
+            string fated_type = "🚨 FATED EMERGENCY COMM";
+            string html_color = "#e74c3c";
+            string ansi_color = "\033[1;31m";
+
+            double me_prev = const_cast<JyotishaEngine&>(p1).get_planet_lon_on_jd(4, jd - 0.1);
+            if (short_arc(tr_me, me_prev) > 0 && fmod(tr_me - me_prev + 360.0, 360.0) > 180.0) {
+                fated_msgs.push_back("[Retrograde Budha Return]");
+            }
+
+            if (html) {
+                printf("<tr><td><b>%s</b></td><td><b style='color:%s;'>P1: %02d/22 pts</b><br><span style='font-size:11px;color:#aaa;'>%s</span></td><td><b style='color:%s;'>P2: %02d/22 pts</b><br><span style='font-size:11px;color:#aaa;'>%s</span></td><td><span style='color:#f1c40f;'>Su:%02d&deg;%s</span><br><span style='color:#ff9ff3;'>Ve:%02d&deg;%s</span></td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+                       ds.c_str(), (s1>=16?"#2ecc71":(s1>=11?"#f1c40f":"#e74c3c")), s1, t1.c_str(), (s2>=16?"#2ecc71":(s2>=11?"#f1c40f":"#e74c3c")), s2, t2.c_str(), 
+                       (int)fmod(tr_su, 30.0), get_r_abbr((int)(tr_su/30.0)).c_str(), (int)fmod(tr_ve, 30.0), get_r_abbr((int)(tr_ve/30.0)).c_str(), env.c_str(), a1.c_str(), a2.c_str());
+                
+                if (comm_score >= 2) {
+                    string c_str = ""; for(string s : comm_hits) c_str += s + " ";
+                    printf("<tr><td colspan='7' style='padding-left: 20px; color: #3498db;'>&#128222; <b>COMMUNICATION SPIKE (Score %d):</b> %s</td></tr>\n", comm_score, c_str.c_str());
                 }
-            }
-            if (!added) peak_hits.push_back({y, m, d, s1, s2, s1+s2, combined_env, a1, a2, r1, r2, string(pos_buf)});
-        }
-    }
-
-    if (peak_hits.empty()) {
-        if (html) printf("<div style='padding:15px; background:#2a2a35; border-left:4px solid #e74c3c; border-radius:4px;'><p style='margin:0; color:#e0e0e0;'>%s</p></div>\n", te?"ఈ సమయంలో రెండు జాతకాలను సమకాలీకరించే (కలిపే) ఖచ్చితమైన కాస్మిక్ ఈవెంట్స్ ఏవీ లేవు.":"No mutual convergence found. The cosmic clocks for these two charts do not align in this timeframe.");
-        else printf("No mutual convergence found. The cosmic clocks for these two charts do not align in this timeframe.\n");
-    } else {
-        sort(peak_hits.begin(), peak_hits.end(), [](const Hit& a, const Hit& b) { 
-            if (a.y != b.y) return a.y < b.y;
-            if (a.m != b.m) return a.m < b.m;
-            return a.d < b.d;
-        });
-
-        if (html) {
-            printf("<table class='data-table'><tr><th style='width:90px;'>Date</th><th>Power</th><th>Cosmic Clock</th><th>Consolidated Env</th><th>P1 Theme</th><th>P2 Theme</th></tr>\n");
-            int count = 0;
-            for (const auto& hit : peak_hits) {
-                if (count++ >= 10) break;
-                printf("<tr><td><b>%02d/%02d/%04d</b></td><td>P1: %d<br>P2: %d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n", 
-                       hit.d, hit.m, hit.y, hit.s1, hit.s2, hit.t_pos.c_str(), hit.cons_env.c_str(), hit.arch1.c_str(), hit.arch2.c_str());
-                printf("<tr><td colspan='6' style='font-size:13px; color:#aaa; padding-bottom:15px; border-bottom:2px solid var(--border);'><b>P1 Triggers:</b> %s<br><b>P2 Triggers:</b> %s</td></tr>\n", hit.res1.c_str(), hit.res2.c_str());
-            }
-            printf("</table>\n");
-        } else {
-            printf("%-10s | %-12s | %-12s | %-19s | %-30s | %-20s | %-20s\n", 
-                   "Mutual Day", "P1 Power", "P2 Power", "Cosmic Clock", "Consolidated Env", "P1 Life Theme", "P2 Life Theme");
-            printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
-            int count = 0;
-            for (const auto& hit : peak_hits) {
-                if (count++ >= 10) break;
-                printf("%02d/%02d/%04d | P1: %2d/22 pts | P2: %2d/22 pts | %-19s | %-30s | %-20s | %-20s\n", 
-                       hit.d, hit.m, hit.y, hit.s1, hit.s2, hit.t_pos.c_str(), hit.cons_env.c_str(), hit.arch1.c_str(), hit.arch2.c_str());
-                printf("           | %-120s \n", hit.res1.c_str());
-                printf("           | %-120s \n", hit.res2.c_str());
+                
+                string f_str = ""; for(string s : fated_msgs) f_str += s + " ";
+                printf("<tr><td colspan='7' style='padding-left: 20px; color: %s;'><b>%s:</b> %s</td></tr>\n", html_color.c_str(), fated_type.c_str(), f_str.c_str());
+                
+            } else {
+                printf("%-10s | P1: %02d/22 pts | P2: %02d/22 pts | Su:%02d°%-3s Ve:%02d°%-3s | %-30s | %-20s | %-20s\n",
+                       ds.c_str(), s1, s2, (int)fmod(tr_su, 30.0), get_r_abbr((int)(tr_su/30.0)).c_str(), (int)fmod(tr_ve, 30.0), get_r_abbr((int)(tr_ve/30.0)).c_str(), env.c_str(), a1.c_str(), a2.c_str());
+                printf("           | %-11s | %-11s\n", t1.c_str(), t2.c_str());
+                if (comm_score >= 2) {
+                    string c_str = ""; for(string s : comm_hits) c_str += s + " ";
+                    printf("           | \033[1;36m📞 COMMUNICATION SPIKE (Score %d):\033[0m %s\n", comm_score, c_str.c_str());
+                }
+                string f_str = ""; for(string s : fated_msgs) f_str += s + " ";
+                printf("           | %s%s:\033[0m %s\n", ansi_color.c_str(), fated_type.c_str(), f_str.c_str());
                 printf("----------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
             }
         }
     }
+    
+    if (last_printed_jd == -9999) {
+        if (html) printf("<tr><td colspan='7' style='text-align:center; padding:15px; color:#888;'>No mutual convergence found in this timeframe.</td></tr>\n");
+        else printf("No mutual convergence found. The cosmic clocks for these two charts do not align in this timeframe.\n");
+    }
+    
+    if (html) printf("</table>\n");
 }
 
 void run_ayush_analysis(JyotishaEngine& p) {

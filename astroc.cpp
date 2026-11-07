@@ -6161,6 +6161,131 @@ void calculate_event_muhurat(string event_type, int target_year, int target_mont
         printf("----------------------------------------------------------------------------------------------------\n");
     }
 
+string get_hindu_festivals(double jd_ut) {
+        // Approximate Sunrise time (Local 6:00 AM) to check active Tithi
+        double jd_sunrise = jd_ut - (location.tz_offset / 24.0) + (6.0 / 24.0);
+
+        double xx_sun[6], xx_moon[6]; char serr[256];
+        swe_calc_ut(jd_sunrise, SE_SUN, iflag, xx_sun, serr);
+        swe_calc_ut(jd_sunrise, SE_MOON, iflag, xx_moon, serr);
+        
+        double sun_lon = xx_sun[0];
+        double moon_lon = xx_moon[0];
+        
+        int base_t_idx = (int)(fmod(moon_lon - sun_lon + 360.0, 360.0) / 12.0);
+        int tithi_num = base_t_idx + 1; // 1 to 30
+
+        // Helper: Binary Search to find Exact Start & End of the Festival's Tithi
+        auto get_tithi_times = [&]() {
+            double t_start = jd_sunrise;
+            while(true) {
+                t_start -= 0.1;
+                swe_calc_ut(t_start, SE_SUN, iflag, xx_sun, serr);
+                swe_calc_ut(t_start, SE_MOON, iflag, xx_moon, serr);
+                int t = (int)(fmod(xx_moon[0] - xx_sun[0] + 360.0, 360.0) / 12.0);
+                if (t != base_t_idx) { t_start += 0.1; break; }
+            }
+            double low = t_start - 0.1, high = t_start;
+            for(int i=0; i<20; i++){
+                double mid = (low+high)/2.0;
+                swe_calc_ut(mid, SE_SUN, iflag, xx_sun, serr);
+                swe_calc_ut(mid, SE_MOON, iflag, xx_moon, serr);
+                if ((int)(fmod(xx_moon[0] - xx_sun[0] + 360.0, 360.0) / 12.0) == base_t_idx) high = mid;
+                else low = mid;
+            }
+            double exact_start = high;
+
+            double t_end = jd_sunrise;
+            while(true) {
+                t_end += 0.1;
+                swe_calc_ut(t_end, SE_SUN, iflag, xx_sun, serr);
+                swe_calc_ut(t_end, SE_MOON, iflag, xx_moon, serr);
+                int t = (int)(fmod(xx_moon[0] - xx_sun[0] + 360.0, 360.0) / 12.0);
+                if (t != base_t_idx) { t_end -= 0.1; break; }
+            }
+            low = t_end; high = t_end + 0.1;
+            for(int i=0; i<20; i++){
+                double mid = (low+high)/2.0;
+                swe_calc_ut(mid, SE_SUN, iflag, xx_sun, serr);
+                swe_calc_ut(mid, SE_MOON, iflag, xx_moon, serr);
+                if ((int)(fmod(xx_moon[0] - xx_sun[0] + 360.0, 360.0) / 12.0) == base_t_idx) low = mid;
+                else high = mid;
+            }
+            double exact_end = low;
+
+            // Formatter closure
+            auto fmt = [&](double jd) {
+                int y,m,d; double jut; swe_revjul(jd + (location.tz_offset / 24.0), SE_GREG_CAL, &y,&m,&d,&jut);
+                int hr = (int)jut; int min = (int)((jut - hr) * 60.0);
+                char buf[32]; snprintf(buf, sizeof(buf), "%02d:%02d (%02d/%02d)", hr, min, d, m);
+                return string(buf);
+            };
+            
+            return " [Active: " + fmt(exact_start) + " to " + fmt(exact_end) + "]";
+        };
+
+        string t_times = get_tithi_times();
+
+        // 2. SOLAR MONTH CALCULATION (For Solar Festivals)
+        int solar_month = (int)(sun_lon / 30.0);
+        
+        // 3. LUNAR MONTH CALCULATION (Amanta System)
+        double tithi_deg = fmod(moon_lon - sun_lon + 360.0, 360.0);
+        double days_since_amavasya = tithi_deg / 12.190749;
+        double sun_at_amavasya = fmod(sun_lon - (days_since_amavasya * 0.9856) + 360.0, 360.0);
+        int amavasya_rashi = (int)(sun_at_amavasya / 30.0);
+        int lunar_month = (amavasya_rashi + 1) % 12 + 1;
+
+        vector<string> f_list;
+
+        // Solar Event: Makar Sankranti
+        if (solar_month == 9 && (sun_lon >= 270.0 && sun_lon <= 271.0)) {
+            double s_low = jd_sunrise - 2.0, s_high = jd_sunrise + 2.0;
+            for(int i=0; i<40; i++){
+                double s_mid = (s_low+s_high)/2.0;
+                swe_calc_ut(s_mid, SE_SUN, iflag, xx_sun, serr);
+                if (xx_sun[0] < 270.0 && xx_sun[0] > 260.0) s_low = s_mid;
+                else s_high = s_mid;
+            }
+            auto fmt = [&](double jd) {
+                int y,m,d; double jut; swe_revjul(jd + (location.tz_offset / 24.0), SE_GREG_CAL, &y,&m,&d,&jut);
+                int hr = (int)jut; int min = (int)((jut - hr) * 60.0);
+                char buf[32]; snprintf(buf, sizeof(buf), "%02d:%02d (%02d/%02d)", hr, min, d, m);
+                return string(buf);
+            };
+            string st = " [Solar Transit Peak: " + fmt(s_high) + "]";
+            f_list.push_back((telugu_mode ? "మకర సంక్రాంతి / పొంగల్" : "Makar Sankranti / Pongal") + st);
+        }
+
+        // Luni-Solar Observances
+        if (lunar_month == 1 && tithi_num == 1)  f_list.push_back((telugu_mode ? "ఉగాది పండుగ" : "Ugadi / Gudi Padwa") + t_times);
+        if (lunar_month == 1 && tithi_num == 9)  f_list.push_back((telugu_mode ? "శ్రీరామ నవమి" : "Sri Rama Navami") + t_times);
+        if (lunar_month == 2 && tithi_num == 3)  f_list.push_back((telugu_mode ? "అక్షయ తృతీయ" : "Akshaya Tritiya") + t_times);
+        if (lunar_month == 5 && tithi_num == 15) f_list.push_back((telugu_mode ? "రాఖీ పౌర్ణమి" : "Raksha Bandhan") + t_times);
+        if (lunar_month == 5 && tithi_num == 23) f_list.push_back((telugu_mode ? "కృష్ణాష్టమి" : "Sri Krishna Janmashtami") + t_times);
+        if (lunar_month == 6 && tithi_num == 4)  f_list.push_back((telugu_mode ? "వినాయక చవితి" : "Ganesh Chaturthi") + t_times);
+        if (lunar_month == 7 && tithi_num == 10) f_list.push_back((telugu_mode ? "విజయ దశమి (దసరా)" : "Vijaya Dashami (Dussehra)") + t_times);
+        if (lunar_month == 7 && tithi_num == 30) f_list.push_back((telugu_mode ? "దీపావళి పండుగ" : "Deepavali (Diwali)") + t_times);
+        if (lunar_month == 8 && tithi_num == 15) f_list.push_back((telugu_mode ? "కార్తీక పౌర్ణమి" : "Kartika Purnima") + t_times);
+        if (lunar_month == 9 && tithi_num == 11) f_list.push_back((telugu_mode ? "వైకుంఠ ఏకాదశి" : "Vaikuntha Ekadashi") + t_times);
+        if (lunar_month == 11 && tithi_num == 29) f_list.push_back((telugu_mode ? "మహా శివరాత్రి" : "Maha Shivaratri") + t_times);
+        if (lunar_month == 12 && tithi_num == 15) f_list.push_back((telugu_mode ? "హోలీ పండుగ" : "Holi") + t_times);
+
+        if (tithi_num == 11) f_list.push_back((telugu_mode ? "శుక్ల ఏకాదశి" : "Shukla Ekadashi") + t_times);
+        if (tithi_num == 26) f_list.push_back((telugu_mode ? "కృష్ణ ఏకాదశి" : "Krishna Ekadashi") + t_times);
+        if (tithi_num == 13 || tithi_num == 28) f_list.push_back((telugu_mode ? "ప్రదోషం" : "Pradosham") + t_times);
+        if (tithi_num == 19) f_list.push_back((telugu_mode ? "సంకటహర చతుర్థి" : "Sankashti Chaturthi") + t_times);
+        if (tithi_num == 15) f_list.push_back((telugu_mode ? "పౌర్ణమి" : "Purnima") + t_times);
+        if (tithi_num == 30) f_list.push_back((telugu_mode ? "అమావాస్య" : "Amavasya") + t_times);
+
+        string final_str = "";
+        for (size_t i = 0; i < f_list.size(); i++) {
+            final_str += f_list[i];
+            if (i < f_list.size() - 1) final_str += "\n                           "; // 27 spaces for clean CLI alignment
+        }
+        return final_str;
+    }
+
 void calculate_target_panchang(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool use_current_date) {
         if (json_mode) return;
         
@@ -6233,13 +6358,28 @@ void calculate_target_panchang(int t_year, int t_month, int t_day, int t_hour, i
             }
             printf("----------------------------------------------------------------------------------------------------\n");
         }
+		
+		// Fetch festivals for this specific JD
+        string festivals_today = get_hindu_festivals(trans_jd);
+        
+        // Print them if any exist
+        if (!festivals_today.empty()) {
+            if (html_mode) {
+                printf("<p style='color: #f1c40f; font-weight: bold;'>🎉 %s: <br><span style='color: #fff; font-weight: normal; margin-left: 20px;'>%s</span></p>\n", 
+                       telugu_mode ? "పండుగ / వ్రతం" : "Festivals / Observances", festivals_today.c_str());
+            } else {
+                // Formatting ensures the white text pops brightly against the yellow prefix
+                printf("\033[1;33m🎉 %s: \033[1;37m%s\033[0m\n", 
+                       telugu_mode ? "పండుగ / వ్రతం" : "Festivals / Observances", festivals_today.c_str());
+            }
+            if (!html_mode) printf("----------------------------------------------------------------------------------------------------\n");
+        }
 
         // --- INVOKE THE DAILY SWEEPERS FOR FULL DETAILS ---
         calculate_muhurat(p_y, p_m, p_d, true);
         calculate_daily_panchang_transitions(p_y, p_m, p_d);
     }
-
-
+	
 void calculate_dasha_balance() {
         if (json_mode) return;
         double nak_size = 360.0 / 27.0; 

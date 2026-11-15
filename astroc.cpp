@@ -6408,7 +6408,7 @@ void calculate_dasha_balance() {
         }
     }
 
-void calculate_pure_transiting_conjunctions(int target_year) {
+void calculate_pure_transiting_conjunctions(int target_year, bool include_moon) {
         if (json_mode) return;
 
         double start_jd = swe_julday(target_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
@@ -6431,8 +6431,19 @@ void calculate_pure_transiting_conjunctions(int target_year) {
             printf("-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
         }
 
-        int check_planets[] = {1, 3, 4, 5, 6, 7, 8, 9};
-        int num_planets = 8;
+        // Dynamically build the planets array based on the switch
+        vector<int> check_planets;
+        check_planets.push_back(1); // Sun
+        if (include_moon) check_planets.push_back(2); // Moon
+        check_planets.push_back(3); // Mars
+        check_planets.push_back(4); // Mercury
+        check_planets.push_back(5); // Jupiter
+        check_planets.push_back(6); // Venus
+        check_planets.push_back(7); // Saturn
+        check_planets.push_back(8); // Rahu
+        check_planets.push_back(9); // Ketu
+
+        int num_planets = check_planets.size();
         
         int se_map[] = {-1, SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type, node_calc_type};
 
@@ -6513,13 +6524,16 @@ void calculate_pure_transiting_conjunctions(int target_year) {
         // 2. FIND 1-DEGREE BOUNDARIES & OUTPUT
         for (const auto& hit : hits) {
             
+            // Fast Planets (Moon) need a smaller time window to search for 1° boundary to avoid jumping signs
+            double max_search_window = (hit.p1 == 2 || hit.p2 == 2) ? 1.0 : 30.0;
+            double step_size = (hit.p1 == 2 || hit.p2 == 2) ? 0.05 : 0.5; 
+
             // Find Entrance (1 degree before peak)
             double t_enter = hit.jd;
-            double step_back = 0.5; // Start with half day steps
-            while (get_dist(get_t_lon(hit.p1, t_enter), get_t_lon(hit.p2, t_enter)) < 1.0 && (hit.jd - t_enter) < 30.0) {
-                t_enter -= step_back;
+            while (get_dist(get_t_lon(hit.p1, t_enter), get_t_lon(hit.p2, t_enter)) < 1.0 && (hit.jd - t_enter) < max_search_window) {
+                t_enter -= step_size;
             }
-            double e_low = t_enter, e_high = t_enter + step_back;
+            double e_low = t_enter, e_high = t_enter + step_size;
             for (int iter = 0; iter < 20; iter++) {
                 double e_mid = (e_low + e_high) / 2.0;
                 if (get_dist(get_t_lon(hit.p1, e_mid), get_t_lon(hit.p2, e_mid)) < 1.0) e_high = e_mid;
@@ -6529,11 +6543,10 @@ void calculate_pure_transiting_conjunctions(int target_year) {
 
             // Find Exit (1 degree after peak)
             double t_exit = hit.jd;
-            double step_fwd = 0.5;
-            while (get_dist(get_t_lon(hit.p1, t_exit), get_t_lon(hit.p2, t_exit)) < 1.0 && (t_exit - hit.jd) < 30.0) {
-                t_exit += step_fwd;
+            while (get_dist(get_t_lon(hit.p1, t_exit), get_t_lon(hit.p2, t_exit)) < 1.0 && (t_exit - hit.jd) < max_search_window) {
+                t_exit += step_size;
             }
-            double x_low = t_exit - step_fwd, x_high = t_exit;
+            double x_low = t_exit - step_size, x_high = t_exit;
             for (int iter = 0; iter < 20; iter++) {
                 double x_mid = (x_low + x_high) / 2.0;
                 if (get_dist(get_t_lon(hit.p1, x_mid), get_t_lon(hit.p2, x_mid)) < 1.0) x_low = x_mid;
@@ -6620,7 +6633,7 @@ void calculate_pure_transiting_conjunctions(int target_year) {
 
         if (html_mode) printf("</table>\n");
         else printf("-------------------------------------------------------------------------------------------------------------------------------------------------------------------\n");
-    }
+    }	
 	void calculate_6_level_dasha_target(int t_year, int t_month, int t_day, int t_hour, int t_min, int t_sec, bool is_current_clock = false) {
         if (json_mode) return;
         double target_jd;
@@ -11825,10 +11838,19 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "conjunction") == 0) {
+		else if (strcasecmp(cmd.c_str(), "conjunction") == 0) {
             int target_year = year;
-            if (clean_argc >= 10) target_year = stoi(clean_argv[9]);
-            engine.calculate_pure_transiting_conjunctions(target_year);
+            bool include_moon = false;
+            
+            for (int k = 9; k < clean_argc; k++) {
+                if (strcasecmp(clean_argv[k], "--moon") == 0) {
+                    include_moon = true;
+                } else if (isdigit(clean_argv[k][0])) {
+                    target_year = stoi(clean_argv[k]);
+                }
+            }
+            
+            engine.calculate_pure_transiting_conjunctions(target_year, include_moon);
             printf("\n"); fflush(stdout); 
             return 0;
         }

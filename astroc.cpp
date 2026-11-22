@@ -1925,11 +1925,136 @@ void run_alert_scanner(int start_year, int end_year) {
             printf("\033[?25h");
         }
     }
+
 void print_birth_chart_ui() {
         if (json_mode) return;
 
         const char* rashi_lords_te_local[] = {"కుజ", "శుక్ర", "బుధ", "చంద్ర", "సూర్య", "బుధ", "శుక్ర", "కుజ", "గురు", "శని", "శని", "గురు"};
+        const int rashi_lord_id[12] = {3, 6, 4, 2, 1, 4, 6, 3, 5, 7, 7, 5};
+        int se_map[10] = {-1, SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type, node_calc_type};
 
+        // Precompute retrograde & combustion states once for both table and Rasi chart
+        bool is_retro[11] = {false};
+        bool is_combust[11] = {false};
+
+        for (int i = 1; i <= 9; i++) {
+            double xx[6]; char serr[256];
+            swe_calc_ut(tjd_ut, se_map[i], iflag | SEFLG_SPEED, xx, serr);
+            if (xx[3] < 0.0) is_retro[i] = true;
+        }
+
+        double sun_lon = planet_lons[1];
+        for (int i = 2; i <= 7; i++) {
+            double sep = std::abs(planet_lons[i] - sun_lon);
+            if (sep > 180.0) sep = 360.0 - sep;
+
+            double orb = 0.0;
+            if (i == 2) orb = 12.0;                                 // Chandra
+            else if (i == 3) orb = 17.0;                            // Mangal
+            else if (i == 4) orb = is_retro[4] ? 12.0 : 14.0;       // Budha
+            else if (i == 5) orb = 11.0;                            // Guru
+            else if (i == 6) orb = is_retro[6] ? 8.0 : 10.0;        // Shukra
+            else if (i == 7) orb = 15.0;                            // Shani
+
+            if (sep <= orb) is_combust[i] = true;
+        }
+
+        // Parashari Natural Friendship (Naisargika Maitri): 1=Friend, 0=Neutral, -1=Enemy
+        static const int nat_friend[8][8] = {
+            {0,  0,  0,  0,  0,  0,  0,  0},
+            {0,  0,  1,  1,  0,  1, -1, -1}, // 1: Surya
+            {0,  1,  0,  0,  1,  0,  0,  0}, // 2: Chandra
+            {0,  1,  1,  0, -1,  1,  0,  0}, // 3: Mangal
+            {0,  1, -1,  0,  0,  0,  1,  0}, // 4: Budha
+            {0,  1,  1,  1, -1,  0, -1,  0}, // 5: Guru
+            {0, -1, -1,  0,  1,  0,  0,  1}, // 6: Shukra
+            {0, -1, -1, -1,  1,  0,  1,  0}  // 7: Shani
+        };
+
+auto get_dignity = [&](int p_idx, int rashi, double deg_in_rashi, string& html_col) -> string {
+            html_col = "#cccccc";
+            if (p_idx == 0) return "-";
+
+            // Rahu & Ketu Dignity Scheme (BPHS Ch. 47 / Taurus-Scorpio Exaltation School):
+            // Note: This is one standard classical school (Rahu Exalted in Vrishabha, MT in Mithuna,
+            // Own in Kumbha; Ketu Exalted/Own in Vrishchika, MT in Dhanu). An alternate school
+            // exalts Rahu in Mithuna and Ketu in Dhanu.
+            if (p_idx == 8) {
+                if (rashi == 1)  { html_col = "#2ecc71"; return telugu_mode ? "ఉచ్చ" : "Exalted"; }
+                if (rashi == 7)  { html_col = "#e74c3c"; return telugu_mode ? "నీచ" : "Debilitated"; }
+                if (rashi == 2)  { html_col = "#1abc9c"; return telugu_mode ? "మూలత్రికోణ" : "Moolatrikona"; } // Mithuna
+                if (rashi == 10) { html_col = "#3498db"; return telugu_mode ? "స్వక్షేత్రం" : "Own Sign"; }    // Kumbha
+                return "-";
+            }
+            if (p_idx == 9) {
+                // In this scheme Vrishchika is both Exalted and Own Sign for Ketu; Exalted takes priority.
+                if (rashi == 7)  { html_col = "#2ecc71"; return telugu_mode ? "ఉచ్చ" : "Exalted"; }
+                if (rashi == 1)  { html_col = "#e74c3c"; return telugu_mode ? "నీచ" : "Debilitated"; }
+                if (rashi == 8)  { html_col = "#1abc9c"; return telugu_mode ? "మూలత్రికోణ" : "Moolatrikona"; } // Dhanu
+                return "-";
+            }
+
+            // Exaltation (Uchcha) & Debilitation (Neecha) Rashis for planets 1..7
+            static const int exalt_r[8] = {-1, 0, 1, 9, 5, 3, 11, 6};
+            static const int debil_r[8] = {-1, 6, 7, 3, 11, 9, 5, 0};
+
+            // Special dual-status signs per BPHS Ch. 3:
+            // Moon in Vrishabha: 0°-3° Exalted, 3°-30° Moolatrikona (no Own portion)
+            if (p_idx == 2 && rashi == 1) {
+                if (deg_in_rashi <= 3.0) {
+                    html_col = "#2ecc71";
+                    return telugu_mode ? "ఉచ్చ" : "Exalted";
+                }
+                html_col = "#1abc9c";
+                return telugu_mode ? "మూలత్రికోణ" : "Moolatrikona";
+            }
+            // Budha in Kanya: 0°-15° Exalted, 15°-20° Moolatrikona, 20°-30° Own Sign
+            if (p_idx == 4 && rashi == 5) {
+                if (deg_in_rashi <= 15.0) {
+                    html_col = "#2ecc71";
+                    return telugu_mode ? "ఉచ్చ" : "Exalted";
+                }
+                if (deg_in_rashi <= 20.0) {
+                    html_col = "#1abc9c";
+                    return telugu_mode ? "మూలత్రికోణ" : "Moolatrikona";
+                }
+                html_col = "#3498db";
+                return telugu_mode ? "స్వక్షేత్రం" : "Own Sign";
+            }
+
+            if (rashi == exalt_r[p_idx]) {
+                html_col = "#2ecc71";
+                return telugu_mode ? "ఉచ్చ" : "Exalted";
+            }
+            if (rashi == debil_r[p_idx]) {
+                html_col = "#e74c3c";
+                return telugu_mode ? "నీచ" : "Debilitated";
+            }
+
+            // Moolatrikona exact degree ranges (BPHS Ch. 3)
+            bool is_mt = false;
+            if (p_idx == 1 && rashi == 4  && deg_in_rashi <= 20.0) is_mt = true;
+            if (p_idx == 3 && rashi == 0  && deg_in_rashi <= 12.0) is_mt = true;
+            if (p_idx == 5 && rashi == 8  && deg_in_rashi <= 10.0) is_mt = true;
+            if (p_idx == 6 && rashi == 6  && deg_in_rashi <= 15.0) is_mt = true;
+            if (p_idx == 7 && rashi == 10 && deg_in_rashi <= 20.0) is_mt = true;
+            if (is_mt) {
+                html_col = "#1abc9c";
+                return telugu_mode ? "మూలత్రికోణ" : "Moolatrikona";
+            }
+
+            int lord = rashi_lord_id[rashi];
+            if (lord == p_idx) {
+                html_col = "#3498db";
+                return telugu_mode ? "స్వక్షేత్రం" : "Own Sign";
+            }
+
+            int rel = nat_friend[p_idx][lord];
+            if (rel == 1)  { html_col = "#a3e4d7"; return telugu_mode ? "మిత్ర" : "Friendly"; }
+            if (rel == -1) { html_col = "#f5b7b1"; return telugu_mode ? "శత్రు" : "Enemy"; }
+            return telugu_mode ? "సమ" : "Neutral";
+        };
+		
         int y, m, d; double jut;
         swe_revjul(tjd_ut + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
 
@@ -1953,8 +2078,14 @@ void print_birth_chart_ui() {
 
             printf("<h2 style='color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;'>%s</h2>", telugu_mode ? "గ్రహ స్థితులు (Planet Positions)" : "Planet Positions");
             printf("<table class='data-table'><tr>");
-            printf("<th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", 
-                   telugu_mode ? "గ్రహం" : "Planet", telugu_mode ? "డిగ్రీలు" : "Degrees", telugu_mode ? "రాశి" : "Rashi", telugu_mode ? "నక్షత్రం" : "Nakshatra", telugu_mode ? "పాదం" : "Pada", telugu_mode ? "అధిపతి" : "Lord");
+            printf("<th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", 
+                   telugu_mode ? "గ్రహం" : "Planet",
+                   telugu_mode ? "డిగ్రీలు" : "Degrees",
+                   telugu_mode ? "రాశి" : "Rashi",
+                   telugu_mode ? "నక్షత్రం" : "Nakshatra",
+                   telugu_mode ? "పాదం" : "Pada",
+                   telugu_mode ? "అధిపతి" : "Lord",
+                   telugu_mode ? "స్థితి" : "Dignity");
         } else {
             if (telugu_mode) {
                 printf("\n=================================================================\n");
@@ -1965,10 +2096,10 @@ void print_birth_chart_ui() {
                 printf(" ప్రదేశం (Place): %s (Lat: %.4f, Lon: %.4f, TZ: %.1f)\n", location.name.c_str(), location.lat, location.lon, location.tz_offset);
                 printf(" అయనంశ          : లాహిరి (చిత్ర పక్ష)\n");
                 
-                printf("\n=================================================================\n");
+                printf("\n===================================================================================================================\n");
                 printf("=== గ్రహ స్థితులు (PLANET POSITIONS) ===\n");
-                printf("=================================================================\n");
-                printf("%-10s | %-10s | %-15s | %-20s | %-5s | %-10s\n", "గ్రహం", "డిగ్రీలు", "రాశి", "నక్షత్రం", "పాదం", "అధిపతి");
+                printf("===================================================================================================================\n");
+                printf("%-20s | %-12s | %-18s | %-22s | %-5s | %-10s | %-14s\n", "గ్రహం", "డిగ్రీలు", "రాశి", "నక్షత్రం", "పాదం", "అధిపతి", "స్థితి");
             } else {
                 printf("\n=================================================================\n");
                 printf("=== BIRTH DETAILS ===\n");
@@ -1978,17 +2109,17 @@ void print_birth_chart_ui() {
                 printf(" Place          : %s (Lat: %.4f, Lon: %.4f, TZ: %.1f)\n", location.name.c_str(), location.lat, location.lon, location.tz_offset);
                 printf(" Ayanamsa       : Lahiri (Chitra Paksha)\n");
 
-                printf("\n=================================================================\n");
+                printf("\n===================================================================================================================\n");
                 printf("=== PLANET POSITIONS ===\n");
-                printf("=================================================================\n");
-                printf("%-10s | %-10s | %-15s | %-20s | %-5s | %-10s\n", "Planet", "Degrees", "Rashi", "Nakshatra", "Pada", "Lord");
+                printf("===================================================================================================================\n");
+                printf("%-15s | %-11s | %-15s | %-20s | %-5s | %-10s | %-14s\n", "Planet", "Degrees", "Rashi", "Nakshatra", "Pada", "Lord", "Dignity");
             }
-            printf("-------------------------------------------------------------------------------------------------\n");
+            printf("-------------------------------------------------------------------------------------------------------------------\n");
         }
 
         for (int i = 0; i <= 9; i++) {
             int rashi = planet_rashis[i];
-            double deg = fmod(planet_lons[i], 30.0);
+            double deg = fmod(planet_lons[i] + 360.0, 30.0);
             int nak_idx = (int)(planet_lons[i] / (360.0 / 27.0));
             int pada = (int)((planet_lons[i] - (nak_idx * (360.0 / 27.0))) / ((360.0 / 27.0) / 4.0)) + 1;
             
@@ -2002,22 +2133,39 @@ void print_birth_chart_ui() {
             snprintf(deg_str, sizeof(deg_str), "%02d° %02d' %02d\"", (int)deg, (int)((deg - (int)deg) * 60), (int)((((deg - (int)deg) * 60) - (int)((deg - (int)deg) * 60)) * 60));
 
             string p_name = (i == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : (telugu_mode ? get_planet_name(i) : p_names_full[i]);
+            if (is_retro[i] || is_combust[i]) {
+                p_name += " ";
+                if (is_retro[i])   p_name += "(R)";
+                if (is_combust[i]) p_name += "(C)";
+            }
+
+            string dig_col;
+            string dignity = get_dignity(i, rashi, deg, dig_col);
+
             string r_name = telugu_mode ? te_rashi_names[rashi] : rashi_names[rashi];
             string n_name = telugu_mode ? te_nak_names[nak_idx] : nak_names[nak_idx];
 
             if (html_mode) {
-                printf("<tr><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td></tr>\n", 
-                       p_name.c_str(), deg_str, r_name.c_str(), n_name.c_str(), pada, p_lord_name.c_str());
+                printf("<tr><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td><td>%d</td><td>%s</td><td style='color:%s; font-weight:bold;'>%s</td></tr>\n", 
+                       p_name.c_str(), deg_str, r_name.c_str(), n_name.c_str(), pada, p_lord_name.c_str(), dig_col.c_str(), dignity.c_str());
             } else {
-                if (telugu_mode) printf("%-12s | %-12s | %-18s | %-22s | %-5d | %-10s\n", p_name.c_str(), deg_str, r_name.c_str(), n_name.c_str(), pada, p_lord_name.c_str());
-                else printf("%-10s | %-10s | %-15s | %-20s | %-5d | %-10s\n", p_name.c_str(), deg_str, r_name.c_str(), n_name.c_str(), pada, p_lord_name.c_str());
+                if (telugu_mode) printf("%-20s | %-12s | %-18s | %-22s | %-5d | %-10s | %s\n", p_name.c_str(), deg_str, r_name.c_str(), n_name.c_str(), pada, p_lord_name.c_str(), dignity.c_str());
+                else printf("%-15s | %-11s | %-15s | %-20s | %-5d | %-10s | %s\n", p_name.c_str(), deg_str, r_name.c_str(), n_name.c_str(), pada, p_lord_name.c_str(), dignity.c_str());
             }
         }
         
-        if (html_mode) printf("</table>\n");
-        else printf("-------------------------------------------------------------------------------------------------\n");
+        if (html_mode) {
+            printf("</table>\n");
+            printf("<p style='font-size:12px; color:#888; margin-top:6px;'>%s</p>\n",
+                   telugu_mode ? "(R) = వక్ర గతి (Retrograde) &nbsp;|&nbsp; (C) = మౌఢ్యం / అస్తంగతం (Combust)"
+                               : "(R) = Retrograde &nbsp;|&nbsp; (C) = Combust (Asta)");
+        } else {
+            printf("-------------------------------------------------------------------------------------------------------------------\n");
+            printf("%s\n", telugu_mode ? "Legend: (R) = వక్ర గతి (Retrograde) | (C) = మౌఢ్యం (Combust)"
+                                       : "Legend: (R) = Retrograde | (C) = Combust (Asta)");
+        }
         
-        // --- 17-CHAR DYNAMIC COLORED RASI CHART GENERATOR ---
+        // --- 17-CHAR DYNAMIC COLORED RASI CHART GENERATOR (WITH RETROGRADE MARKERS) ---
         if (html_mode) {
             auto get_planets = [&](int rashi) -> string {
                 string res = "";
@@ -2033,6 +2181,7 @@ void print_birth_chart_ui() {
                     if (planet_rashis[i] == rashi) {
                         string p_label = get_short_planet(i);
                         if (i == 10) p_label = telugu_mode ? "వర్టె" : "Vx";
+                        if (i <= 9 && is_retro[i]) p_label += "(R)";
                         res += "<span style='color:" + string(p_colors[i]) + ";'>" + p_label + "</span> ";
                     }
                 }
@@ -2058,76 +2207,96 @@ void print_birth_chart_ui() {
                 "\033[1;33m", "\033[1;37m", "\033[1;34m", "\033[1;35m", "\033[1;35m", "\033[1;36m"
             };
 
-            int p_counts[12] = {0};
-            string r_line1[12], r_line2[12];
-            int vis1[12] = {0}, vis2[12] = {0};
-            for(int r=0; r<12; r++) { r_line1[r] = ""; r_line2[r] = ""; }
+            // Width-aware 3-row cell buffers so (R) tags never overflow the 17-char box
+            string cell_raw[12][3];
+            int cell_vis[12][3] = {{0}};
 
-            for(int p=0; p<=10; p++) { 
+            for (int p = 0; p <= 10; p++) { 
                 int r = planet_rashis[p];
+                if (r < 0 || r >= 12) continue;
+
                 string en_abbr = telugu_mode ? te_short_p_names[p] : p_abbr[p];
-                if(p==0) en_abbr = telugu_mode ? "లగ్న" : "As";
-                if(p==10) en_abbr = telugu_mode ? "వర్టె" : "Vx";
+                if (p == 0)  en_abbr = telugu_mode ? "లగ్న" : "As";
+                if (p == 10) en_abbr = telugu_mode ? "వర్టె" : "Vx";
+                if (p >= 1 && p <= 9 && is_retro[p]) en_abbr += "(R)";
                 
                 string color_abbr = ansi_colors[p] + en_abbr + "\033[0m";
-                int vis_len = 0; for(char c : en_abbr) if((c & 0xC0) != 0x80) vis_len++;
-                
-                if (p_counts[r] < 3) {
-                    if (p_counts[r] > 0) { r_line1[r] += " "; vis1[r]++; }
-                    r_line1[r] += color_abbr; vis1[r] += vis_len;
-                } else {
-                    if (p_counts[r] > 3) { r_line2[r] += " "; vis2[r]++; }
-                    r_line2[r] += color_abbr; vis2[r] += vis_len;
+                int vis_len = 0;
+                for (char c : en_abbr) if ((c & 0xC0) != 0x80) vis_len++;
+
+                int target_row = 2;
+                for (int row = 0; row < 3; row++) {
+                    int needed = (cell_vis[r][row] == 0) ? vis_len : (cell_vis[r][row] + 1 + vis_len);
+                    if (needed <= 15) {
+                        target_row = row;
+                        break;
+                    }
                 }
-                p_counts[r]++;
+
+                if (cell_vis[r][target_row] > 0) {
+                    cell_raw[r][target_row] += " ";
+                    cell_vis[r][target_row] += 1;
+                }
+                cell_raw[r][target_row] += color_abbr;
+                cell_vis[r][target_row] += vis_len;
             }
 
             auto pad_cell = [](string raw, int vis_len) {
                 string res = " " + raw; 
-                int spaces = 16 - vis_len; // Perfectly matches the 17-dash width
+                int spaces = 16 - vis_len; // Matches the 17-dash cell width
                 if (spaces > 0) res.append(spaces, ' ');
                 return res;
             };
 
-            for(int r=0; r<12; r++) {
-                r_line1[r] = pad_cell(r_line1[r], vis1[r]);
-                r_line2[r] = pad_cell(r_line2[r], vis2[r]);
+            string r_top[12], r_mid[12], r_bot[12];
+            string b = "                 "; // 17 spaces
+            for (int r = 0; r < 12; r++) {
+                if (cell_vis[r][2] > 0) {
+                    // Stellium uses all 3 vertical slots
+                    r_top[r] = pad_cell(cell_raw[r][0], cell_vis[r][0]);
+                    r_mid[r] = pad_cell(cell_raw[r][1], cell_vis[r][1]);
+                    r_bot[r] = pad_cell(cell_raw[r][2], cell_vis[r][2]);
+                } else {
+                    // Standard 1-2 line layout preserves clean top breathing room
+                    r_top[r] = b;
+                    r_mid[r] = pad_cell(cell_raw[r][0], cell_vis[r][0]);
+                    r_bot[r] = pad_cell(cell_raw[r][1], cell_vis[r][1]);
+                }
             }
 
             auto center_text = [](string s, int width) {
                 int vis_len = 0;
-                for(char c : s) if((c & 0xC0) != 0x80) vis_len++;
+                for (char c : s) if ((c & 0xC0) != 0x80) vis_len++;
                 int pad_l = (width - vis_len) / 2;
                 int pad_r = width - vis_len - pad_l;
-                if(pad_l < 0) pad_l = 0; if(pad_r < 0) pad_r = 0;
+                if (pad_l < 0) pad_l = 0; if (pad_r < 0) pad_r = 0;
                 return string(pad_l, ' ') + s + string(pad_r, ' ');
             };
 
             string sep = "+-----------------+-----------------+-----------------+-----------------+";
-            string b = "                 "; // 17 spaces
             string center_gap = "                                   "; // 35 spaces
 
             printf("\n[%s]\n", telugu_mode ? "రాశి చక్రం (D1)" : "RASI CHART (D1)");
             printf("%s\n", sep.c_str());
-            printf("|%s|%s|%s|%s|\n", b.c_str(), b.c_str(), b.c_str(), b.c_str());
-            printf("|%s|%s|%s|%s|\n", r_line1[11].c_str(), r_line1[0].c_str(), r_line1[1].c_str(), r_line1[2].c_str());
-            printf("|%s|%s|%s|%s|\n", r_line2[11].c_str(), r_line2[0].c_str(), r_line2[1].c_str(), r_line2[2].c_str());
+            printf("|%s|%s|%s|%s|\n", r_top[11].c_str(), r_top[0].c_str(), r_top[1].c_str(), r_top[2].c_str());
+            printf("|%s|%s|%s|%s|\n", r_mid[11].c_str(), r_mid[0].c_str(), r_mid[1].c_str(), r_mid[2].c_str());
+            printf("|%s|%s|%s|%s|\n", r_bot[11].c_str(), r_bot[0].c_str(), r_bot[1].c_str(), r_bot[2].c_str());
             printf("%s\n", sep.c_str());
-            printf("|%s|%s|%s|\n", b.c_str(), center_gap.c_str(), b.c_str());
+            printf("|%s|%s|%s|\n", r_top[10].c_str(), center_gap.c_str(), r_top[3].c_str());
             
             string title1 = telugu_mode ? "రాశి చక్రం" : "RASI CHART";
             string title2 = "(D1)";
-            printf("|%s|%s|%s|\n", r_line1[10].c_str(), center_text(title1, 35).c_str(), r_line1[3].c_str());
-            printf("|%s|%s|%s|\n", r_line2[10].c_str(), center_text(title2, 35).c_str(), r_line2[3].c_str());
+            printf("|%s|%s|%s|\n", r_mid[10].c_str(), center_text(title1, 35).c_str(), r_mid[3].c_str());
+            printf("|%s|%s|%s|\n", r_bot[10].c_str(), center_text(title2, 35).c_str(), r_bot[3].c_str());
             
             printf("+-----------------+                                   +-----------------+\n");
-            printf("|%s|                                   |%s|\n", b.c_str(), b.c_str());
-            printf("|%s|                                   |%s|\n", r_line1[9].c_str(), r_line1[4].c_str());
-            printf("|%s|                                   |%s|\n", r_line2[9].c_str(), r_line2[4].c_str());
+            printf("|%s|                                   |%s|\n", r_top[9].c_str(), r_top[4].c_str());
+            printf("|%s|                                   |%s|\n", r_mid[9].c_str(), r_mid[4].c_str());
+            printf("|%s|                                   |%s|\n", r_bot[9].c_str(), r_bot[4].c_str());
             printf("%s\n", sep.c_str());
-            printf("|%s|%s|%s|%s|\n", b.c_str(), b.c_str(), b.c_str(), b.c_str());
-            printf("|%s|%s|%s|%s|\n", r_line1[8].c_str(), r_line1[7].c_str(), r_line1[6].c_str(), r_line1[5].c_str());
-            printf("|%s|%s|%s|%s|\n", r_line2[8].c_str(), r_line2[7].c_str(), r_line2[6].c_str(), r_line2[5].c_str());
+            printf("|%s|%s|%s|%s|\n", r_top[8].c_str(), r_top[7].c_str(), r_top[6].c_str(), r_top[5].c_str());
+            printf("|%s|%s|%s|%s|\n", r_mid[8].c_str(), r_mid[7].c_str(), r_mid[6].c_str(), r_mid[5].c_str());
+            printf("|%s|%s|%s|%s|\n", r_bot[8].c_str(), r_bot[7].c_str(), r_bot[6].c_str(), r_bot[5].c_str());
             printf("%s\n", sep.c_str());
         }
     }
@@ -9749,6 +9918,129 @@ void calculate_synastry_collisions(const JyotishaEngine& p1, const JyotishaEngin
     if (html) printf("</table>\n");
     else printf("-------------------------------------------------------------------------------------------------------------------------------------------------\n");
 
+	// =========================================================================
+    // STANDALONE TABLE: MULTI-PLANET RASHI MIDPOINTS (ALL P1 & P2 PLANETS)
+    // =========================================================================
+    struct RashiPlanet {
+        string owner;
+        string name;
+        double in_rashi;
+    };
+
+    vector<RashiPlanet> rashi_buckets[12];
+
+    auto add_chart_planets = [&](const JyotishaEngine& eng, const string& tag) {
+        for (int idx = 0; idx <= 9; idx++) {
+            int r = eng.planet_rashis[idx];
+            if (r < 0 || r >= 12) continue;
+            double lon = eng.planet_lons[idx];
+            double in_r = lon - (r * 30.0);
+            if (in_r < 0.0 || in_r >= 30.0) in_r = fmod(lon + 360.0, 30.0);
+            rashi_buckets[r].push_back({tag, get_p_name(idx, eng), in_r});
+        }
+    };
+
+    add_chart_planets(p1, "P1");
+    add_chart_planets(p2, "P2");
+
+    static const char* r_names_en[12] = {
+        "Mesha", "Vrishabha", "Mithuna", "Karka", "Simha", "Kanya",
+        "Tula", "Vrishchika", "Dhanu", "Makara", "Kumbha", "Meena"
+    };
+    static const char* r_names_te[12] = {
+        "మేషం", "వృషభం", "మిథునం", "కర్కాటకం", "సింహం", "కన్య",
+        "తుల", "వృశ్చికం", "ధనుస్సు", "మకరం", "కుంభం", "మీనం"
+    };
+
+    if (html) {
+        printf("<h3 style='color: var(--accent); margin-top: 25px; margin-bottom: 10px;'>%s</h3>",
+               te ? "రాశివారీ బహుళ గ్రహ మధ్య బిందువులు (Rashi Multi-Planet Midpoints)"
+                  : "Rashi Multi-Planet Midpoints (All P1 & P2 Planets per Rashi)");
+        printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n",
+               te ? "రాశి" : "Rashi",
+               te ? "సంఖ్య" : "Count",
+               te ? "సగటు మధ్య బిందువు" : "Mean Midpoint",
+               te ? "పరిధి కేంద్రం" : "Span Center",
+               te ? "విస్తృతి" : "Spread",
+               te ? "రాశిలోని గ్రహాలు" : "Planets in Rashi (Sorted by Degree)");
+    } else {
+        printf("\n=================================================================================================================================================\n");
+        printf("=== %s ===\n",
+               te ? "రాశివారీ బహుళ గ్రహ మధ్య బిందువులు (RASHI MULTI-PLANET MIDPOINTS)"
+                  : "RASHI MULTI-PLANET MIDPOINTS (ALL P1 & P2 PLANETS PER RASHI)");
+        printf("=================================================================================================================================================\n");
+        printf("%-12s | %-3s | %-16s | %-16s | %-12s | %s\n",
+               te ? "రాశి" : "Rashi",
+               te ? "సం." : "Cnt",
+               te ? "సగటు మధ్య బిందువు" : "Mean Midpoint",
+               te ? "పరిధి కేంద్రం" : "Span Center",
+               te ? "విస్తృతి" : "Spread",
+               te ? "రాశిలోని గ్రహాలు" : "Planets in Rashi (Sorted by Degree)");
+        printf("-------------------------------------------------------------------------------------------------------------------------------------------------\n");
+    }
+
+    bool any_rashi_mid = false;
+    for (int r = 0; r < 12; r++) {
+        auto& bucket = rashi_buckets[r];
+        if (bucket.size() < 2) continue;
+        any_rashi_mid = true;
+
+        sort(bucket.begin(), bucket.end(), [](const RashiPlanet& a, const RashiPlanet& b) {
+            return a.in_rashi < b.in_rashi;
+        });
+
+        double sum_deg = 0.0;
+        for (const auto& e : bucket) sum_deg += e.in_rashi;
+
+        double mean_in_rashi = sum_deg / static_cast<double>(bucket.size());
+        double min_deg = bucket.front().in_rashi;
+        double max_deg = bucket.back().in_rashi;
+        double span_in_rashi = (min_deg + max_deg) / 2.0;
+        double spread = max_deg - min_deg;
+
+        double mean_abs = r * 30.0 + mean_in_rashi;
+        double span_abs = r * 30.0 + span_in_rashi;
+
+        string planet_list = "";
+        for (size_t k = 0; k < bucket.size(); k++) {
+            int pd = (int)bucket[k].in_rashi;
+            int pm = (int)round((bucket[k].in_rashi - pd) * 60.0);
+            if (pm >= 60) { pm -= 60; pd += 1; }
+            char pbuf[128];
+            snprintf(pbuf, sizeof(pbuf), "%s:%s(%02d°%02d')",
+                     bucket[k].owner.c_str(), bucket[k].name.c_str(), pd, pm);
+            planet_list += pbuf;
+            if (k + 1 < bucket.size()) planet_list += ", ";
+        }
+
+        const char* r_label = te ? r_names_te[r] : r_names_en[r];
+
+        if (html) {
+            printf("<tr><td><b>%s</b></td><td>%zu</td><td><b style='color:#f1c40f;'>%s</b></td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+                   r_label, bucket.size(),
+                   format_deg(mean_abs).c_str(),
+                   format_deg(span_abs).c_str(),
+                   format_orb(spread).c_str(),
+                   planet_list.c_str());
+        } else {
+            printf("%-12s | %-3zu | %-16s | %-16s | %-12s | %s\n",
+                   r_label, bucket.size(),
+                   format_deg(mean_abs).c_str(),
+                   format_deg(span_abs).c_str(),
+                   format_orb(spread).c_str(),
+                   planet_list.c_str());
+        }
+    }
+
+    if (!any_rashi_mid) {
+        if (html) printf("<tr><td colspan='6' style='text-align:center; color:#888;'>%s</td></tr>\n",
+                         te ? "ఏ రాశిలోనూ 2 లేదా అంతకంటే ఎక్కువ గ్రహాలు లేవు." : "No Rashi contains 2 or more planets.");
+        else printf("%s\n", te ? "ఏ రాశిలోనూ 2 లేదా అంతకంటే ఎక్కువ గ్రహాలు లేవు." : "No Rashi contains 2 or more planets.");
+    }
+
+    if (html) printf("</table>\n");
+    else printf("-------------------------------------------------------------------------------------------------------------------------------------------------\n");
+	
     if (!has_timeframe) return;
 
     if (html) {

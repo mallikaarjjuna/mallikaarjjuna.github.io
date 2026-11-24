@@ -14,7 +14,7 @@ libswe.a: $(SWE_OBJ)
 	ar r libswe.a $(SWE_OBJ)
 
 # Added header file dependencies here
-astroc: astroc.cpp texts.h texts_te.h libswe.a
+astroc: astroc.cpp shadbala.h texts.h texts_te.h libswe.a
 	g++ -std=c++17 -o astroc astroc.cpp libswe.a -lm
 
 # 2. WebAssembly Build

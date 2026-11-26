@@ -7198,148 +7198,618 @@ void calculate_special_karakas() {
         }
     }
 	
-void calculate_event_muhurat(string event_type, int target_year, int target_month) {
+
+// =========================================================================
+    // DEDICATED LAGNA-SWEEPING FD / WEALTH DEPOSIT MUHURAT ENGINE
+    // =========================================================================
+    void calculate_fd_muhurat_lagna_engine(int target_year, int target_month, int target_day = 0, bool full_24h = false) {
+        if (json_mode) return;
+
+        bool single_day_mode = (target_day > 0);
+        bool scan_24h = single_day_mode || full_24h; // Single-day always scans full 24h (supports online FD creation)
+
+        int natal_mo_nak   = static_cast<int>(norm_lon_360(moon_lon) / (40.0 / 3.0)) % 27;
+        int natal_mo_rashi = planet_rashis[2];
+
+        // Classical Dhana Sanchaya / FD Nakshatras:
+        // Dhruva/Fixed (3,11,20,25) + Kshipra/Growth (0,7,12) + Mridu (4,13,16,26) + Chara Banking (6,14,21,22)
+        static const bool fd_nak_ok[27] = {
+            true,  false, false, true,  true,  false, true,  true,  false, // 0..8:  Ash, Roh, Mri, Pun, Pus
+            false, false, true,  true,  true,  true,  false, true,  false, // 9..17: UPh, Has, Chi, Swa, Anu
+            false, false, true,  true,  true,  false, false, true,  true   // 18..26: UAs, Shr, Dha, UBh, Rev
+        };
+        // Valid 15-scale Tithis: Dwitiya(1), Tritiya(2), Panchami(4), Saptami(6), Dashami(9), Ekadashi(10), Dwadashi(11), Trayodashi(12), Shukla Purnima(14)
+        static const bool fd_tithi_ok[15] = {
+            false, true, true, false, true, false, true, false, false, true, true, true, true, false, true
+        };
+        // Valid Vedic weekdays: Monday(1), Wednesday(3), Thursday(4), Friday(5)
+        static const bool fd_wday_ok[7] = {false, true, false, true, true, true, false};
+
+        // Kaala tables (matching calculate_muhurat() exactly)
+        static const int rahu_idx[7]       = {7, 1, 6, 4, 5, 3, 2};
+        static const int yama_idx[7]       = {4, 3, 2, 1, 0, 6, 5};
+        static const int guli_idx[7]       = {6, 5, 4, 3, 2, 1, 0};
+        static const int night_guli_idx[7] = {2, 1, 0, 6, 5, 4, 3}; // BPHS Ch. 3 Ratri Gulika
+        const vector<int> dushta_idx[7]    = {{13}, {8, 11}, {3}, {7}, {5, 11}, {3, 8}, {0, 1}};
+        static const int hora_seq[7]       = {0, 5, 3, 1, 6, 4, 2}; // 0=Su, 1=Mo, 2=Ma, 3=Me, 4=Ju, 5=Ve, 6=Sa
+
+        const int se_planets[8] = {SE_SUN, SE_MOON, SE_MARS, SE_MERCURY, SE_JUPITER, SE_VENUS, SE_SATURN, node_calc_type};
+        double geopos[3] = {location.lon, location.lat, 0.0};
+
+        char scope_buf[96];
+        if (single_day_mode) {
+            snprintf(scope_buf, sizeof(scope_buf), "%02d/%02d/%04d (Full 24h Scan)", target_day, target_month, target_year);
+        } else {
+            snprintf(scope_buf, sizeof(scope_buf), "%02d/%04d (%s)", target_month, target_year,
+                     scan_24h ? "Full 24h Scan" : "Daytime Sunrise-Sunset; pass '24h' for full day");
+        }
+
+        if (html_mode) {
+            printf("<h2 style='margin-top: 20px; margin-bottom: 10px; color: var(--accent);'>%s</h2>\n",
+                   telugu_mode ? "ఫిక్స్‌డ్ డిపాజిట్ (FD) లగ్న ఆధారిత ముహూర్త స్కానర్"
+                               : "FIXED DEPOSIT (FD) LAGNA-SWEEPING MUHURAT ENGINE");
+            printf("<p style='color: #888;'><b>%s:</b> %s &nbsp;|&nbsp; <b>%s:</b> %s &nbsp;|&nbsp; <b>%s:</b> %s</p>\n",
+                   telugu_mode ? "ప్రదేశం" : "Location", location.name.c_str(),
+                   telugu_mode ? "పరిధి" : "Scope", scope_buf,
+                   telugu_mode ? "జన్మ నక్షత్రం" : "Natal Star", get_nak_name(natal_mo_nak).c_str());
+        } else {
+            printf("\n==========================================================================================================================================\n");
+            printf("=== %s ===\n",
+                   telugu_mode ? "ఫిక్స్‌డ్ డిపాజిట్ (FD) లగ్న ఆధారిత ముహూర్త స్కానర్ (BPHS / ముహూర్త చింతామణి)"
+                               : "FIXED DEPOSIT (FD) LAGNA-SWEEPING MUHURAT ENGINE (ASHTAMA SHUDDHI + KAALA-FREE)");
+            printf("Location    : %s (Lat: %.4f, Lon: %.4f)\n", location.name.c_str(), location.lat, location.lon);
+            printf("Scope       : %s\n", scope_buf);
+            printf("Natal Star  : %s (%s) | Hard Filters: No Rahu/Yama/Gulika/Dushta, 8H Empty, No Malefic 5H/9H, Benefic Hora\n",
+                   get_nak_name(natal_mo_nak).c_str(), get_rashi_name(natal_mo_rashi).c_str());
+            printf("==========================================================================================================================================\n");
+        }
+
+        struct FDWindow {
+            int y, m, d;
+            int vedic_wday;
+            double start_jd, end_jd;
+            int lagna_rashi;
+            bool is_fixed_lagna;
+            int hora_lord; // 0..6
+            int nak_idx;
+            int tithi_idx;
+            int tara_idx;
+            int tier;      // 2 = PURE (5/8/9 Empty), 1 = GOOD (8H Empty, Ben 5/9)
+            bool is_day;
+            bool is_guru_pushya;
+        };
+
+        vector<FDWindow> windows;
+
+        // Diagnostic counters for single-day mode when zero slots pass
+        int diag_total = 0, diag_wday = 0, diag_tithi = 0, diag_nak = 0, diag_tara = 0;
+        int diag_ash_chandra = 0, diag_kaala = 0, diag_lagna_type = 0, diag_8h = 0, diag_59_mal = 0, diag_hora = 0;
+
+        int d_start = single_day_mode ? target_day : 1;
+        int d_end   = single_day_mode ? target_day : 31;
+
+        for (int day = d_start; day <= d_end; day++) {
+            double day_mid_ut = swe_julday(target_year, target_month, day, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int cy, cm, cd; double cjut;
+            swe_revjul(day_mid_ut + (location.tz_offset / 24.0) + 0.5, SE_GREG_CAL, &cy, &cm, &cd, &cjut);
+            if (cm != target_month || cd != day) break;
+
+            int cal_wday = static_cast<int>(floor(swe_julday(target_year, target_month, day, 12.0, SE_GREG_CAL) + 1.5)) % 7;
+
+            // Compute exact Sunrise/Sunset brackets (previous day, today, next sunrise)
+            double prev_rise = 0, prev_set = 0, today_rise = 0, today_set = 0, next_rise = 0;
+            char serr[256];
+            swe_rise_trans(day_mid_ut - 1.0, SE_SUN, NULL, iflag, 769, geopos, 0, 0, &prev_rise, serr);
+            swe_rise_trans(prev_rise + 0.01, SE_SUN, NULL, iflag, 770, geopos, 0, 0, &prev_set, serr);
+            swe_rise_trans(day_mid_ut,       SE_SUN, NULL, iflag, 769, geopos, 0, 0, &today_rise, serr);
+            swe_rise_trans(today_rise + 0.01, SE_SUN, NULL, iflag, 770, geopos, 0, 0, &today_set, serr);
+            swe_rise_trans(today_set + 0.01,  SE_SUN, NULL, iflag, 769, geopos, 0, 0, &next_rise, serr);
+
+            // Print Day Kaala Reference Bar when running a single-day deep scan
+            if (single_day_mode) {
+                double dt = today_set - today_rise;
+                double kl = dt / 8.0, ml = dt / 15.0;
+                double rk_s = today_rise + rahu_idx[cal_wday] * kl, rk_e = rk_s + kl;
+                double ym_s = today_rise + yama_idx[cal_wday] * kl, ym_e = ym_s + kl;
+                double gl_s = today_rise + guli_idx[cal_wday] * kl, gl_e = gl_s + kl;
+
+                string dm_str = "";
+                for (size_t di = 0; di < dushta_idx[cal_wday].size(); di++) {
+                    double ds = today_rise + dushta_idx[cal_wday][di] * ml;
+                    double de = ds + ml;
+                    if (di > 0) dm_str += ", ";
+                    dm_str += format_time_only(ds).substr(0, 5) + "-" + format_time_only(de).substr(0, 5);
+                }
+
+                if (html_mode) {
+                    printf("<div style='background:#1e1e24; padding:12px 15px; border-radius:6px; border-left:4px solid #e74c3c; margin-bottom:15px; font-size:13px; color:#ccc;'>");
+                    printf("<b>%02d/%02d/%04d (%s) — Excluded Kaalas:</b> Sunrise %s | Sunset %s | <span style='color:#e74c3c;'>Rahu %s-%s</span> | <span style='color:#e67e22;'>Yama %s-%s</span> | <span style='color:#f39c12;'>Gulika %s-%s</span> | Dushta %s",
+                           day, target_month, target_year, get_weekday(cal_wday).c_str(),
+                           format_time_only(today_rise).substr(0, 5).c_str(), format_time_only(today_set).substr(0, 5).c_str(),
+                           format_time_only(rk_s).substr(0, 5).c_str(), format_time_only(rk_e).substr(0, 5).c_str(),
+                           format_time_only(ym_s).substr(0, 5).c_str(), format_time_only(ym_e).substr(0, 5).c_str(),
+                           format_time_only(gl_s).substr(0, 5).c_str(), format_time_only(gl_e).substr(0, 5).c_str(),
+                           dm_str.c_str());
+                    printf("</div>\n");
+                } else {
+                    printf("Day Summary : %02d/%02d/%04d (%s) | Sunrise: %s | Sunset: %s\n",
+                           day, target_month, target_year, get_weekday(cal_wday).c_str(),
+                           format_time_only(today_rise).substr(0, 5).c_str(), format_time_only(today_set).substr(0, 5).c_str());
+                    printf("Excluded    : Rahu %s-%s | Yamaganda %s-%s | Gulika %s-%s | Dushta %s\n",
+                           format_time_only(rk_s).substr(0, 5).c_str(), format_time_only(rk_e).substr(0, 5).c_str(),
+                           format_time_only(ym_s).substr(0, 5).c_str(), format_time_only(ym_e).substr(0, 5).c_str(),
+                           format_time_only(gl_s).substr(0, 5).c_str(), format_time_only(gl_e).substr(0, 5).c_str(),
+                           dm_str.c_str());
+                    printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+                }
+            }
+
+            // Determine minute range for this calendar day
+            double step = 1.0 / 1440.0;
+            double scan_start = scan_24h ? day_mid_ut : today_rise;
+            double scan_end   = scan_24h ? (day_mid_ut + 1439.0 / 1440.0) : today_set;
+
+            // Quick month-scan pre-skip: if neither cal_wday nor previous Vedic weekday is valid, skip day
+            int prev_wday = (cal_wday + 6) % 7;
+            if (!single_day_mode && !fd_wday_ok[cal_wday] && (!scan_24h || !fd_wday_ok[prev_wday])) {
+                continue;
+            }
+
+            int p_rasi_cur[10] = {0};
+            double last_slow_jd = -1.0;
+
+            bool has_open = false;
+            FDWindow cur_win{};
+
+            for (double jd = scan_start; jd < scan_end; jd += step) {
+                diag_total++;
+
+                // 1. Determine exact Vedic Weekday, Day/Night flag & Hora
+                bool is_day_now = false;
+                int vedic_wday = cal_wday;
+                double d_rise = today_rise, d_set = today_set, n_start = today_set, n_end = next_rise;
+
+                if (jd < today_rise) {
+                    is_day_now = false;
+                    vedic_wday = prev_wday;
+                    d_rise = prev_rise; d_set = prev_set;
+                    n_start = prev_set; n_end = today_rise;
+                } else if (jd < today_set) {
+                    is_day_now = true;
+                    vedic_wday = cal_wday;
+                } else {
+                    is_day_now = false;
+                    vedic_wday = cal_wday;
+                    n_start = today_set; n_end = next_rise;
+                }
+
+                // Helper to flush any currently open window on failure
+                auto flush_open = [&](double close_jd) {
+                    if (has_open) {
+                        cur_win.end_jd = close_jd;
+                        if ((cur_win.end_jd - cur_win.start_jd) >= (5.0 / 1440.0)) {
+                            windows.push_back(cur_win);
+                        }
+                        has_open = false;
+                    }
+                };
+
+                // 2. Weekday Gate
+                if (!fd_wday_ok[vedic_wday]) { diag_wday++; flush_open(jd); continue; }
+
+                // 3. Hard Kaala Exclusions (Rahu Kaal, Yamaganda, Gulika, Dushta, Ratri Gulika)
+                bool bad_kaala = false;
+                if (is_day_now) {
+                    double dt = d_set - d_rise;
+                    double kl = dt / 8.0, ml = dt / 15.0;
+                    int k_part = static_cast<int>((jd - d_rise) / kl);
+                    int m_part = static_cast<int>((jd - d_rise) / ml);
+                    if (k_part == rahu_idx[vedic_wday] || k_part == yama_idx[vedic_wday] || k_part == guli_idx[vedic_wday]) {
+                        bad_kaala = true;
+                    }
+                    if (!bad_kaala) {
+                        for (int dm : dushta_idx[vedic_wday]) {
+                            if (m_part == dm) { bad_kaala = true; break; }
+                        }
+                    }
+                } else if (n_end > n_start) {
+                    double nk = (n_end - n_start) / 8.0;
+                    int nk_part = static_cast<int>((jd - n_start) / nk);
+                    if (nk_part == night_guli_idx[vedic_wday]) bad_kaala = true;
+                }
+                if (bad_kaala) { diag_kaala++; flush_open(jd); continue; }
+
+                // 4. Planetary Hora Gate (Require Benefic Hora: Guru, Shukra, Budha, or Chandra)
+                int day_lord_pos = 0;
+                for (int hi = 0; hi < 7; hi++) { if (hora_seq[hi] == vedic_wday) { day_lord_pos = hi; break; } }
+                int hora_idx = 0;
+                if (is_day_now && (d_set > d_rise)) {
+                    hora_idx = static_cast<int>(((jd - d_rise) / (d_set - d_rise)) * 12.0);
+                    if (hora_idx > 11) hora_idx = 11;
+                } else if (n_end > n_start) {
+                    hora_idx = 12 + static_cast<int>(((jd - n_start) / (n_end - n_start)) * 12.0);
+                    if (hora_idx > 23) hora_idx = 23;
+                }
+                int hora_lord = hora_seq[(day_lord_pos + hora_idx) % 7]; // 0=Su,1=Mo,2=Ma,3=Me,4=Ju,5=Ve,6=Sa
+                bool hora_ok = (hora_lord == 4 || hora_lord == 5 || hora_lord == 3 || hora_lord == 1);
+                if (!hora_ok) { diag_hora++; flush_open(jd); continue; }
+
+                // 5. Real-Time Sun & Moon (Tithi, Nakshatra, Tara Bala, Ashtama Chandra)
+                double xx_su[6], xx_mo[6];
+                swe_calc_ut(jd, SE_SUN,  iflag, xx_su, serr);
+                swe_calc_ut(jd, SE_MOON, iflag, xx_mo, serr);
+                double su_lon = norm_lon_360(xx_su[0]);
+                double mo_lon = norm_lon_360(xx_mo[0]);
+
+                int t_idx = static_cast<int>(norm_lon_360(mo_lon - su_lon) / 12.0) % 30;
+                if (t_idx == 29 || !fd_tithi_ok[t_idx % 15]) { diag_tithi++; flush_open(jd); continue; }
+
+                int n_idx = static_cast<int>(mo_lon / (40.0 / 3.0)) % 27;
+                if (!fd_nak_ok[n_idx]) { diag_nak++; flush_open(jd); continue; }
+
+                int tara_idx = (n_idx - natal_mo_nak + 27) % 9;
+                if (tara_idx == 2 || tara_idx == 4 || tara_idx == 6) { diag_tara++; flush_open(jd); continue; }
+
+                int mo_rasi = static_cast<int>(mo_lon / 30.0) % 12;
+                int chandra_h = (mo_rasi - natal_mo_rashi + 12) % 12 + 1;
+                if (chandra_h == 8) { diag_ash_chandra++; flush_open(jd); continue; }
+
+                // 6. Real-Time Muhurta Lagna (Fixed [1,4,7,10] or Movable [0,3,6,9])
+                double cusps[13], ascmc[10];
+                swe_houses_ex(jd, iflag, location.lat, location.lon, 'P', cusps, ascmc);
+                int m_lagna = static_cast<int>(norm_lon_360(ascmc[0]) / 30.0) % 12;
+                int lagna_mod = m_lagna % 3; // 0 = Movable (Chara), 1 = Fixed (Sthira), 2 = Dual (Dwiswabhava)
+                if (lagna_mod == 2) { diag_lagna_type++; flush_open(jd); continue; }
+                bool is_fixed_l = (lagna_mod == 1);
+
+                // Refresh slower planetary signs every 15 minutes (Su/Mo refreshed every minute)
+                p_rasi_cur[1] = static_cast<int>(su_lon / 30.0) % 12;
+                p_rasi_cur[2] = mo_rasi;
+                if (last_slow_jd < 0.0 || (jd - last_slow_jd) >= (15.0 / 1440.0)) {
+                    for (int pi = 2; pi < 8; pi++) {
+                        double xx_p[6];
+                        swe_calc_ut(jd, se_planets[pi], iflag, xx_p, serr);
+                        p_rasi_cur[pi + 1] = static_cast<int>(norm_lon_360(xx_p[0]) / 30.0) % 12;
+                    }
+                    p_rasi_cur[9] = (p_rasi_cur[8] + 6) % 12; // Ketu
+                    last_slow_jd = jd;
+                }
+
+                // 7. Ashtama Shuddhi (8H MUST BE EMPTY) + 5H/9H Purity Check
+                int h8_r = (m_lagna + 7) % 12;
+                int h5_r = (m_lagna + 4) % 12;
+                int h9_r = (m_lagna + 8) % 12;
+
+                bool occ_8 = false, mal_59 = false, ben_59 = false;
+                for (int p = 1; p <= 9; p++) {
+                    if (p_rasi_cur[p] == h8_r) { occ_8 = true; break; }
+                    if (p_rasi_cur[p] == h5_r || p_rasi_cur[p] == h9_r) {
+                        bool is_mal = (p == 1 || p == 3 || p == 7 || p == 8 || p == 9);
+                        if (is_mal) mal_59 = true;
+                        else        ben_59 = true;
+                    }
+                }
+                if (occ_8)  { diag_8h++;     flush_open(jd); continue; }
+                if (mal_59) { diag_59_mal++; flush_open(jd); continue; }
+
+                int tier = ben_59 ? 1 : 2; // 2 = PURE (5/8/9 Empty), 1 = GOOD (8H Empty, Ben 5/9)
+                bool is_gp = (vedic_wday == 4 && n_idx == 7);
+
+                // Merge into open window or start a new one
+                bool same_state = has_open &&
+                                  cur_win.lagna_rashi == m_lagna &&
+                                  cur_win.hora_lord   == hora_lord &&
+                                  cur_win.nak_idx     == n_idx &&
+                                  cur_win.tithi_idx   == t_idx &&
+                                  cur_win.tier        == tier &&
+                                  cur_win.is_day      == is_day_now &&
+                                  cur_win.vedic_wday  == vedic_wday;
+
+                if (!same_state) {
+                    flush_open(jd);
+                    cur_win = {target_year, target_month, day, vedic_wday, jd, jd + step,
+                               m_lagna, is_fixed_l, hora_lord, n_idx, t_idx, tara_idx, tier, is_day_now, is_gp};
+                    has_open = true;
+                } else {
+                    cur_win.end_jd = jd + step;
+                }
+            }
+
+            if (has_open) {
+                cur_win.end_jd = scan_end;
+                if ((cur_win.end_jd - cur_win.start_jd) >= (5.0 / 1440.0)) {
+                    windows.push_back(cur_win);
+                }
+            }
+        }
+
+        // --- PRINT RESULTS TABLE ---
+        if (html_mode) {
+            printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n",
+                   telugu_mode ? "తేదీ & వారం" : "Date & Day",
+                   telugu_mode ? "శుభ సమయం" : "Window (Kaala-Free)",
+                   telugu_mode ? "ముహూర్త లగ్నం" : "Muhurta Lagna",
+                   telugu_mode ? "హోర" : "Hora",
+                   telugu_mode ? "తిథి" : "Tithi",
+                   telugu_mode ? "నక్షత్రం" : "Nakshatra",
+                   telugu_mode ? "తారాబలం" : "Tara Bala",
+                   telugu_mode ? "శుద్ధి స్థాయి" : "Purity Grade");
+        } else {
+            printf("%-17s | %-18s | %-21s | %-8s | %-18s | %-16s | %-13s | %-20s\n",
+                   "Date (Day)", "Window (Kaala-Free)", "Muhurta Lagna", "Hora", "Tithi", "Nakshatra", "Tara", "Purity Grade");
+            printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+        }
+
+        for (const auto& w : windows) {
+            int dur_m = static_cast<int>(round((w.end_jd - w.start_jd) * 1440.0));
+            char d_buf[48], t_buf[48];
+            snprintf(d_buf, sizeof(d_buf), "%02d/%02d/%04d (%s)", w.d, w.m, w.y,
+                     telugu_mode ? get_weekday(w.vedic_wday).c_str() : string(weekdays[w.vedic_wday]).substr(0, 3).c_str());
+            snprintf(t_buf, sizeof(t_buf), "%s-%s (%dm)",
+                     format_time_only(w.start_jd).substr(0, 5).c_str(),
+                     format_time_only(w.end_jd).substr(0, 5).c_str(), dur_m);
+
+            string l_tag = w.is_fixed_lagna
+                         ? (telugu_mode ? " [స్థిర-FD]" : " [Fixed-FD]")
+                         : (telugu_mode ? " [చర]" : " [Movable]");
+            string lagna_str = get_rashi_name(w.lagna_rashi) + l_tag;
+            string hora_str  = get_planet_name(w.hora_lord + 1);
+
+            string paksha_short = telugu_mode ? ((w.tithi_idx < 15) ? "శుక్ల" : "కృష్ణ") : ((w.tithi_idx < 15) ? "Shu" : "Kri");
+            string tithi_str = get_tithi(w.tithi_idx) + " (" + paksha_short + ")";
+
+            string tara_str = get_tara(w.tara_idx);
+            if (!telugu_mode) {
+                size_t p_pos = tara_str.find(" (");
+                if (p_pos != string::npos) tara_str = tara_str.substr(0, p_pos);
+            }
+
+            string grade_str = (w.tier == 2)
+                             ? (telugu_mode ? "శ్రేష్ఠం (5/8/9 ఖాళీ)" : "PURE (5/8/9 Empty)")
+                             : (telugu_mode ? "మంచిది (8వ ఖాళీ)" : "GOOD (8H Empty)");
+            if (w.is_guru_pushya) grade_str += " *GURU PUSHYA*";
+            if (!w.is_day)        grade_str += " [Night]";
+
+            bool is_premier = (w.tier == 2 && w.is_fixed_lagna && w.tithi_idx < 15);
+
+            if (html_mode) {
+                const char* g_col  = (w.tier == 2) ? "#f1c40f" : "#3498db";
+                const char* row_bg = is_premier ? " style='background:rgba(241,196,15,0.12);'" : "";
+                printf("<tr%s><td>%s</td><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td style='color:%s; font-weight:bold;'>%s</td></tr>\n",
+                       row_bg, d_buf, t_buf, lagna_str.c_str(), hora_str.c_str(),
+                       tithi_str.c_str(), get_nak_name(w.nak_idx).c_str(), tara_str.c_str(), g_col, grade_str.c_str());
+            } else {
+                // Bold Bright Yellow for Premier PURE, Bold Yellow for PURE, Bold Cyan for GOOD (high contrast on green terminal)
+                const char* ansi = is_premier ? "\033[1;93m" : ((w.tier == 2) ? "\033[1;33m" : "\033[1;36m");
+                printf("%-17s | %-19s | %-21s | %-8s | %-18s | %-16s | %-13s | %s%s\033[0m\n",
+                       d_buf, t_buf, lagna_str.c_str(), hora_str.c_str(),
+                       tithi_str.c_str(), get_nak_name(w.nak_idx).c_str(), tara_str.c_str(),
+                       ansi, grade_str.c_str());
+            }
+        }
+
+        if (windows.empty()) {
+            if (single_day_mode) {
+                vector<string> reasons;
+                if (diag_wday == diag_total)    reasons.push_back("Inauspicious Weekday (Tue/Sat/Sun)");
+                if (diag_tithi > 0)             reasons.push_back("Unsuitable Tithi (Pratipada/Rikta/Shashthi/Ashtami/Amavasya)");
+                if (diag_nak > 0)               reasons.push_back("Unsuitable Nakshatra for FD");
+                if (diag_tara > 0)              reasons.push_back("Malefic Tara Bala (Vipat/Pratyak/Vadha)");
+                if (diag_ash_chandra > 0)       reasons.push_back("Ashtama Chandra (Moon in 8th from Natal Moon)");
+                if (diag_8h > 0)                reasons.push_back("8th House Occupied (Failed Ashtama Shuddhi)");
+                if (diag_59_mal > 0)            reasons.push_back("Malefic in 5th/9th House from Lagna");
+                if (diag_hora > 0 && reasons.empty()) reasons.push_back("No Benefic Hora (Guru/Shukra/Budha/Chandra) overlapped a clean Lagna");
+                if (diag_kaala > 0 && reasons.empty()) reasons.push_back("Blocked by Rahu/Yamaganda/Gulika/Dushta Kaala");
+
+                string r_join = "";
+                for (size_t ri = 0; ri < reasons.size(); ri++) {
+                    if (ri > 0) r_join += "; ";
+                    r_join += reasons[ri];
+                }
+
+                if (html_mode) {
+                    printf("<tr><td colspan='8' style='text-align:center; color:#e74c3c;'><b>No strictly clean FD Muhurat found on %02d/%02d/%04d.</b><br><span style='color:#aaa; font-size:13px;'>Blocking factors: %s. Try full-month scan: muhurat fd %04d %02d</span></td></tr>\n",
+                           target_day, target_month, target_year, r_join.c_str(), target_year, target_month);
+                } else {
+                    printf(" [!] No strictly clean FD Muhurat found on %02d/%02d/%04d.\n", target_day, target_month, target_year);
+                    printf("     Blocking factors : %s\n", r_join.c_str());
+                    printf("     Suggestion       : Run full-month scan -> muhurat fd %04d %02d\n", target_year, target_month);
+                }
+            } else {
+                if (html_mode) printf("<tr><td colspan='8' style='text-align:center; color:#e74c3c;'>No strictly clean FD Muhurat found in %02d/%04d (try adding '24h').</td></tr>\n", target_month, target_year);
+                else           printf(" [!] No strictly clean daytime FD Muhurat found in %02d/%04d. Try adding '24h' for full-day online FD slots.\n", target_month, target_year);
+            }
+        }
+
+        if (html_mode) {
+            printf("</table>\n");
+            printf("<p style='font-size:12px; color:#888; margin-top:6px;'>Priority: <b>PURE (5/8/9 Empty)</b> + <b>[Fixed-FD]</b> Lagna + <b>Shukla (Shu)</b> + <b>Guru/Shukra Hora</b>. Every slot is verified free of Rahu Kaal, Yamaganda, Gulika Kaal, Dushta Muhurta, and Ashtama Chandra.</p><br>\n");
+        } else {
+            printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+            printf("Priority : PURE (5/8/9 Empty) + [Fixed-FD] Lagna + Shukla (Shu) + Guru/Shukra Hora.\n");
+            printf("Guarantee: Every listed window is verified free of Rahu Kaal, Yamaganda, Gulika Kaal, Dushta Muhurta, Ashtama Chandra & occupied 8th House.\n");
+            printf("==========================================================================================================================================\n");
+        }
+    }
+
+    void calculate_event_muhurat(string event_type, int target_year, int target_month, int target_day = 0, bool full_24h = false) {
+        if (json_mode) return;
+
         string e_lower = event_type;
         transform(e_lower.begin(), e_lower.end(), e_lower.begin(), ::tolower);
+
+        // Route FD / Deposit requests directly to the dedicated Lagna-Sweeping FD Engine
+        if (e_lower == "fd" || e_lower == "deposit" || e_lower == "fixed_deposit" ||
+            e_lower == "investment" || e_lower == "savings") {
+            calculate_fd_muhurat_lagna_engine(target_year, target_month, target_day, full_24h);
+            return;
+        }
 
         vector<int> valid_naks, valid_tithis, valid_days;
         string e_name_en, e_name_te;
 
         if (e_lower == "marriage" || e_lower == "vivaha") {
             e_name_en = "Marriage / Vivaha"; e_name_te = "వివాహం (మ్యారేజ్)";
-            valid_naks = {3, 4, 9, 11, 12, 14, 16, 18, 20, 25, 26}; 
-            valid_tithis = {1, 2, 4, 6, 9, 10, 12}; 
-            valid_days = {1, 3, 4, 5}; 
-        } 
+            valid_naks   = {3, 4, 9, 11, 12, 14, 16, 18, 20, 25, 26};
+            valid_tithis = {1, 2, 4, 6, 9, 10, 12};
+            valid_days   = {1, 3, 4, 5};
+        }
         else if (e_lower == "house" || e_lower == "griha") {
             e_name_en = "House Warming / Griha Pravesh"; e_name_te = "గృహ ప్రవేశం";
-            valid_naks = {3, 4, 11, 13, 16, 20, 25, 26}; 
-            valid_tithis = {1, 2, 4, 6, 9, 10, 12}; 
-            valid_days = {1, 3, 4, 5}; 
+            valid_naks   = {3, 4, 11, 13, 16, 20, 25, 26};
+            valid_tithis = {1, 2, 4, 6, 9, 10, 12};
+            valid_days   = {1, 3, 4, 5};
         }
         else if (e_lower == "vehicle" || e_lower == "vahana") {
             e_name_en = "Vehicle Purchase"; e_name_te = "వాహన కొనుగోలు (వెహికల్)";
-            valid_naks = {0, 6, 7, 12, 14, 21, 22, 23, 26}; 
-            valid_tithis = {2, 3, 4, 6, 9, 10, 12, 14}; 
-            valid_days = {0, 1, 3, 4, 5}; 
+            valid_naks   = {0, 6, 7, 12, 14, 21, 22, 23, 26};
+            valid_tithis = {2, 3, 4, 6, 9, 10, 12, 14};
+            valid_days   = {0, 1, 3, 4, 5};
         }
         else if (e_lower == "electronics" || e_lower == "tv") {
             e_name_en = "Electronics / Appliances"; e_name_te = "ఎలక్ట్రానిక్స్ & ఉపకరణాలు (TV, Fridge)";
-            valid_naks = {0, 4, 6, 7, 12, 14, 21, 22, 23};
+            valid_naks   = {0, 4, 6, 7, 12, 14, 21, 22, 23};
             valid_tithis = {4, 6, 9, 10, 12, 14};
-            valid_days = {0, 1, 3, 4, 5}; 
+            valid_days   = {0, 1, 3, 4, 5};
         }
         else if (e_lower == "gold" || e_lower == "jewelry") {
             e_name_en = "Gold / Jewelry Purchase"; e_name_te = "బంగారం / ఆభరణాల కొనుగోలు";
-            valid_naks = {0, 3, 4, 7, 12, 13, 14, 16, 22, 23, 26};
-            valid_tithis = {0, 1, 2, 4, 6, 9, 10, 12}; 
-            valid_days = {0, 1, 3, 4, 5}; 
+            valid_naks   = {0, 3, 4, 7, 12, 13, 14, 16, 22, 23, 26};
+            valid_tithis = {0, 1, 2, 4, 6, 9, 10, 12};
+            valid_days   = {0, 1, 3, 4, 5};
         }
         else {
-            printf("Error: Event type not recognized. Valid options: marriage, house, vehicle, electronics, gold.\n");
+            printf("Error: Event type not recognized. Valid options: marriage, house, vehicle, electronics, gold, fd.\n");
             return;
         }
 
+        int natal_mo_nak = static_cast<int>(norm_lon_360(moon_lon) / (40.0 / 3.0)) % 27;
+        char scope_lbl[48];
+        if (target_day > 0) snprintf(scope_lbl, sizeof(scope_lbl), "%02d/%02d/%04d (Single Day)", target_day, target_month, target_year);
+        else                snprintf(scope_lbl, sizeof(scope_lbl), "%02d/%04d (Full Month)", target_month, target_year);
+
         if (html_mode) {
-            printf("<h2 style='margin-top: 20px; margin-bottom: 10px; color: var(--accent);'>%s</h2>", telugu_mode ? "వ్యక్తిగత ముహూర్త శోధన (Personalized Muhurat)" : "Personalized Event Muhurat Scanner");
-            printf("<p style='color: #888;'>%s: <b style='color:var(--term-text);'>%s</b> | %s: <b style='color:var(--term-text);'>%02d/%04d</b></p>", 
-                   telugu_mode ? "కార్యక్రమం" : "Event", telugu_mode ? e_name_te.c_str() : e_name_en.c_str(), 
-                   telugu_mode ? "శోధన నెల" : "Search Month", target_month, target_year);
-            printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>", 
-                   telugu_mode ? "తేదీ" : "Date", telugu_mode ? "వారం" : "Day", telugu_mode ? "తిథి" : "Tithi", 
-                   telugu_mode ? "నక్షత్రం" : "Star", telugu_mode ? "తారాబలం" : "Tara Bala", telugu_mode ? "శుభ సమయం" : "Best Window");
+            printf("<h2 style='margin-top: 20px; margin-bottom: 10px; color: var(--accent);'>%s</h2>",
+                   telugu_mode ? "వ్యక్తిగత ముహూర్త శోధన (Personalized Muhurat)" : "Personalized Event Muhurat Scanner");
+            printf("<p style='color: #888;'>%s: <b style='color:var(--term-text);'>%s</b> | %s: <b style='color:var(--term-text);'>%s</b></p>",
+                   telugu_mode ? "కార్యక్రమం" : "Event", telugu_mode ? e_name_te.c_str() : e_name_en.c_str(),
+                   telugu_mode ? "శోధన పరిధి" : "Search Scope", scope_lbl);
+            printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n",
+                   telugu_mode ? "తేదీ" : "Date", telugu_mode ? "వారం" : "Day", telugu_mode ? "తిథి" : "Tithi",
+                   telugu_mode ? "నక్షత్రం" : "Star", telugu_mode ? "తారాబలం" : "Tara Bala", telugu_mode ? "శుభ సమయం" : "Best Window (Rahu-Free)");
         } else {
             if (telugu_mode) {
-                printf("\n===============================================================================================================\n");
+                printf("\n=========================================================================================================================\n");
                 printf("=== వ్యక్తిగత ముహూర్త శోధన (PERSONALIZED MUHURAT SCANNER) ===\n");
                 printf("కార్యక్రమం  : %s\n", e_name_te.c_str());
-                printf("శోధన నెల   : %02d/%04d\n", target_month, target_year);
-                printf("జన్మ నక్షత్రం : %s (తారాబలం ఫిల్టర్ చేయబడింది)\n", get_nak_name((int)(moon_lon / (360.0 / 27.0))).c_str());
-                printf("===============================================================================================================\n");
-                printf("%-12s | %-12s | %-20s | %-15s | %-25s | %-15s\n", "తేదీ", "వారం", "తిథి", "నక్షత్రం", "తారాబలం", "శుభ సమయం");
+                printf("శోధన పరిధి : %s\n", scope_lbl);
+                printf("జన్మ నక్షత్రం : %s (తారాబలం ఫిల్టర్ చేయబడింది)\n", get_nak_name(natal_mo_nak).c_str());
+                printf("=========================================================================================================================\n");
+                printf("%-12s | %-12s | %-20s | %-16s | %-22s | %-22s\n", "తేదీ", "వారం", "తిథి", "నక్షత్రం", "తారాబలం", "శుభ సమయం");
             } else {
-                printf("\n===============================================================================================================\n");
+                printf("\n=========================================================================================================================\n");
                 printf("=== PERSONALIZED EVENT MUHURAT SCANNER ===\n");
                 printf("Event Type  : %s\n", e_name_en.c_str());
-                printf("Search Month: %02d/%04d\n", target_month, target_year);
-                printf("Natal Star  : %s (Tara Bala Filter Applied)\n", nak_names[(int)(moon_lon / (360.0 / 27.0))]);
-                printf("===============================================================================================================\n");
-                printf("%-12s | %-12s | %-20s | %-15s | %-25s | %-15s\n", "Date", "Weekday", "Tithi", "Nakshatra", "Tara Bala", "Best Window");
+                printf("Search Scope: %s\n", scope_lbl);
+                printf("Natal Star  : %s (Tara Bala Filter Applied)\n", nak_names[natal_mo_nak]);
+                printf("=========================================================================================================================\n");
+                printf("%-12s | %-12s | %-20s | %-16s | %-22s | %-22s\n", "Date", "Weekday", "Tithi", "Nakshatra", "Tara Bala", "Best Window (Rahu-Free)");
             }
-            printf("---------------------------------------------------------------------------------------------------------------\n");
+            printf("-------------------------------------------------------------------------------------------------------------------------\n");
         }
 
         double start_jd = swe_julday(target_year, target_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
         int valid_hits = 0;
-        int natal_mo_nak = (int)(moon_lon / (360.0 / 27.0)); 
+        static const int rahu_idx[7] = {7, 1, 6, 4, 5, 3, 2};
 
-        for (int i = 0; i < 31; i++) {
-            double noon_jd = start_jd + i + (12.0 / 24.0); 
-            
+        int i_start = (target_day > 0) ? (target_day - 1) : 0;
+        int i_end   = (target_day > 0) ? target_day       : 31;
+
+        for (int i = i_start; i < i_end; i++) {
+            double noon_jd = start_jd + i + (12.0 / 24.0);
+
             int y, m, d; double jut;
             swe_revjul(noon_jd + (location.tz_offset / 24.0), SE_GREG_CAL, &y, &m, &d, &jut);
-            if (m != target_month) break; 
+            if (m != target_month) break;
 
-            int weekday = (int)(floor(noon_jd + 1.5)) % 7; 
-            
+            int weekday = static_cast<int>(floor(noon_jd + 1.5)) % 7;
+
             double xx_sun[6], xx_moon[6]; char serr[256];
-            swe_calc_ut(noon_jd, SE_SUN, iflag, xx_sun, serr); 
+            swe_calc_ut(noon_jd, SE_SUN, iflag, xx_sun, serr);
             swe_calc_ut(noon_jd, SE_MOON, iflag, xx_moon, serr);
-            
-            double t_angle = fmod((xx_moon[0] - xx_sun[0] + 360.0), 360.0);
-            int t_idx = (int)(t_angle / 12.0); 
-            int tithi_15_scale = t_idx % 15; 
-            int n_idx = (int)(xx_moon[0] / (360.0 / 27.0));
+
+            double t_angle = norm_lon_360(xx_moon[0] - xx_sun[0]);
+            int t_idx = static_cast<int>(t_angle / 12.0) % 30;
+            int tithi_15_scale = t_idx % 15;
+            int n_idx = static_cast<int>(norm_lon_360(xx_moon[0]) / (40.0 / 3.0)) % 27;
 
             int tara_idx = (n_idx - natal_mo_nak + 27) % 9;
             bool tara_ok = (tara_idx != 2 && tara_idx != 4 && tara_idx != 6);
 
-            bool day_ok = std::find(valid_days.begin(), valid_days.end(), weekday) != valid_days.end();
-            bool nak_ok = std::find(valid_naks.begin(), valid_naks.end(), n_idx) != valid_naks.end();
+            bool day_ok   = std::find(valid_days.begin(), valid_days.end(), weekday) != valid_days.end();
+            bool nak_ok   = std::find(valid_naks.begin(), valid_naks.end(), n_idx) != valid_naks.end();
             bool tithi_ok = std::find(valid_tithis.begin(), valid_tithis.end(), tithi_15_scale) != valid_tithis.end();
+            if (t_idx == 29) tithi_ok = false; // Strictly block Amavasya
 
             if (day_ok && nak_ok && tithi_ok && tara_ok) {
                 double sunrise_ut, sunset_ut; double geopos[3] = {location.lon, location.lat, 0.0};
                 swe_rise_trans(start_jd + i, SE_SUN, NULL, iflag, 769, geopos, 0, 0, &sunrise_ut, serr);
                 swe_rise_trans(sunrise_ut + 0.01, SE_SUN, NULL, iflag, 770, geopos, 0, 0, &sunset_ut, serr);
-                
-                double daytime = sunset_ut - sunrise_ut; 
-                double m_len = daytime / 15.0;
-                double abhijit_start = sunrise_ut + 7*m_len;
-                double abhijit_end = sunrise_ut + 8*m_len;
-                
-                char date_buf[32]; snprintf(date_buf, sizeof(date_buf), "%02d/%02d/%04d", d, m, y);
-                string ab_window = format_time_only(abhijit_start).substr(0, 5) + " - " + format_time_only(abhijit_end).substr(0, 5);
-                string full_tithi = get_tithi(t_idx) + " (" + get_paksha(t_idx).substr(0,3) + ")";
-                
+
+                double daytime = sunset_ut - sunrise_ut;
+                double m_len   = daytime / 15.0;
+                double k_len   = daytime / 8.0;
+
+                double win_start = sunrise_ut + 7.0 * m_len;
+                double win_end   = sunrise_ut + 8.0 * m_len;
+                double rahu_end  = sunrise_ut + (rahu_idx[weekday] + 1) * k_len;
+                string win_note  = "";
+
+                if (weekday == 3) {
+                    win_start = sunrise_ut + 2.0 * k_len;
+                    win_end   = sunrise_ut + 3.0 * k_len;
+                    win_note  = " (AM)";
+                } else if (weekday == 5 && win_start < rahu_end) {
+                    win_start = rahu_end;
+                    win_note  = " (Post-RK)";
+                }
+
+                char date_buf[48];
+                snprintf(date_buf, sizeof(date_buf), "%02d/%02d/%04d", d, m, y);
+                string ab_window = format_time_only(win_start).substr(0, 5) + " - " + format_time_only(win_end).substr(0, 5) + win_note;
+
+                string paksha_short = telugu_mode ? ((t_idx < 15) ? "శుక్ల" : "కృష్ణ") : ((t_idx < 15) ? "Shu" : "Kri");
+                string full_tithi   = get_tithi(t_idx) + " (" + paksha_short + ")";
+
                 string tara_print = get_tara(tara_idx);
                 if (!telugu_mode) tara_print = tara_print.substr(0, tara_print.find(" ("));
 
                 if (html_mode) {
-                    printf("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>", 
+                    printf("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
                            date_buf, get_weekday(weekday).c_str(), full_tithi.c_str(), get_nak_name(n_idx).c_str(), tara_print.c_str(), ab_window.c_str());
                 } else {
-                    printf("%-12s | %-12s | %-20s | %-15s | %-25s | %-15s\n", 
+                    printf("%-12s | %-12s | %-20s | %-16s | %-22s | %-22s\n",
                            date_buf, get_weekday(weekday).c_str(), full_tithi.c_str(), get_nak_name(n_idx).c_str(), tara_print.c_str(), ab_window.c_str());
                 }
                 valid_hits++;
             }
         }
-        
+
         if (html_mode) {
             if (valid_hits == 0) {
-                printf("<tr><td colspan='6' style='text-align:center; color:#e74c3c;'>%s</td></tr>", 
-                       telugu_mode ? "మీ జన్మ నక్షత్రం ఆధారంగా ఈ మాసంలో ఎటువంటి అనుకూల ముహూర్తాలు లేవు." : "No personalized safe Panchang alignments were found for this month.");
+                printf("<tr><td colspan='6' style='text-align:center; color:#e74c3c;'>%s</td></tr>\n",
+                       telugu_mode ? "మీ జన్మ నక్షత్రం ఆధారంగా ఈ పరిధిలో అనుకూల ముహూర్తాలు లేవు."
+                                   : "No personalized safe Panchang alignments were found for this scope.");
             }
             printf("</table><br>\n");
         } else {
             if (valid_hits == 0) {
-                if (telugu_mode) printf("మీ జన్మ నక్షత్రం ఆధారంగా ఈ మాసంలో %s కొరకు ఎటువంటి అనుకూల ముహూర్తాలు లేవు.\n", e_name_te.c_str());
-                else printf("Based on your Natal Star, no personalized safe Panchang alignments were found for %s in this month.\n", e_name_en.c_str());
+                if (telugu_mode) printf("మీ జన్మ నక్షత్రం ఆధారంగా ఈ పరిధిలో %s కొరకు అనుకూల ముహూర్తాలు లేవు.\n", e_name_te.c_str());
+                else             printf("Based on your Natal Star, no personalized safe Panchang alignments were found for %s in this scope.\n", e_name_en.c_str());
             }
-            printf("===============================================================================================================\n");
+            printf("=========================================================================================================================\n");
         }
-    }	
+    }
 	// =========================================================================
     // DAILY PANCHANG & TIMINGS (RESTORED & ENHANCED)
     // =========================================================================
@@ -12867,9 +13337,10 @@ void print_help_menu() {
     printf("  tithi <target_year>   Identifies exact timestamp when lunar phase matches target solar returns.\n");
     printf("  annual / web_varshaphal <target_year>\n");
     printf("                        Generates the Varshaphala (Annual Solar Return) chart and D1 matrix analysis.\n");
-    printf("  muhurat <event> <Y> <M>\n");
-    printf("                        Scans targeted calendars to identify optimal muhurat windows for specific actions.\n\n");
-
+	printf("  muhurat <event> <Y> <M> [D] [24h]\n");
+    printf("                        Events: marriage, house, vehicle, electronics, gold, fd.\n");
+    printf("                        'fd' runs the Lagna-sweeping Ashtama-Shuddhi + Kaala-free engine.\n");
+	
     printf("ASTROMETRIC SEARCH & SEARCH ALIGNMENT:\n");
     printf("  timeline <planet> <year> [padas]      Generates a chronological timeline of Rashi, Nakshatra, and Retrograde shifts.\n");
     printf("  degree <planet> <sign> <deg> <m> <s>  Performs absolute backwards search to isolate exact degree alignments.\n");
@@ -13560,15 +14031,33 @@ int main(int argc, char *argv[]) {
             printf("\n"); fflush(stdout); 
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "muhurat") == 0 || strcasecmp(cmd.c_str(), "web_muhurat") == 0) {
+		else if (strcasecmp(cmd.c_str(), "muhurat") == 0 || strcasecmp(cmd.c_str(), "web_muhurat") == 0) {
             if (clean_argc >= 12) {
-                engine.calculate_event_muhurat(clean_argv[9], stoi(clean_argv[10]), stoi(clean_argv[11]));
-            } else printf("Error: 'muhurat' requires Event, Year, Month. Ex: muhurat marriage 2026 6\n");
-            
-            printf("\n"); fflush(stdout); 
+                string ev_type = clean_argv[9];
+                int m_year  = stoi(clean_argv[10]);
+                int m_month = stoi(clean_argv[11]);
+                int m_day   = 0;
+                bool full_24h = false;
+
+                for (int k = 12; k < clean_argc; k++) {
+                    if (strcasecmp(clean_argv[k], "24h") == 0 || strcasecmp(clean_argv[k], "allday") == 0) {
+                        full_24h = true;
+                    } else if (m_day == 0 && isdigit(static_cast<unsigned char>(clean_argv[k][0]))) {
+                        int d_val = stoi(clean_argv[k]);
+                        if (d_val >= 1 && d_val <= 31) m_day = d_val;
+                    }
+                    // Trailing HH MM SS from auto-tab is safely ignored
+                }
+                engine.calculate_event_muhurat(ev_type, m_year, m_month, m_day, full_24h);
+            } else {
+                printf("Error: 'muhurat' requires Event, Year, Month [Day] [24h].\n");
+                printf("  Examples: muhurat fd 2026 11  |  muhurat fd 2026 11 25  |  muhurat fd 2026 11 24h\n");
+            }
+
+            printf("\n"); fflush(stdout);
             return 0;
         }
-        else if (strcasecmp(cmd.c_str(), "predict") == 0) {
+		else if (strcasecmp(cmd.c_str(), "predict") == 0) {
             if (clean_argc >= 11) 
 			{
 				string gender_arg = "UNKNOWN";

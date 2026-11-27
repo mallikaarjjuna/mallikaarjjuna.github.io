@@ -4766,148 +4766,866 @@ void search_dual_exact_degree(string p1_name, string s1_name, int d1, int min1, 
         else printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
     }
 
-void search_dual_rashi_overlap(string p1_name, string s1_name, string p2_name, string s2_name, int search_year, int search_month = 0) {
+// Helper used by main() to test whether a CLI token is a valid Rashi or Natal Planet/Lagna
+    bool is_valid_rashi_or_natal(const string& token) {
+        if (get_rashi_idx(token) != -1) return true;
+        if (get_planet_idx(token) != -1) return true;
+        return false;
+    }
+
+    // =========================================================================
+    // MULTI-TARGET RASHI & NATAL PLANET OVERLAP SEARCH (N TARGETS + ASPECTS + MUTUAL + ORB)
+    // =========================================================================
+    void search_multi_rashi_overlap(const vector<pair<string, string>>& target_pairs,
+                                    int search_year, int search_month = 0,
+                                    bool include_aspects = false,
+                                    bool include_mutual = false,
+                                    double orb_limit = -1.0,
+                                    int end_year = 0) {
         if (json_mode) return;
 
-        int p1_idx = get_planet_idx(p1_name);
-        int s1_idx = get_rashi_idx(s1_name);
-        int p2_idx = get_planet_idx(p2_name);
-        int s2_idx = get_rashi_idx(s2_name);
-
-        if (p1_idx == -1 || s1_idx == -1 || p2_idx == -1 || s2_idx == -1) {
-            printf("Error: Invalid planet or sign name provided for dual rashi overlap search.\n");
+        if (target_pairs.size() < 2) {
+            printf("Error: Multi-target overlap search requires at least 2 (planet, sign/natal_planet) pairs.\n");
             return;
         }
 
-        double start_jd, end_jd;
-        string scope_str = "";
-        
-        if (search_month > 0) {
+        if (include_mutual) include_aspects = true;
+
+        struct OverlapTarget {
+            int transit_p;      // 0..9 (Lagna..Ketu)
+            int target_rashi;   // 0..11
+            int natal_p;        // -1 if explicit Rashi target, else 0..9
+            double target_deg;  // Exact degree-in-sign [0, 30) when natal_p != -1
+            string transit_lbl;
+            string target_lbl;
+        };
+
+        vector<OverlapTarget> targets;
+        targets.reserve(target_pairs.size());
+        bool has_natal_target = false;
+
+        for (const auto& pr : target_pairs) {
+            int tp = get_planet_idx(pr.first);
+            if (tp == -1) {
+                printf("Error: Invalid transit planet name '%s'.\n", pr.first.c_str());
+                return;
+            }
+
+            int r_idx  = get_rashi_idx(pr.second);
+            int np_idx = -1;
+            double t_deg = 0.0;
+
+            if (r_idx == -1) {
+                np_idx = get_planet_idx(pr.second);
+                if (np_idx == -1) {
+                    printf("Error: Invalid target sign or natal planet '%s'.\n", pr.second.c_str());
+                    return;
+                }
+                double natal_exact_lon = (np_idx == 0) ? norm_lon_360(lagna_lon) : norm_lon_360(planet_lons[np_idx]);
+                r_idx = static_cast<int>(natal_exact_lon / 30.0) % 12;
+                t_deg = fmod(natal_exact_lon, 30.0);
+                has_natal_target = true;
+            }
+
+            string tp_lbl = (tp == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : get_planet_name(tp);
+            string tg_lbl;
+            if (np_idx != -1) {
+                string np_lbl = (np_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : get_planet_name(np_idx);
+                int td = static_cast<int>(t_deg);
+                int tm = static_cast<int>((t_deg - td) * 60.0);
+                char deg_b[32];
+                snprintf(deg_b, sizeof(deg_b), "%02d°%02d'", td, tm);
+                tg_lbl = (telugu_mode ? "జన్మ " : "Natal ") + np_lbl + " (" + string(deg_b) + " " + get_rashi_name(r_idx) + ")";
+            } else {
+                tg_lbl = get_rashi_name(r_idx);
+            }
+
+            targets.push_back({tp, r_idx, np_idx, t_deg, tp_lbl, tg_lbl});
+        }
+
+        bool strict_orb_mode = (orb_limit > 0.0 && has_natal_target);
+        if (orb_limit > 0.0 && !has_natal_target && !html_mode) {
+            printf("Note: Orb filter applies to Natal Planet/Lagna targets; Rashi-only queries use full sign boundaries.\n");
+        }
+        double sub_orb_deg = 2.0; // Automatic ±2° sub-window display in default Rashi/Aspect mode
+
+		double start_jd, end_jd;
+        string scope_str;
+        if (end_year > 0 && end_year >= search_year && search_month == 0) {
+            start_jd  = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd    = swe_julday(end_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Years: " + to_string(search_year) + " - " + to_string(end_year);
+        } else if (search_month > 0) {
             start_jd = swe_julday(search_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            int next_m = search_month == 12 ? 1 : search_month + 1;
-            int next_y = search_month == 12 ? search_year + 1 : search_year;
+            int next_m = (search_month == 12) ? 1 : (search_month + 1);
+            int next_y = (search_month == 12) ? (search_year + 1) : search_year;
             end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
             scope_str = "Month: " + to_string(search_month) + "/" + to_string(search_year);
         } else {
             start_jd = swe_julday(search_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
-            end_jd = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd   = swe_julday(search_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
             scope_str = "Year: " + to_string(search_year);
         }
-
-        string print_p1 = (p1_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[p1_idx]);
-        string print_p2 = (p2_idx == 0) ? (telugu_mode ? "లగ్నం" : "Lagna") : string(p_names_full[p2_idx]);
-
-        double start_lon1 = get_planet_lon_on_jd(p1_idx, start_jd);
-        double start_lon2 = get_planet_lon_on_jd(p2_idx, start_jd);
-        int start_r1 = (int)(start_lon1 / 30.0);
-        int start_r2 = (int)(start_lon2 / 30.0);
-
-        if (html_mode) {
-            printf("<h3 style='color: var(--accent); margin-top: 25px;'>%s</h3>", telugu_mode ? "ఉమ్మడి రాశి సంచార సమయాలు" : "DUAL RASHI OVERLAP SEARCH (SIMULTANEOUS PLACEMENT)");
-            printf("<p style='color:#ccc;'><b>Target 1:</b> %s in %s<br><b>Target 2:</b> %s in %s<br><b>Scope:</b> %s</p>", 
-                   print_p1.c_str(), rashi_names[s1_idx], print_p2.c_str(), rashi_names[s2_idx], scope_str.c_str());
-            if (telugu_mode) {
-                printf("<p style='color:#888;'><b>ప్రారంభ స్థితి:</b> %s %s రాశిలో, %s %s రాశిలో ఉన్నారు</p>", print_p1.c_str(), te_rashi_names[start_r1], print_p2.c_str(), te_rashi_names[start_r2]);
-            } else {
-                printf("<p style='color:#888;'><b>Initial State:</b> %s in %s, %s in %s</p>", print_p1.c_str(), rashi_names[start_r1], print_p2.c_str(), rashi_names[start_r2]);
-            }
-            printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th></tr>\n", 
-                   telugu_mode ? "ప్రవేశ సమయం (ENTER)" : "Window Start (ENTER)", 
-                   telugu_mode ? "నిష్క్రమణ (EXIT)" : "Window End (EXIT)", 
-                   telugu_mode ? "వ్యవధి" : "Duration");
-        } else {
-            printf("\n=== DUAL RASHI OVERLAP SEARCH (SIMULTANEOUS PLACEMENT) ===\n");
-            printf("Target 1 : %s in %s\n", print_p1.c_str(), rashi_names[s1_idx]);
-            printf("Target 2 : %s in %s\n", print_p2.c_str(), rashi_names[s2_idx]);
-            printf("Scope    : %s\n", scope_str.c_str());
-            if (telugu_mode) {
-                printf("ప్రారంభ స్థితి: %s %s రాశిలో, %s %s రాశిలో ఉన్నారు\n", print_p1.c_str(), te_rashi_names[start_r1], print_p2.c_str(), te_rashi_names[start_r2]);
-            } else {
-                printf("Initial  : %s in %s, %s in %s\n", print_p1.c_str(), rashi_names[start_r1], print_p2.c_str(), rashi_names[start_r2]);
-            }
-            printf("--------------------------------------------------------------------------------------------------------\n");
-            printf(" %-20s | %-20s | %-25s\n", "Window Start (ENTER)", "Window End (EXIT)", "Duration");
-            printf("--------------------------------------------------------------------------------------------------------\n");
-        }
-
-        auto check_condition = [&](double jd) {
-            double lon1 = get_planet_lon_on_jd(p1_idx, jd);
-            double lon2 = get_planet_lon_on_jd(p2_idx, jd);
-            int r1 = (int)(lon1 / 30.0);
-            int r2 = (int)(lon2 / 30.0);
-            return (r1 == s1_idx && r2 == s2_idx);
+		
+        auto check_vedic_aspect = [](int caster_p, int caster_r, int receiver_r) -> int {
+            int dist = (receiver_r - caster_r + 12) % 12 + 1;
+            if (dist == 1) return 1;
+            if (dist == 7) return 7;
+            if (caster_p == 3 && (dist == 4 || dist == 8)) return dist;
+            if ((caster_p == 5 || caster_p == 8 || caster_p == 9) && (dist == 5 || dist == 9)) return dist;
+            if (caster_p == 7 && (dist == 3 || dist == 10)) return dist;
+            return 0;
         };
 
-        bool in_window = false;
-        double window_start = 0;
-        int hits = 0;
-        double step = 5.0 / 1440.0; // 5 minute macro-steps 
-        
-        for (double jd = start_jd; jd <= end_jd; jd += step) {
-            bool current_state = check_condition(jd);
-            
-            if (current_state && !in_window) {
-                double t_low = jd - step, t_high = jd;
-                for (int i=0; i<15; i++) {
-                    double t_mid = (t_low + t_high) / 2.0;
-                    if (check_condition(t_mid)) t_high = t_mid;
-                    else t_low = t_mid;
+        // Encodes aspect pair as (fwd * 16 + rev), where fwd = Transit->Natal, rev = Natal->Transit (when mutual)
+        auto get_hit_code = [&](const OverlapTarget& tg, int r_cur) -> int {
+            if (r_cur == tg.target_rashi) return 16; // fwd=1, rev=0 (In Sign / Conjunction)
+            if (!include_aspects) return 0;
+
+            int fwd = check_vedic_aspect(tg.transit_p, r_cur, tg.target_rashi);
+            int rev = 0;
+            if (include_mutual && tg.natal_p != -1) {
+                rev = check_vedic_aspect(tg.natal_p, tg.target_rashi, r_cur);
+                if (fwd == 7 && rev == 7) rev = 0; // 7th is already symmetric; keep label clean
+            }
+            if (fwd == 0 && rev == 0) return 0;
+            return (fwd * 16) + rev;
+        };
+
+        // Evaluates sign/aspect match + computes max degree-in-sign separation across all Natal targets
+        auto eval_state = [&](double jd, vector<int>& out_sig, vector<int>& out_rashis,
+                              double& out_max_sep, double req_orb) -> bool {
+            out_sig.resize(targets.size());
+            out_rashis.resize(targets.size());
+            out_max_sep = 0.0;
+
+            for (size_t k = 0; k < targets.size(); k++) {
+                double lon = norm_lon_360(get_planet_lon_on_jd(targets[k].transit_p, jd));
+                int r_cur  = static_cast<int>(lon / 30.0) % 12;
+                int code   = get_hit_code(targets[k], r_cur);
+                if (code == 0) return false;
+
+                if (targets[k].natal_p != -1) {
+                    double cur_deg = fmod(lon, 30.0);
+                    double sep     = std::abs(cur_deg - targets[k].target_deg);
+                    if (req_orb > 0.0 && sep > req_orb) return false;
+                    if (sep > out_max_sep) out_max_sep = sep;
                 }
-                window_start = (t_low + t_high) / 2.0;
-                in_window = true;
-            } 
-            else if (!current_state && in_window) {
-                double t_low = jd - step, t_high = jd;
-                for (int i=0; i<15; i++) {
-                    double t_mid = (t_low + t_high) / 2.0;
-                    if (check_condition(t_mid)) t_low = t_mid;
-                    else t_high = t_mid;
-                }
-                double window_end = (t_low + t_high) / 2.0;
-                
-                double duration_days = window_end - window_start;
-                int dur_h = (int)(duration_days * 24.0);
-                int dur_m = (int)((duration_days * 24.0 - dur_h) * 60.0);
-                char dur_buf[32];
-                snprintf(dur_buf, sizeof(dur_buf), "%dh %dm", dur_h, dur_m);
-                
-                if (html_mode) {
-                    printf("<tr><td><b style='color:#3498db;'>%s</b></td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td></tr>\n", 
-                           jd_to_string(window_start).c_str(), jd_to_string(window_end).c_str(), dur_buf);
+
+                out_sig[k]    = code;
+                out_rashis[k] = r_cur;
+            }
+            return true;
+        };
+
+        // Initial state summary at start_jd
+        string init_str = "";
+        for (size_t k = 0; k < targets.size(); k++) {
+            double lon0 = norm_lon_360(get_planet_lon_on_jd(targets[k].transit_p, start_jd));
+            int r0 = static_cast<int>(lon0 / 30.0) % 12;
+            if (k > 0) init_str += ", ";
+            init_str += targets[k].transit_lbl + (telugu_mode ? " " : " in ") + get_rashi_name(r0);
+        }
+
+        string mode_en = include_mutual  ? "PLACEMENT + MUTUAL ASPECTS" :
+                         include_aspects ? "PLACEMENT + VEDIC ASPECTS"  : "SIMULTANEOUS PLACEMENT";
+        if (strict_orb_mode) {
+            char ob[32]; snprintf(ob, sizeof(ob), " [STRICT ±%.1f° ORB]", orb_limit);
+            mode_en += ob;
+        } else if (has_natal_target) {
+            mode_en += " + ±2° ORB PEAKS";
+        }
+        string count_en = (targets.size() == 2) ? "DUAL" : ((targets.size() == 3) ? "TRIPLE" : (to_string(targets.size()) + "-WAY"));
+
+        if (html_mode) {
+            printf("<h3 style='color: var(--accent); margin-top: 25px;'>%s TRANSIT OVERLAP SEARCH (%s)</h3>",
+                   count_en.c_str(), mode_en.c_str());
+            printf("<p style='color:#ccc;'>");
+            for (size_t k = 0; k < targets.size(); k++) {
+                printf("<b>Target %zu:</b> %s %s %s<br>", k + 1,
+                       targets[k].transit_lbl.c_str(),
+                       include_mutual ? "mutually with" : (include_aspects ? "on/aspecting" : "in"),
+                       targets[k].target_lbl.c_str());
+            }
+            printf("<b>Scope:</b> %s</p>", scope_str.c_str());
+            printf("<p style='color:#888;'><b>%s:</b> %s</p>",
+                   telugu_mode ? "ప్రారంభ స్థితి" : "Initial State", init_str.c_str());
+            printf("<table class='data-table'><tr><th>%s</th><th>%s</th><th>%s</th><th>%s</th></tr>\n",
+                   telugu_mode ? "ప్రవేశ సమయం (ENTER)" : "Window Start (ENTER)",
+                   telugu_mode ? "నిష్క్రమణ (EXIT)" : "Window End (EXIT)",
+                   telugu_mode ? "వ్యవధి" : "Duration",
+                   telugu_mode ? "సరిపోలిన వివరాలు" : "Match Details");
+        } else {
+            printf("\n=== %s TRANSIT OVERLAP SEARCH (%s) ===\n", count_en.c_str(), mode_en.c_str());
+            for (size_t k = 0; k < targets.size(); k++) {
+                printf("Target %zu : %s %s %s\n", k + 1,
+                       targets[k].transit_lbl.c_str(),
+                       include_mutual ? "mutually with" : (include_aspects ? "on/aspecting" : "in"),
+                       targets[k].target_lbl.c_str());
+            }
+            printf("Scope    : %s\n", scope_str.c_str());
+            printf("Initial  : %s\n", init_str.c_str());
+            printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+            printf(" %-20s | %-20s | %-15s | %s\n", "Window Start (ENTER)", "Window End (EXIT)", "Duration", "Match Details");
+            printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
+        }
+
+        auto fmt_sep = [](double sep) -> string {
+            int sd = static_cast<int>(sep);
+            int sm = static_cast<int>(round((sep - sd) * 60.0));
+            if (sm >= 60) { sd++; sm -= 60; }
+            char b[32]; snprintf(b, sizeof(b), "%d°%02d'", sd, sm);
+            return string(b);
+        };
+
+        auto fmt_dur_compact = [](double days, bool ongoing) -> string {
+            int total_m = static_cast<int>(days * 1440.0);
+            int d = total_m / 1440;
+            int h = (total_m % 1440) / 60;
+            int m = total_m % 60;
+            char b[48];
+            if (d >= 2) snprintf(b, sizeof(b), "%dd %dh%s", d, h, ongoing ? "+" : "");
+            else        snprintf(b, sizeof(b), "%dh %dm%s", d * 24 + h, m, ongoing ? "+" : "");
+            return string(b);
+        };
+
+        auto asp_ord = [](int h) -> string {
+            return to_string(h) + ((h == 3) ? "rd" : "th");
+        };
+
+        auto format_details = [&](const vector<int>& sig, const vector<int>& rashis) -> string {
+            string res = "";
+            for (size_t k = 0; k < targets.size(); k++) {
+                if (k > 0) res += " | ";
+                int fwd = sig[k] / 16;
+                int rev = sig[k] % 16;
+                string h_str;
+                if (fwd == 1) {
+                    h_str = "In " + get_short_rashi(rashis[k]);
+                } else if (fwd > 0 && rev > 0) {
+                    h_str = "Mut(" + asp_ord(fwd) + "/N-" + asp_ord(rev) + " " + get_short_rashi(rashis[k]) + ")";
+                } else if (fwd > 0) {
+                    h_str = asp_ord(fwd) + " Asp(" + get_short_rashi(rashis[k]) + ")";
                 } else {
-                    printf(" \033[1;34m%-19s\033[0m | \033[1;31m%-19s\033[0m | %-25s\n", 
-                           jd_to_string(window_start).c_str(), jd_to_string(window_end).c_str(), dur_buf);
+                    h_str = "N-" + asp_ord(rev) + "->T(" + get_short_rashi(rashis[k]) + ")";
                 }
-                hits++;
-                in_window = false;
+                res += targets[k].transit_lbl + ": " + h_str;
+            }
+            return res;
+        };
+
+        // Determine fastest transit body for adaptive stepping
+        bool has_lagna = false, has_moon = false;
+        for (const auto& t : targets) {
+            if (t.transit_p == 0) has_lagna = true;
+            if (t.transit_p == 2) has_moon  = true;
+        }
+
+        // Scans inside an already-matched sign/aspect window for exact ±sub_orb_deg sub-windows
+        auto scan_and_emit_orb_subwindows = [&](double w_start, double w_end) {
+            if (!has_natal_target) return;
+
+            double sub_step = has_lagna ? (1.0 / 1440.0) : (has_moon ? (10.0 / 1440.0) : (2.0 / 24.0));
+            if (w_end - w_start < sub_step * 4.0) sub_step = std::max(1.0 / 1440.0, (w_end - w_start) / 20.0);
+
+            struct OrbHit {
+                double s_jd, e_jd, peak_jd, min_sep;
+                bool ongoing_end;
+            };
+            vector<OrbHit> orb_hits;
+
+            vector<int> s1, r1, sm, rm;
+            double sep_val = 999.0, mid_sep = 999.0;
+            double global_best_sep = 999.0, global_best_jd = w_start;
+
+            bool in_orb = false;
+            double o_start = w_start, o_best_sep = 999.0, o_best_jd = w_start;
+
+            if (eval_state(w_start, s1, r1, sep_val, -1.0)) {
+                global_best_sep = sep_val; global_best_jd = w_start;
+                if (sep_val <= sub_orb_deg) {
+                    in_orb = true; o_start = w_start; o_best_sep = sep_val; o_best_jd = w_start;
+                }
+            }
+
+            double p_jd = w_start;
+            while (p_jd < w_end - 1e-9) {
+                double c_jd = std::min(p_jd + sub_step, w_end);
+                bool valid_sign = eval_state(c_jd, s1, r1, sep_val, -1.0);
+                if (valid_sign && sep_val < global_best_sep) {
+                    global_best_sep = sep_val; global_best_jd = c_jd;
+                }
+                bool ok_orb = valid_sign && (sep_val <= sub_orb_deg);
+
+                if (!in_orb && ok_orb) {
+                    double lo = p_jd, hi = c_jd;
+                    for (int bi = 0; bi < 14; bi++) {
+                        double mid = (lo + hi) * 0.5;
+                        if (eval_state(mid, sm, rm, mid_sep, sub_orb_deg)) hi = mid;
+                        else lo = mid;
+                    }
+                    o_start = (lo + hi) * 0.5;
+                    in_orb = true; o_best_sep = sep_val; o_best_jd = c_jd;
+                } else if (in_orb && ok_orb) {
+                    if (sep_val < o_best_sep) { o_best_sep = sep_val; o_best_jd = c_jd; }
+                } else if (in_orb && !ok_orb) {
+                    double lo = p_jd, hi = c_jd;
+                    for (int bi = 0; bi < 14; bi++) {
+                        double mid = (lo + hi) * 0.5;
+                        if (eval_state(mid, sm, rm, mid_sep, sub_orb_deg)) lo = mid;
+                        else hi = mid;
+                    }
+                    orb_hits.push_back({o_start, (lo + hi) * 0.5, o_best_jd, o_best_sep, false});
+                    in_orb = false;
+                }
+                p_jd = c_jd;
+            }
+            if (in_orb) {
+                orb_hits.push_back({o_start, w_end, o_best_jd, o_best_sep, true});
+            }
+
+            if (!orb_hits.empty()) {
+                for (const auto& oh : orb_hits) {
+                    string odur = fmt_dur_compact(oh.e_jd - oh.s_jd, oh.ongoing_end);
+                    string psep = fmt_sep(oh.min_sep);
+                    if (html_mode) {
+                        printf("<tr style='background:rgba(241,196,15,0.08); font-size:13px;'>"
+                               "<td style='padding-left:20px; color:#f1c40f;'>&#8627; %s</td>"
+                               "<td style='color:#f1c40f;'>%s</td>"
+                               "<td style='color:#f1c40f;'>%s</td>"
+                               "<td style='color:#f1c40f;'><b>[±%.0f° Exact Orb]</b> Peak: %s (MaxSep: %s)</td></tr>\n",
+                               jd_to_string(oh.s_jd).c_str(), jd_to_string(oh.e_jd).c_str(),
+                               odur.c_str(), sub_orb_deg, jd_to_string(oh.peak_jd).c_str(), psep.c_str());
+                    } else {
+                        printf("   \033[1;33m-> %-17s | %-19s | %-15s | [±%.0f° Orb] Peak: %s (MaxSep %s)\033[0m\n",
+                               jd_to_string(oh.s_jd).c_str(), jd_to_string(oh.e_jd).c_str(),
+                               odur.c_str(), sub_orb_deg, jd_to_string(oh.peak_jd).c_str(), psep.c_str());
+                    }
+                }
+            } else if (global_best_sep < 900.0) {
+                string csep = fmt_sep(global_best_sep);
+                if (html_mode) {
+                    printf("<tr style='font-size:12px; color:#888;'><td colspan='4' style='padding-left:20px;'>"
+                           "&#8627; No simultaneous ±%.0f° orb overlap inside this window (Closest approach: %s, MaxSep %s)</td></tr>\n",
+                           sub_orb_deg, jd_to_string(global_best_jd).c_str(), csep.c_str());
+                } else {
+                    printf("   \033[0;90m-> [±%.0f° Orb] No simultaneous ≤%.0f° hit in window (Closest: %s, MaxSep %s)\033[0m\n",
+                           sub_orb_deg, sub_orb_deg, jd_to_string(global_best_jd).c_str(), csep.c_str());
+                }
+            }
+        };
+
+        auto emit_window = [&](double w_start, double w_end, const vector<int>& sig, const vector<int>& rashis,
+                               bool ongoing_end, double peak_jd, double min_sep) {
+            double duration_days = w_end - w_start;
+            int dur_h = static_cast<int>(duration_days * 24.0);
+            int dur_m = static_cast<int>((duration_days * 24.0 - dur_h) * 60.0);
+            char dur_buf[64];
+            snprintf(dur_buf, sizeof(dur_buf), "%dh %dm%s", dur_h, dur_m, ongoing_end ? "+" : "");
+            string det = format_details(sig, rashis);
+
+            if (strict_orb_mode) {
+                det += " | Peak: " + jd_to_string(peak_jd).substr(0, 16) + " (Sep " + fmt_sep(min_sep) + ")";
+            }
+
+            if (html_mode) {
+                const char* c_in = strict_orb_mode ? "#f1c40f" : "#3498db";
+                printf("<tr><td><b style='color:%s;'>%s</b></td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td><td>%s</td></tr>\n",
+                       c_in, jd_to_string(w_start).c_str(), jd_to_string(w_end).c_str(), dur_buf, det.c_str());
+            } else {
+                const char* c_in = strict_orb_mode ? "\033[1;33m" : "\033[1;34m";
+                printf(" %s%-19s\033[0m | \033[1;31m%-19s\033[0m | %-15s | %s\n",
+                       c_in, jd_to_string(w_start).c_str(), jd_to_string(w_end).c_str(), dur_buf, det.c_str());
+            }
+
+            // In default (non-strict-orb) mode, automatically show compact ±2° exact orb sub-windows
+            if (!strict_orb_mode && has_natal_target) {
+                scan_and_emit_orb_subwindows(w_start, w_end);
+            }
+        };
+
+		// Adaptive macro-step
+        bool has_inner_or_mars = false;
+        for (const auto& t : targets) {
+            if (t.transit_p == 1 || t.transit_p == 3 || t.transit_p == 4 || t.transit_p == 6) {
+                has_inner_or_mars = true;
             }
         }
-        
-        if (in_window) {
-            double duration_days = end_jd - window_start;
-            int dur_h = (int)(duration_days * 24.0);
-            int dur_m = (int)((duration_days * 24.0 - dur_h) * 60.0);
-            char dur_buf[32];
-            snprintf(dur_buf, sizeof(dur_buf), "%dh %dm+", dur_h, dur_m);
-            
-            if (html_mode) {
-                printf("<tr><td><b style='color:#3498db;'>%s</b></td><td><b style='color:#e74c3c;'>%s</b></td><td>%s</td></tr>\n", 
-                       jd_to_string(window_start).c_str(), jd_to_string(end_jd).c_str(), dur_buf);
-            } else {
-                printf(" \033[1;34m%-19s\033[0m | \033[1;31m%-19s\033[0m | %-25s\n", 
-                       jd_to_string(window_start).c_str(), jd_to_string(end_jd).c_str(), dur_buf);
+        double step;
+        if (has_lagna) {
+            step = strict_orb_mode ? (2.0 / 1440.0) : (5.0 / 1440.0);
+        } else if (has_moon) {
+            step = strict_orb_mode ? (10.0 / 1440.0) : (20.0 / 1440.0);
+        } else if (has_inner_or_mars) {
+            step = 1.0 / 24.0; // 1 hour
+        } else {
+            // Only slow planets (Guru, Shani, Rahu, Ketu): < 0.25°/day
+            step = (strict_orb_mode && orb_limit < 0.5) ? (1.0 / 24.0) : (4.0 / 24.0);
+        }
+        double req_orb = strict_orb_mode ? orb_limit : -1.0;
+
+        bool in_window = false;
+        double window_start = start_jd;
+        double best_peak_jd = start_jd, best_min_sep = 999.0;
+        vector<int> active_sig, active_rashis, cur_sig, cur_rashis, mid_sig, mid_rashis;
+        double cur_sep = 0.0, mid_sep = 0.0;
+        int hits = 0;
+
+        if (eval_state(start_jd, cur_sig, cur_rashis, cur_sep, req_orb)) {
+            in_window     = true;
+            window_start  = start_jd;
+            active_sig    = cur_sig;
+            active_rashis = cur_rashis;
+            best_peak_jd  = start_jd;
+            best_min_sep  = cur_sep;
+        }
+
+        double prev_jd = start_jd;
+        while (prev_jd < end_jd - 1e-9) {
+            double jd = std::min(prev_jd + step, end_jd);
+            bool ok   = eval_state(jd, cur_sig, cur_rashis, cur_sep, req_orb);
+
+            if (!in_window && ok) {
+                double t_low = prev_jd, t_high = jd;
+                for (int bi = 0; bi < 18; bi++) {
+                    double t_mid = (t_low + t_high) * 0.5;
+                    if (eval_state(t_mid, mid_sig, mid_rashis, mid_sep, req_orb)) t_high = t_mid;
+                    else t_low = t_mid;
+                }
+                window_start  = (t_low + t_high) * 0.5;
+                in_window     = true;
+                active_sig    = cur_sig;
+                active_rashis = cur_rashis;
+                best_peak_jd  = jd;
+                best_min_sep  = cur_sep;
+            } else if (in_window && !ok) {
+                double t_low = prev_jd, t_high = jd;
+                for (int bi = 0; bi < 18; bi++) {
+                    double t_mid = (t_low + t_high) * 0.5;
+                    bool m_ok = eval_state(t_mid, mid_sig, mid_rashis, mid_sep, req_orb);
+                    if (m_ok && mid_sig == active_sig) t_low = t_mid;
+                    else t_high = t_mid;
+                }
+                double window_end = (t_low + t_high) * 0.5;
+                emit_window(window_start, window_end, active_sig, active_rashis, false, best_peak_jd, best_min_sep);
+                hits++;
+                in_window = false;
+            } else if (in_window && ok) {
+                if (cur_sig != active_sig) {
+                    double t_low = prev_jd, t_high = jd;
+                    for (int bi = 0; bi < 18; bi++) {
+                        double t_mid = (t_low + t_high) * 0.5;
+                        bool m_ok = eval_state(t_mid, mid_sig, mid_rashis, mid_sep, req_orb);
+                        if (m_ok && mid_sig == active_sig) t_low = t_mid;
+                        else t_high = t_mid;
+                    }
+                    double t_edge = (t_low + t_high) * 0.5;
+                    emit_window(window_start, t_edge, active_sig, active_rashis, false, best_peak_jd, best_min_sep);
+                    hits++;
+                    window_start  = t_edge;
+                    active_sig    = cur_sig;
+                    active_rashis = cur_rashis;
+                    best_peak_jd  = jd;
+                    best_min_sep  = cur_sep;
+                } else if (cur_sep < best_min_sep) {
+                    best_min_sep = cur_sep;
+                    best_peak_jd = jd;
+                }
             }
+
+            prev_jd = jd;
+        }
+
+        if (in_window) {
+            emit_window(window_start, end_jd, active_sig, active_rashis, true, best_peak_jd, best_min_sep);
             hits++;
         }
 
         if (hits == 0) {
-            if (html_mode) printf("<tr><td colspan='3' style='text-align:center; color:#888;'>No simultaneous overlap found in this timeframe.</td></tr>\n");
-            else printf(" No simultaneous overlap found in this timeframe.\n");
+            if (html_mode) printf("<tr><td colspan='4' style='text-align:center; color:#888;'>No simultaneous overlap found in this timeframe.</td></tr>\n");
+            else           printf(" No simultaneous overlap found in this timeframe.\n");
         }
-        
+
         if (html_mode) printf("</table>\n");
-        else printf("--------------------------------------------------------------------------------------------------------\n");
+        else           printf("------------------------------------------------------------------------------------------------------------------------------------------\n");
     }
+
+// =========================================================================
+    // MULTI-PLANET SAME-RASHI / SAME-DEGREE RETURN & RESONANCE SCANNER
+    // =========================================================================
+    void search_planetary_returns(int start_year, int end_year, int search_month = 0,
+                                  double orb_deg = 2.0, int min_matches = 2,
+                                  int exclude_mask = 0, bool sort_by_time = false) {
+        if (json_mode) return;
+
+        if (end_year <= 0) end_year = start_year;
+        if (end_year < start_year) std::swap(start_year, end_year);
+        if (orb_deg <= 0.0 || orb_deg > 30.0) orb_deg = 2.0;
+        if (min_matches < 1) min_matches = 2;
+
+        double start_jd, end_jd;
+        string scope_str;
+        if (search_month >= 1 && search_month <= 12) {
+            start_jd = swe_julday(start_year, search_month, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            int next_m = (search_month == 12) ? 1 : (search_month + 1);
+            int next_y = (search_month == 12) ? (start_year + 1) : start_year;
+            end_jd = swe_julday(next_y, next_m, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = "Month: " + to_string(search_month) + "/" + to_string(start_year);
+        } else {
+            start_jd = swe_julday(start_year, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            end_jd   = swe_julday(end_year + 1, 1, 1, 0.0 - location.tz_offset, SE_GREG_CAL);
+            scope_str = (start_year == end_year)
+                      ? ("Year: " + to_string(start_year))
+                      : ("Years: " + to_string(start_year) + " - " + to_string(end_year));
+        }
+
+        // Reference positions (Lagna excluded: planets 1..9 only)
+        double ref_lon[10] = {0.0}, ref_deg[10] = {0.0};
+        int ref_rashi[10] = {0};
+        vector<int> active_planets;
+        string excl_list = "", active_list = "";
+
+        for (int p = 1; p <= 9; p++) {
+            ref_lon[p]   = norm_lon_360(planet_lons[p]);
+            ref_rashi[p] = static_cast<int>(ref_lon[p] / 30.0) % 12;
+            ref_deg[p]   = fmod(ref_lon[p], 30.0);
+
+            if (exclude_mask & (1 << p)) {
+                if (!excl_list.empty()) excl_list += ", ";
+                excl_list += get_planet_name(p);
+            } else {
+                active_planets.push_back(p);
+                int rd = static_cast<int>(ref_deg[p]);
+                int rm = static_cast<int>((ref_deg[p] - rd) * 60.0);
+                char tb[48];
+                snprintf(tb, sizeof(tb), "%s(%02d°%02d' %s)",
+                         get_planet_name(p).c_str(), rd, rm, get_short_rashi(ref_rashi[p]).c_str());
+                if (!active_list.empty()) active_list += " | ";
+                active_list += tb;
+            }
+        }
+        if (excl_list.empty()) excl_list = "None (Lagna excluded by default)";
+        else                   excl_list = "Lagna, " + excl_list;
+
+        if (active_planets.empty()) {
+            printf("Error: All planets were excluded. Nothing left to scan.\n");
+            return;
+        }
+
+        // Conservative upper-bound geocentric daily motion (deg/day) for mathematically safe jumps
+        static const double max_spd[10] = {0.0, 1.15, 16.50, 1.00, 2.50, 0.35, 1.50, 0.25, 0.50, 0.50};
+
+        auto is_p_in_zone = [&](int p, double jd) -> bool {
+            double lon = norm_lon_360(get_planet_lon_on_jd(p, jd));
+            int r = static_cast<int>(lon / 30.0) % 12;
+            if (r != ref_rashi[p]) return false;
+            return std::abs(fmod(lon, 30.0) - ref_deg[p]) <= orb_deg;
+        };
+
+        auto ang_dist = [&](int p, double jd) -> double {
+            double lon = norm_lon_360(get_planet_lon_on_jd(p, jd));
+            double d = std::abs(lon - ref_lon[p]);
+            return (d > 180.0) ? (360.0 - d) : d;
+        };
+
+        // --- PHASE 1: INDEPENDENT PER-PLANET RETURN WINDOWS ---
+        vector<pair<double, double>> p_windows[10];
+        bool both_nodes_active = (!(exclude_mask & (1 << 8)) && !(exclude_mask & (1 << 9)));
+
+        for (int p : active_planets) {
+            if (p == 9 && both_nodes_active) {
+                // Ketu is strictly opposite Rahu: mirror exact intervals to prevent microsecond jitter
+                p_windows[9] = p_windows[8];
+                continue;
+            }
+
+            double base_fine = (p == 2) ? (10.0 / 1440.0)
+                             : ((p == 1 || p == 3 || p == 4 || p == 6) ? (1.0 / 24.0) : (4.0 / 24.0));
+            double fine_step = std::min(base_fine, std::max(1.0 / 1440.0, (orb_deg * 0.4) / max_spd[p]));
+
+            bool inside = is_p_in_zone(p, start_jd);
+            double w_start = start_jd;
+            double prev_jd = start_jd;
+
+            while (prev_jd < end_jd - 1e-9) {
+                double step = fine_step;
+                if (!inside) {
+                    double dist = ang_dist(p, prev_jd);
+                    if (dist > orb_deg + (2.0 * max_spd[p] * fine_step)) {
+                        double safe_jump = 0.75 * (dist - orb_deg) / max_spd[p];
+                        step = std::min(15.0, std::max(fine_step, safe_jump));
+                    }
+                }
+
+                double cur_jd = std::min(prev_jd + step, end_jd);
+                bool cur_in = is_p_in_zone(p, cur_jd);
+
+                if (!inside && cur_in) {
+                    double lo = prev_jd, hi = cur_jd;
+                    for (int bi = 0; bi < 18; bi++) {
+                        double mid = (lo + hi) * 0.5;
+                        if (is_p_in_zone(p, mid)) hi = mid;
+                        else lo = mid;
+                    }
+                    w_start = (lo + hi) * 0.5;
+                    inside = true;
+                } else if (inside && !cur_in) {
+                    double lo = prev_jd, hi = cur_jd;
+                    for (int bi = 0; bi < 18; bi++) {
+                        double mid = (lo + hi) * 0.5;
+                        if (is_p_in_zone(p, mid)) lo = mid;
+                        else hi = mid;
+                    }
+                    p_windows[p].push_back({w_start, (lo + hi) * 0.5});
+                    inside = false;
+                }
+                prev_jd = cur_jd;
+            }
+
+            if (inside) {
+                p_windows[p].push_back({w_start, end_jd});
+            }
+        }
+
+        // --- PHASE 2: SWEEP-LINE INTERSECTION ACROSS ALL ACTIVE PLANETS ---
+        struct SweepEv {
+            double jd;
+            int delta; // +1 enter, -1 exit
+            int p;
+        };
+        vector<SweepEv> events;
+        for (int p : active_planets) {
+            for (const auto& w : p_windows[p]) {
+                events.push_back({w.first, +1, p});
+                events.push_back({w.second, -1, p});
+            }
+        }
+
+        sort(events.begin(), events.end(), [](const SweepEv& a, const SweepEv& b) {
+            if (std::abs(a.jd - b.jd) > 1e-8) return a.jd < b.jd;
+            return a.delta < b.delta;
+        });
+
+        struct ReturnHit {
+            double start_jd;
+            double end_jd;
+            int mask;
+            int indep_count;
+            double peak_jd;
+            double min_max_sep;
+            double p_sep[10];
+            bool is_ref_epoch;
+        };
+
+        auto eval_mask_max_sep = [&](int mask, double jd, double out_seps[10]) -> double {
+            double mx = 0.0;
+            for (int p = 1; p <= 9; p++) {
+                if (mask & (1 << p)) {
+                    double lon = norm_lon_360(get_planet_lon_on_jd(p, jd));
+                    double sep = std::abs(fmod(lon, 30.0) - ref_deg[p]);
+                    out_seps[p] = sep;
+                    if (sep > mx) mx = sep;
+                } else {
+                    out_seps[p] = 0.0;
+                }
+            }
+            return mx;
+        };
+
+        vector<ReturnHit> hits;
+        int cur_mask = 0;
+        double prev_ev_jd = start_jd;
+
+        size_t ei = 0;
+        while (ei < events.size()) {
+            double cur_ev_jd = events[ei].jd;
+
+            if (cur_mask != 0 && (cur_ev_jd - prev_ev_jd) >= (1.0 / 1440.0)) {
+                int raw_cnt = 0;
+                for (int p = 1; p <= 9; p++) if (cur_mask & (1 << p)) raw_cnt++;
+                bool both_nodes = ((cur_mask & (1 << 8)) && (cur_mask & (1 << 9)));
+                int indep_cnt = raw_cnt - (both_nodes ? 1 : 0);
+
+                if (indep_cnt >= min_matches) {
+                    ReturnHit h{};
+                    h.start_jd     = prev_ev_jd;
+                    h.end_jd       = cur_ev_jd;
+                    h.mask         = cur_mask;
+                    h.indep_count  = indep_cnt;
+                    h.is_ref_epoch = (prev_ev_jd <= tjd_ut && tjd_ut <= cur_ev_jd);
+
+                    // Locate tightest simultaneous peak inside [prev_ev_jd, cur_ev_jd]
+                    const int SAMPLES = 32;
+                    double best_jd = (prev_ev_jd + cur_ev_jd) * 0.5;
+                    double best_sep = 999.0;
+                    double tmp_seps[10];
+
+                    for (int s = 0; s <= SAMPLES; s++) {
+                        double t = prev_ev_jd + ((cur_ev_jd - prev_ev_jd) * s) / SAMPLES;
+                        double mx = eval_mask_max_sep(cur_mask, t, tmp_seps);
+                        if (mx < best_sep) { best_sep = mx; best_jd = t; }
+                    }
+                    // Local golden-section refinement around best sample
+                    double span = (cur_ev_jd - prev_ev_jd) / SAMPLES;
+                    double lo = std::max(prev_ev_jd, best_jd - span);
+                    double hi = std::min(cur_ev_jd,  best_jd + span);
+                    for (int ri = 0; ri < 14; ri++) {
+                        double m1 = lo + (hi - lo) * 0.381966;
+                        double m2 = hi - (hi - lo) * 0.381966;
+                        double s1 = eval_mask_max_sep(cur_mask, m1, tmp_seps);
+                        double s2 = eval_mask_max_sep(cur_mask, m2, tmp_seps);
+                        if (s1 < s2) hi = m2;
+                        else         lo = m1;
+                    }
+                    h.peak_jd     = (lo + hi) * 0.5;
+                    h.min_max_sep = eval_mask_max_sep(cur_mask, h.peak_jd, h.p_sep);
+                    hits.push_back(h);
+                }
+            }
+
+            // Apply all events occurring at this timestamp simultaneously
+            while (ei < events.size() && std::abs(events[ei].jd - cur_ev_jd) <= 1e-8) {
+                if (events[ei].delta > 0) cur_mask |=  (1 << events[ei].p);
+                else                      cur_mask &= ~(1 << events[ei].p);
+                ei++;
+            }
+            prev_ev_jd = cur_ev_jd;
+        }
+
+        // --- HEADER ---
+        if (html_mode) {
+            printf("<h2 style='color: var(--accent); margin-top: 25px;'>%s</h2>\n",
+                   telugu_mode ? "బహుళ గ్రహ సమాన డిగ్రీ పునరావృత శోధన"
+                               : "MULTI-PLANET EXACT RETURN / RESONANCE SCANNER");
+            printf("<p style='color:#ccc;'><b>Scope:</b> %s &nbsp;|&nbsp; <b>Orb:</b> &plusmn;%.2f&deg; (Same Rashi) &nbsp;|&nbsp; <b>Min Matches:</b> %d+<br>"
+                   "<b>Excluded:</b> %s<br><span style='font-size:12px; color:#888;'><b>Targets:</b> %s</span></p>\n",
+                   scope_str.c_str(), orb_deg, min_matches, excl_list.c_str(), active_list.c_str());
+        } else {
+            printf("\n====================================================================================================================================================\n");
+            printf("=== MULTI-PLANET EXACT RETURN / RESONANCE SCANNER (SAME RASHI + EXACT DEGREE) ===\n");
+            printf("Scope       : %s | Orb: ±%.2f° (Left & Right) | Min Matches: %d+ | Order: %s\n",
+                   scope_str.c_str(), orb_deg, min_matches, sort_by_time ? "Chronological" : "Grouped by Match Count (2, 3, 4...)");
+            printf("Excluded    : %s\n", excl_list.c_str());
+            printf("Axis Rule   : Rahu/Ketu are locked 180° apart and count as 1 independent axis (Ra/Ke) when both are active.\n");
+            printf("Ref Targets : %s\n", active_list.c_str());
+            printf("====================================================================================================================================================\n");
+        }
+
+        if (hits.empty()) {
+            if (html_mode) printf("<p style='color:#e74c3c;'>No %d+ simultaneous planetary return matches found within ±%.2f° in this range.</p>\n", min_matches, orb_deg);
+            else           printf(" No %d+ simultaneous planetary return matches found within ±%.2f° in this range.\n====================================================================================================================================================\n", min_matches, orb_deg);
+            return;
+        }
+
+        auto fmt_sep = [](double sep) -> string {
+            int sd = static_cast<int>(sep);
+            int sm = static_cast<int>(round((sep - sd) * 60.0));
+            if (sm >= 60) { sd++; sm -= 60; }
+            char b[32]; snprintf(b, sizeof(b), "%d°%02d'", sd, sm);
+            return string(b);
+        };
+
+        auto fmt_dur = [](double days) -> string {
+            int total_m = static_cast<int>(round(days * 1440.0));
+            int d = total_m / 1440;
+            int h = (total_m % 1440) / 60;
+            int m = total_m % 60;
+            char b[48];
+            if (d >= 2) snprintf(b, sizeof(b), "%dd %dh", d, h);
+            else        snprintf(b, sizeof(b), "%dh %dm", d * 24 + h, m);
+            return string(b);
+        };
+
+        auto format_matched_list = [&](const ReturnHit& h) -> string {
+            string res = "";
+            bool both_n = ((h.mask & (1 << 8)) && (h.mask & (1 << 9)));
+            for (int p = 1; p <= 9; p++) {
+                if (!(h.mask & (1 << p))) continue;
+                if (p == 9 && both_n) continue;
+                if (!res.empty()) res += " + ";
+                string pname = (p == 8 && both_n) ? (telugu_mode ? "రాహు/కేతు" : "Ra/Ke") : get_planet_name(p);
+                res += pname + "(" + fmt_sep(h.p_sep[p]) + ")";
+            }
+            if (h.is_ref_epoch) res += " [REF EPOCH]";
+            return res;
+        };
+
+        auto print_table_header = [&](const string& section_title) {
+            if (html_mode) {
+                if (!section_title.empty()) printf("<h3 style='color:#f1c40f; margin-top:18px;'>%s</h3>\n", section_title.c_str());
+                printf("<table class='data-table'><tr><th>Hits</th><th>Window Start (ENTER)</th><th>Window End (EXIT)</th><th>Duration</th><th>Peak Time (MaxSep)</th><th>Matched Planets (Sep at Peak)</th></tr>\n");
+            } else {
+                if (!section_title.empty()) printf("\n--- %s ---\n", section_title.c_str());
+                printf("----------------------------------------------------------------------------------------------------------------------------------------------------\n");
+                printf(" %-6s | %-19s | %-19s | %-10s | %-26s | %s\n",
+                       "Hits", "Window Start", "Window End", "Duration", "Peak Time (MaxSep)", "Matched Planets (Sep at Peak)");
+                printf("----------------------------------------------------------------------------------------------------------------------------------------------------\n");
+            }
+        };
+
+        auto emit_row = [&](const ReturnHit& h) {
+            string dur_s  = fmt_dur(h.end_jd - h.start_jd);
+            string peak_s = jd_to_string(h.peak_jd).substr(0, 16) + " (" + fmt_sep(h.min_max_sep) + ")";
+            string m_list = format_matched_list(h);
+
+            if (html_mode) {
+                const char* col = (h.indep_count >= 4) ? "#e056fd" : ((h.indep_count == 3) ? "#f1c40f" : "#3498db");
+                printf("<tr><td style='color:%s; font-weight:bold;'>%d</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>\n",
+                       col, h.indep_count, jd_to_string(h.start_jd).c_str(), jd_to_string(h.end_jd).c_str(),
+                       dur_s.c_str(), peak_s.c_str(), m_list.c_str());
+            } else {
+                const char* ansi = (h.indep_count >= 4) ? "\033[1;95m" : ((h.indep_count == 3) ? "\033[1;33m" : "\033[1;36m");
+                printf(" %s[%d Hit]\033[0m | %-19s | %-19s | %-10s | %-26s | %s\n",
+                       ansi, h.indep_count,
+                       jd_to_string(h.start_jd).c_str(), jd_to_string(h.end_jd).c_str(),
+                       dur_s.c_str(), peak_s.c_str(), m_list.c_str());
+            }
+        };
+
+        int max_k = 0;
+        int tier_counts[10] = {0};
+        for (const auto& h : hits) {
+            if (h.indep_count > max_k) max_k = h.indep_count;
+            if (h.indep_count < 10) tier_counts[h.indep_count]++;
+        }
+
+        if (sort_by_time) {
+            print_table_header("");
+            for (const auto& h : hits) emit_row(h);
+            if (html_mode) printf("</table>\n");
+        } else {
+            // Grouped ascending: 2-Planet Matches, followed by 3-Planet, 4-Planet, ...
+            for (int k = min_matches; k <= max_k; k++) {
+                if (tier_counts[k] == 0) continue;
+                char hdr[96];
+                snprintf(hdr, sizeof(hdr), "%d-PLANET SIMULTANEOUS RETURN MATCHES (%d window%s)",
+                         k, tier_counts[k], (tier_counts[k] == 1 ? "" : "s"));
+                print_table_header(hdr);
+                for (const auto& h : hits) {
+                    if (h.indep_count == k) emit_row(h);
+                }
+                if (html_mode) printf("</table>\n");
+            }
+        }
+
+        // Summary Footer
+        string sum_str = "";
+        for (int k = min_matches; k <= max_k; k++) {
+            if (tier_counts[k] > 0) {
+                if (!sum_str.empty()) sum_str += " | ";
+                sum_str += to_string(k) + "-Planet: " + to_string(tier_counts[k]);
+            }
+        }
+
+        if (html_mode) {
+            printf("<p style='color:#888; font-size:13px; margin-top:10px;'><b>Summary:</b> %s (Total: %zu)</p>\n", sum_str.c_str(), hits.size());
+        } else {
+            printf("----------------------------------------------------------------------------------------------------------------------------------------------------\n");
+            printf("Summary : %s (Total: %zu windows)\n", sum_str.c_str(), hits.size());
+            printf("====================================================================================================================================================\n");
+        }
+    }
+	
 void search_planet_all_transits(string p_name, int search_year, bool show_padas = false) {
         int p_idx = get_planet_idx(p_name);
         if (p_idx == -1) { printf("Error: Planet '%s' not recognized.\n", p_name.c_str()); return; }
@@ -13355,6 +14073,9 @@ void print_help_menu() {
     printf("                        Triggers dynamic relationship prediction over specific year frames.\n");
     printf("================================================================================\n\n");
     printf("  lagna [Y M D] [H:M:S] Real-time transit dashboard: running Lagna countdown and planetary stay durations.\n");
+	printf("  return <Y1> [Y2|M] [orb=2] [exclude=ravi,moon] [min=2] [sort=time]\n");
+    printf("                        Finds dates/times when 2+, 3+, ... planets simultaneously return\n");
+    printf("                        to the exact same Rashi & degree (±orb) as the given date/time.\n");
 }
 
 // =========================================================================
@@ -13790,56 +14511,138 @@ int main(int argc, char *argv[]) {
         }
 
 		else if (strcasecmp(cmd.c_str(), "degree") == 0) {
-            // 1. DUAL EXACT DEGREE SEARCH (Syntax: degree p1 s1 d1 m1 sec1 p2 s2 d2 m2 sec2 year)
-            if (clean_argc >= 20 && engine.get_planet_idx(clean_argv[14]) != -1) {
-                string p1 = clean_argv[9];
-                string s1 = clean_argv[10];
-                int d1 = stoi(clean_argv[11]);
-                int m1 = stoi(clean_argv[12]);
-                int sec1 = stoi(clean_argv[13]);
+            bool include_aspects = false;
+            bool include_mutual  = false;
+            double orb_limit     = -1.0; // -1 = full Rashi/Aspect + automatic ±2° sub-windows; >0 = strict orb filter
+            string sort_type     = "time";
+            vector<string> deg_pos_args;
 
-                string p2 = clean_argv[14];
-                string s2 = clean_argv[15];
-                int d2 = stoi(clean_argv[16]);
-                int m2 = stoi(clean_argv[17]);
-                int sec2 = stoi(clean_argv[18]);
+            // Strip keyword flags first so flag placement never triggers stoi() errors
+            for (int k = 9; k < clean_argc; k++) {
+                string a = clean_argv[k];
+                if (strcasecmp(a.c_str(), "aspects") == 0 ||
+                    strcasecmp(a.c_str(), "aspect")  == 0 ||
+                    strcasecmp(a.c_str(), "drishti") == 0) {
+                    include_aspects = true;
+                } else if (strcasecmp(a.c_str(), "mutual") == 0 ||
+                           strcasecmp(a.c_str(), "reverse") == 0) {
+                    include_mutual  = true;
+                    include_aspects = true;
+                } else if (strcasecmp(a.c_str(), "orb") == 0) {
+                    orb_limit = 2.0;
+                } else if (a.size() > 4 && strncasecmp(a.c_str(), "orb=", 4) == 0) {
+                    try {
+                        double v = stod(a.substr(4));
+                        if (v > 0.0 && v <= 30.0) orb_limit = v;
+                    } catch (...) {}
+                } else if (strcasecmp(a.c_str(), "sort=planet") == 0) {
+                    sort_type = "planet";
+                } else if (strcasecmp(a.c_str(), "sort=time") == 0) {
+                    sort_type = "time";
+                } else {
+                    deg_pos_args.push_back(a);
+                }
+            }
+            auto is_uint = [](const string& s) {
+                if (s.empty()) return false;
+                for (unsigned char c : s) if (!isdigit(c)) return false;
+                return true;
+            };
+            auto is_signed_int = [](const string& s) {
+                if (s.empty()) return false;
+                size_t start = (s[0] == '-') ? 1 : 0;
+                if (start == s.size()) return false;
+                for (size_t i = start; i < s.size(); i++) {
+                    if (!isdigit(static_cast<unsigned char>(s[i]))) return false;
+                }
+                return true;
+            };
 
-                int s_year = stoi(clean_argv[19]);
-                int s_month = (clean_argc >= 21) ? stoi(clean_argv[20]) : 0;
+            // 1. DUAL EXACT DEGREE SEARCH
+            // Syntax: degree p1 s1 d1 m1 sec1 p2 s2 d2 m2 sec2 year [month]
+            if (deg_pos_args.size() >= 11 &&
+                engine.get_planet_idx(deg_pos_args[0]) != -1 &&
+                engine.get_rashi_idx(deg_pos_args[1]) != -1 &&
+                is_uint(deg_pos_args[2]) && is_uint(deg_pos_args[3]) && is_uint(deg_pos_args[4]) &&
+                engine.get_planet_idx(deg_pos_args[5]) != -1 &&
+                engine.get_rashi_idx(deg_pos_args[6]) != -1 &&
+                is_uint(deg_pos_args[7]) && is_uint(deg_pos_args[8]) && is_uint(deg_pos_args[9]) &&
+                is_uint(deg_pos_args[10])) {
+
+                string p1 = deg_pos_args[0], s1 = deg_pos_args[1];
+                int d1 = stoi(deg_pos_args[2]), m1 = stoi(deg_pos_args[3]), sec1 = stoi(deg_pos_args[4]);
+
+                string p2 = deg_pos_args[5], s2 = deg_pos_args[6];
+                int d2 = stoi(deg_pos_args[7]), m2 = stoi(deg_pos_args[8]), sec2 = stoi(deg_pos_args[9]);
+
+                int s_year  = stoi(deg_pos_args[10]);
+                int s_month = (deg_pos_args.size() >= 12 && is_uint(deg_pos_args[11])) ? stoi(deg_pos_args[11]) : 0;
 
                 engine.search_dual_exact_degree(p1, s1, d1, m1, sec1, p2, s2, d2, m2, sec2, s_year, s_month);
+                printf("\n"); fflush(stdout);
+                return 0;
             }
-            // 2. DUAL RASHI OVERLAP SEARCH (Syntax: degree p1 s1 p2 s2 year [month])
-            else if (clean_argc >= 14 && engine.get_planet_idx(clean_argv[11]) != -1 && engine.get_rashi_idx(clean_argv[12]) != -1) {
-                string p1 = clean_argv[9];
-                string s1 = clean_argv[10];
-                string p2 = clean_argv[11];
-                string s2 = clean_argv[12];
-                int s_year = stoi(clean_argv[13]);
-                int s_month = (clean_argc >= 15) ? stoi(clean_argv[14]) : 0;
 
-                engine.search_dual_rashi_overlap(p1, s1, p2, s2, s_year, s_month);
+            // 2. MULTI-TARGET (2, 3, OR N) RASHI / NATAL PLANET OVERLAP SEARCH
+            // Syntax: degree p1 target1 p2 target2 [p3 target3 ...] [year] [month] [aspects]
+            vector<pair<string, string>> overlap_targets;
+            size_t idx = 0;
+            while (idx + 1 < deg_pos_args.size() &&
+                   !is_uint(deg_pos_args[idx]) && !is_uint(deg_pos_args[idx + 1]) &&
+                   engine.get_planet_idx(deg_pos_args[idx]) != -1 &&
+                   engine.is_valid_rashi_or_natal(deg_pos_args[idx + 1])) {
+                overlap_targets.push_back({deg_pos_args[idx], deg_pos_args[idx + 1]});
+                idx += 2;
             }
-            // 3. SINGLE DEGREE CATCHES (Includes unified "all" logic)
-            else if (clean_argc >= 11) {
-                string arg1 = clean_argv[9];
-                string arg2 = clean_argv[10];
 
-                // Intelligent Parsing: Check if arg2 is actually a year (all digits)
-                bool arg2_is_year = true;
-                for (char c : arg2) if (!isdigit(c)) { arg2_is_year = false; break; }
+            
+			if (overlap_targets.size() >= 2) {
+                time_t now_t = time(nullptr);
+                tm* now_tm = localtime(&now_t);
+                int s_year  = now_tm->tm_year + 1900;
+                int e_year  = 0;
+                int s_month = 0;
 
-                string target_arg;
-                int k_start = 11;
-
-                // If user typed 'degree all 2026', map arg2 to 'all' and shift the numbers array
-                if (arg2_is_year) { 
-                    target_arg = "all";
-                    k_start = 10;   // The year is at index 10, so start reading numbers there
-                } else {
-                    target_arg = arg2;
-                    k_start = 11;
+                if (idx < deg_pos_args.size()) {
+                    string t1 = deg_pos_args[idx];
+                    size_t dash = t1.find('-');
+                    if (dash != string::npos && dash > 0 && dash + 1 < t1.size() &&
+                        is_uint(t1.substr(0, dash)) && is_uint(t1.substr(dash + 1))) {
+                        // Supports "2023-2030" hyphen syntax
+                        s_year = stoi(t1.substr(0, dash));
+                        e_year = stoi(t1.substr(dash + 1));
+                        idx++;
+                    } else if (is_uint(t1)) {
+                        s_year = stoi(t1);
+                        idx++;
+                        if (idx < deg_pos_args.size() && is_uint(deg_pos_args[idx])) {
+                            int val2 = stoi(deg_pos_args[idx++]);
+                            if (val2 >= 1 && val2 <= 12) {
+                                s_month = val2;
+                            } else {
+                                e_year = val2;
+                            }
+                        }
+                    }
                 }
+
+                if (e_year > 0 && e_year < s_year) {
+                    std::swap(s_year, e_year);
+                }
+
+                engine.search_multi_rashi_overlap(overlap_targets, s_year, s_month, include_aspects, include_mutual, orb_limit, e_year);
+                printf("\n"); fflush(stdout);
+                return 0;
+            }
+			
+            // 3. SINGLE DEGREE CATCHES (Includes unified "all" logic)
+            if (deg_pos_args.size() >= 2) {
+                string arg1 = deg_pos_args[0];
+                string arg2 = deg_pos_args[1];
+
+                bool arg2_is_year = is_uint(arg2);
+                string target_arg = arg2_is_year ? "all" : arg2;
+                size_t k_start    = arg2_is_year ? 1 : 2;
 
                 bool is_all_arg1 = (strcasecmp(arg1.c_str(), "all") == 0);
                 bool is_all_arg2 = (strcasecmp(target_arg.c_str(), "all") == 0);
@@ -13847,44 +14650,34 @@ int main(int argc, char *argv[]) {
                 int tgt_p_idx = engine.get_planet_idx(target_arg);
                 int tgt_s_idx = engine.get_rashi_idx(target_arg);
 
-                bool include_aspects = false;
-                string sort_type = "time"; // Default sorting
                 vector<int> nums;
-
-                for (int k = k_start; k < clean_argc; k++) {
-                    string a = clean_argv[k];
-                    if (strcasecmp(a.c_str(), "aspects") == 0) include_aspects = true;
-                    else if (strcasecmp(a.c_str(), "sort=planet") == 0) sort_type = "planet";
-                    else if (strcasecmp(a.c_str(), "sort=time") == 0) sort_type = "time";
-                    else if (isdigit(a[0]) || (a[0] == '-' && a.length() > 1 && isdigit(a[1]))) {
-                        nums.push_back(stoi(a));
+                for (size_t k = k_start; k < deg_pos_args.size(); k++) {
+                    if (is_signed_int(deg_pos_args[k])) {
+                        nums.push_back(stoi(deg_pos_args[k]));
                     }
                 }
 
-                // --- FIXED: Safely chained else-if cascade to prevent fall-through errors ---
-                if (is_all_arg2) { 
+                if (is_all_arg2) {
                     // Format: <planet> all <year> OR all 2026
                     int s_year = 0, s_month = 0, s_day = 0;
-                    if (nums.size() >= 1) s_year = nums[0];
+                    if (nums.size() >= 1) s_year  = nums[0];
                     if (nums.size() >= 2) s_month = nums[1];
-                    if (nums.size() >= 3) s_day = nums[2];
-                    engine.search_planet_all_natal_hits(arg1, s_year, s_month, s_day, include_aspects, sort_type); 
+                    if (nums.size() >= 3) s_day   = nums[2];
+                    engine.search_planet_all_natal_hits(arg1, s_year, s_month, s_day, include_aspects, sort_type);
                 }
-                else if (is_all_arg1) { 
+                else if (is_all_arg1) {
                     // Format: all <sign> <deg> <min> <sec> <year> OR all <planet/sign> <year>
                     if (tgt_s_idx != -1 && nums.size() >= 4 && nums[0] < 360) {
-                        // NEW ROUTE: degree all <sign> <deg> <min> <sec> <year>
                         int s_deg = nums[0], s_min = nums[1], s_sec = nums[2];
                         int s_year = nums[3], s_month = 0, s_day = 0;
                         if (nums.size() >= 5) s_month = nums[4];
-                        if (nums.size() >= 6) s_day = nums[5];
+                        if (nums.size() >= 6) s_day   = nums[5];
                         engine.search_exact_degree("all", target_arg, s_deg, s_min, s_sec, s_year, s_month, s_day);
                     } else {
-                        // ORIGINAL LOGIC
                         int s_year = 0, s_month = 0, s_day = 0;
-                        if (nums.size() >= 1) s_year = nums[0];
+                        if (nums.size() >= 1) s_year  = nums[0];
                         if (nums.size() >= 2) s_month = nums[1];
-                        if (nums.size() >= 3) s_day = nums[2];
+                        if (nums.size() >= 3) s_day   = nums[2];
 
                         if (tgt_p_idx != -1) {
                             engine.search_planet_conjunct_planet("all", target_arg, s_year, s_month, s_day, include_aspects, sort_type);
@@ -13894,39 +14687,135 @@ int main(int argc, char *argv[]) {
                             printf("Error: Target '%s' is not a recognized planet or sign.\n", target_arg.c_str());
                         }
                     }
-                }               
-                else if (tgt_p_idx != -1) { 
+                }
+                else if (tgt_p_idx != -1) {
                     // Format: <planet> <planet> <year>
                     int s_year = 0, s_month = 0, s_day = 0;
-                    if (nums.size() >= 1) s_year = nums[0];
+                    if (nums.size() >= 1) s_year  = nums[0];
                     if (nums.size() >= 2) s_month = nums[1];
-                    if (nums.size() >= 3) s_day = nums[2];
+                    if (nums.size() >= 3) s_day   = nums[2];
                     engine.search_planet_conjunct_planet(arg1, target_arg, s_year, s_month, s_day, include_aspects, sort_type);
-                } 
-                else if (tgt_s_idx != -1) { 
-                    // Format: <planet> <sign> <year>
-                    if (nums.size() > 0) {
+                }
+                else if (tgt_s_idx != -1) {
+                    // Format: <planet> <sign> <year> OR <planet> <sign> <deg> <min> <sec> <year>
+                    if (!nums.empty()) {
                         if (nums[0] > 1000 || nums.size() < 3) {
                             int s_year = nums[0], s_month = 0, s_day = 0;
                             if (nums.size() >= 2) s_month = nums[1];
-                            if (nums.size() >= 3) s_day = nums[2];
+                            if (nums.size() >= 3) s_day   = nums[2];
                             engine.search_planet_transit_rashi(arg1, target_arg, s_year, s_month, s_day, include_aspects, sort_type);
                         } else {
                             int s_deg = nums[0], s_min = nums[1], s_sec = nums[2];
                             int s_year = 0, s_month = 0, s_day = 0;
-                            if (nums.size() >= 4) s_year = nums[3];
+                            if (nums.size() >= 4) s_year  = nums[3];
                             if (nums.size() >= 5) s_month = nums[4];
-                            if (nums.size() >= 6) s_day = nums[5];
+                            if (nums.size() >= 6) s_day   = nums[5];
                             engine.search_exact_degree(arg1, target_arg, s_deg, s_min, s_sec, s_year, s_month, s_day);
                         }
                     } else {
                         engine.search_planet_transit_rashi(arg1, target_arg, 0, 0, 0, include_aspects, sort_type);
                     }
                 }
+                else {
+                    printf("Error: Target '%s' is not a recognized planet or sign.\n", target_arg.c_str());
+                }
             } else {
                 printf("Error: 'degree' requires at least a Source Planet and a Target (Planet, Sign, 'all', or Year).\n");
             }
-            printf("\n"); fflush(stdout); 
+            printf("\n"); fflush(stdout);
+            return 0;
+        }
+		else if (strcasecmp(cmd.c_str(), "return") == 0 ||
+                 strcasecmp(cmd.c_str(), "returns") == 0 ||
+                 strcasecmp(cmd.c_str(), "resonance") == 0) {
+            time_t now_t = time(nullptr);
+            tm* now_tm = localtime(&now_t);
+            int s_year = now_tm->tm_year + 1900;
+            int e_year = 0;
+            int s_month = 0;
+            double orb_val = 2.0;
+            int min_m = 2;
+            int excl_mask = 0;
+            bool sort_time = false;
+
+            auto is_uint = [](const string& s) {
+                if (s.empty()) return false;
+                for (unsigned char c : s) if (!isdigit(c)) return false;
+                return true;
+            };
+
+            auto resolve_p_alias = [&](string tok) -> int {
+                int idx = engine.get_planet_idx(tok);
+                if (idx >= 1 && idx <= 9) return idx;
+                transform(tok.begin(), tok.end(), tok.begin(), ::tolower);
+                if (tok == "ravi" || tok == "su" || tok == "sun" || tok == "surya") return 1;
+                if (tok == "mo" || tok == "moon" || tok == "chandra" || tok == "soma") return 2;
+                if (tok == "kuja" || tok == "ma" || tok == "mars" || tok == "mangal") return 3;
+                if (tok == "me" || tok == "mercury" || tok == "budha") return 4;
+                if (tok == "brihaspati" || tok == "ju" || tok == "jupiter" || tok == "guru") return 5;
+                if (tok == "ve" || tok == "venus" || tok == "shukra") return 6;
+                if (tok == "sa" || tok == "saturn" || tok == "shani") return 7;
+                if (tok == "ra" || tok == "rahu") return 8;
+                if (tok == "ke" || tok == "ketu") return 9;
+                return -1;
+            };
+
+            auto add_exclusions = [&](const string& csv) {
+                size_t start = 0;
+                while (start < csv.size()) {
+                    size_t comma = csv.find(',', start);
+                    string tok = (comma == string::npos) ? csv.substr(start) : csv.substr(start, comma - start);
+                    int p = resolve_p_alias(tok);
+                    if (p >= 1 && p <= 9) excl_mask |= (1 << p);
+                    if (comma == string::npos) break;
+                    start = comma + 1;
+                }
+            };
+
+            vector<string> pos_nums;
+            for (int k = 9; k < clean_argc; k++) {
+                string a = clean_argv[k];
+                if (a.size() > 4 && strncasecmp(a.c_str(), "orb=", 4) == 0) {
+                    try { orb_val = stod(a.substr(4)); } catch (...) {}
+                } else if (a.size() > 4 && strncasecmp(a.c_str(), "min=", 4) == 0) {
+                    try { min_m = stoi(a.substr(4)); } catch (...) {}
+                } else if (a.size() > 8 && strncasecmp(a.c_str(), "exclude=", 8) == 0) {
+                    add_exclusions(a.substr(8));
+                } else if (a.size() > 5 && strncasecmp(a.c_str(), "excl=", 5) == 0) {
+                    add_exclusions(a.substr(5));
+                } else if (a.size() > 3 && strncasecmp(a.c_str(), "no=", 3) == 0) {
+                    add_exclusions(a.substr(3));
+                } else if (a.size() > 1 && a[0] == '-' && resolve_p_alias(a.substr(1)) != -1) {
+                    int p = resolve_p_alias(a.substr(1));
+                    excl_mask |= (1 << p);
+                } else if (strcasecmp(a.c_str(), "sort=time") == 0) {
+                    sort_time = true;
+                } else if (strcasecmp(a.c_str(), "sort=count") == 0) {
+                    sort_time = false;
+                } else {
+                    pos_nums.push_back(a);
+                }
+            }
+
+            if (!pos_nums.empty()) {
+                string t1 = pos_nums[0];
+                size_t dash = t1.find('-');
+                if (dash != string::npos && dash > 0 && dash + 1 < t1.size() &&
+                    is_uint(t1.substr(0, dash)) && is_uint(t1.substr(dash + 1))) {
+                    s_year = stoi(t1.substr(0, dash));
+                    e_year = stoi(t1.substr(dash + 1));
+                } else if (is_uint(t1)) {
+                    s_year = stoi(t1);
+                    if (pos_nums.size() >= 2 && is_uint(pos_nums[1])) {
+                        int v2 = stoi(pos_nums[1]);
+                        if (v2 >= 1 && v2 <= 12) s_month = v2;
+                        else e_year = v2;
+                    }
+                }
+            }
+
+            engine.search_planetary_returns(s_year, e_year, s_month, orb_val, min_m, excl_mask, sort_time);
+            printf("\n"); fflush(stdout);
             return 0;
         }
 		else if (strcasecmp(cmd.c_str(), "timeline") == 0) {
